@@ -1,0 +1,41 @@
+# dependencies
+node_modules/
+.pnpm-store/
+
+# turborepo
+.turbo/
+
+# builds
+.next/
+out/
+dist/
+build/
+*.tsbuildinfo
+
+# env — never commit real credentials
+.env
+.env.local
+.env.*.local
+!.env.example
+
+# expo
+.expo/
+*.jks
+*.p8
+*.p12
+*.key
+*.mobileprovision
+
+# editor / os
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json
+.idea/
+
+# test + coverage
+coverage/
+*.log
+
+# claude local overrides (personal, not shared)
+.claude/settings.local.json
