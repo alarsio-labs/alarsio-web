@@ -263,7 +263,8 @@ CI_JOBS = [
      "Fails if a migration lands without a `FEATURES.md` update. This is exactly how scope "
      "drift got into the previous build unnoticed — now it cannot."),
     ("service-role check", "Every PR",
-     "Greps the whole repo for `service_role`. Fails the build if found."),
+     "Greps our source directories for a service-role reference and fails if "
+     "one is found."),
     ("`claude.yml`", "When you mention @claude",
      "The Claude GitHub Action. Set it up once with `/install-github-app` as a repo admin, "
      "then mention @claude in any issue or PR comment and it will work on it."),

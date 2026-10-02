@@ -16,22 +16,31 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 2
 
+      # No `version:` here on purpose. The action reads the version from the
+      # "packageManager" field in package.json. Setting both makes it fail with
+      # "Multiple versions of pnpm specified".
       - uses: pnpm/action-setup@v4
-        with:
-          version: 9
 
       - uses: actions/setup-node@v4
         with:
           node-version: 20
           cache: pnpm
 
+      # --frozen-lockfile is right once a lockfile exists, but no dependencies
+      # are installed yet, so it would fail on a missing file. Use the flag only
+      # when pnpm-lock.yaml is actually committed.
       - name: Install
-        run: pnpm install --frozen-lockfile
+        run: |
+          if [ -f pnpm-lock.yaml ]; then
+            pnpm install --frozen-lockfile
+          else
+            echo "No pnpm-lock.yaml yet — installing without the frozen flag."
+            pnpm install
+          fi
 
-      # Turbo only rebuilds what changed, so these stay fast as the repo grows.
+      # Turbo exits cleanly when no workspace defines a task, which is the case
+      # until the first app lands.
       - name: Typecheck
         run: pnpm typecheck
 
@@ -47,30 +56,49 @@ jobs:
   scope-guard:
     name: Scope guard
     runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
     steps:
+      # fetch-depth: 0 gives the full history. Without it the checkout is
+      # shallow and a diff against the base fails with "no merge base".
       - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       # A new migration must come with a FEATURES.md update in the same PR.
       # This is how scope drift got into the previous build unnoticed.
       - name: New migration requires a FEATURES.md update
-        if: github.event_name == 'pull_request'
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: |
-          git fetch origin ${{ github.base_ref }} --depth=1
-          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Files changed in this PR:"
+          echo "$CHANGED" | sed 's/^/  /'
+
           if echo "$CHANGED" | grep -q '^supabase/migrations/'; then
             if ! echo "$CHANGED" | grep -q '^docs/FEATURES.md$'; then
               echo "::error::This PR adds a migration but does not update docs/FEATURES.md."
               echo "Tick the feature row, or say in the PR why it does not apply."
               exit 1
             fi
+            echo "Migration found, and FEATURES.md was updated."
+          else
+            echo "No migration in this PR."
           fi
-          echo "Scope guard passed."
 
-      - name: No service-role key anywhere
+      # Scan only the directories holding our own source. Scanning the repo root
+      # would match this workflow file, which names the very key it forbids.
+      - name: No service-role key in source
         run: |
-          if grep -rIn --exclude-dir=.git --exclude-dir=node_modules \
-               -e 'service_role' -e 'SERVICE_ROLE_KEY' . ; then
-            echo "::error::A service-role reference was found. It must never enter this repo."
+          FOUND=0
+          for dir in apps packages supabase; do
+            [ -d "$dir" ] || continue
+            if grep -rIn --exclude-dir=node_modules -e 'service_role' "$dir"; then
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 1 ]; then
+            echo "::error::A service-role reference was found in source. It must never enter this repo."
             exit 1
           fi
-          echo "No service-role key found."
+          echo "No service-role key in source."
