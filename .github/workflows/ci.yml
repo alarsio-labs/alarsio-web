@@ -1,0 +1,98 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # No `version:` here on purpose. The action reads the version from the
+      # "packageManager" field in package.json. Setting both makes it fail with
+      # "Multiple versions of pnpm specified".
+      - uses: pnpm/action-setup@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      # pnpm-lock.yaml is committed, so CI installs exactly what we resolved
+      # locally. If package.json and the lockfile disagree, this fails loudly —
+      # which is the point.
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Turbo exits cleanly when no workspace defines a task, which is the case
+      # until the first app lands.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  scope-guard:
+    name: Scope guard
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      # fetch-depth: 0 gives the full history. Without it the checkout is
+      # shallow and a diff against the base fails with "no merge base".
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      # A new migration must come with a FEATURES.md update in the same PR.
+      # This is how scope drift got into the previous build unnoticed.
+      - name: New migration requires a FEATURES.md update
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          CHANGED=$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")
+          echo "Files changed in this PR:"
+          echo "$CHANGED" | sed 's/^/  /'
+
+          if echo "$CHANGED" | grep -q '^supabase/migrations/'; then
+            if ! echo "$CHANGED" | grep -q '^docs/FEATURES.md$'; then
+              echo "::error::This PR adds a migration but does not update docs/FEATURES.md."
+              echo "Tick the feature row, or say in the PR why it does not apply."
+              exit 1
+            fi
+            echo "Migration found, and FEATURES.md was updated."
+          else
+            echo "No migration in this PR."
+          fi
+
+      # Scan only the directories holding our own source. Scanning the repo root
+      # would match this workflow file, which names the very key it forbids.
+      - name: No service-role key in source
+        run: |
+          FOUND=0
+          for dir in apps packages supabase; do
+            [ -d "$dir" ] || continue
+            if grep -rIn --exclude-dir=node_modules -e 'service_role' "$dir"; then
+              FOUND=1
+            fi
+          done
+          if [ "$FOUND" -eq 1 ]; then
+            echo "::error::A service-role reference was found in source. It must never enter this repo."
+            exit 1
+          fi
+          echo "No service-role key in source."
