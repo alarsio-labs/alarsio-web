@@ -27,17 +27,11 @@ jobs:
           node-version: 20
           cache: pnpm
 
-      # --frozen-lockfile is right once a lockfile exists, but no dependencies
-      # are installed yet, so it would fail on a missing file. Use the flag only
-      # when pnpm-lock.yaml is actually committed.
+      # pnpm-lock.yaml is committed, so CI installs exactly what we resolved
+      # locally. If package.json and the lockfile disagree, this fails loudly —
+      # which is the point.
       - name: Install
-        run: |
-          if [ -f pnpm-lock.yaml ]; then
-            pnpm install --frozen-lockfile
-          else
-            echo "No pnpm-lock.yaml yet — installing without the frozen flag."
-            pnpm install
-          fi
+        run: pnpm install --frozen-lockfile
 
       # Turbo exits cleanly when no workspace defines a task, which is the case
       # until the first app lands.
