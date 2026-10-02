@@ -1,0 +1,76 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    name: Typecheck · Lint · Test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 2
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: pnpm
+
+      - name: Install
+        run: pnpm install --frozen-lockfile
+
+      # Turbo only rebuilds what changed, so these stay fast as the repo grows.
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build
+
+  scope-guard:
+    name: Scope guard
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      # A new migration must come with a FEATURES.md update in the same PR.
+      # This is how scope drift got into the previous build unnoticed.
+      - name: New migration requires a FEATURES.md update
+        if: github.event_name == 'pull_request'
+        run: |
+          git fetch origin ${{ github.base_ref }} --depth=1
+          CHANGED=$(git diff --name-only origin/${{ github.base_ref }}...HEAD)
+          if echo "$CHANGED" | grep -q '^supabase/migrations/'; then
+            if ! echo "$CHANGED" | grep -q '^docs/FEATURES.md$'; then
+              echo "::error::This PR adds a migration but does not update docs/FEATURES.md."
+              echo "Tick the feature row, or say in the PR why it does not apply."
+              exit 1
+            fi
+          fi
+          echo "Scope guard passed."
+
+      - name: No service-role key anywhere
+        run: |
+          if grep -rIn --exclude-dir=.git --exclude-dir=node_modules \
+               -e 'service_role' -e 'SERVICE_ROLE_KEY' . ; then
+            echo "::error::A service-role reference was found. It must never enter this repo."
+            exit 1
+          fi
+          echo "No service-role key found."
