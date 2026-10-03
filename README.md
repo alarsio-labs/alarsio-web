@@ -23,7 +23,8 @@ The full team guide is `docs/reference/alarsio-team-guide.pdf`.
 
 ```bash
 pnpm install
-cp .env.example apps/web/.env.local     # fill in your Supabase values
+cp .env.example apps/web/.env.local     # fill in your Supabase values (use the NEXT_PUBLIC_* lines)
+cp .env.example apps/mobile/.env.local  # same file, use the EXPO_PUBLIC_* lines
 pnpm dev --filter=web
 ```
 

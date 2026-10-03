@@ -49,7 +49,7 @@ These do not touch each other's tables, so they run in parallel.
 ### Weeks 7–8 · Close the loop
 
 - [ ] **Wage Summaries** — approved attendance → wage summary — *Ishant + Manish*
-- [ ] Dashboard and approvals — *Manish + Anuradha*
+- [ ] Dashboard and attendance-day approval — *Manish + Anuradha*
 - [ ] CSV exports — *Anuradha*
 - [ ] Hardening, offline test day, pilot readiness — *all four*
 
@@ -91,7 +91,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Save as an offline draft
 - [ ] Photos optional, and never blocking submission
 - [ ] A submitted report cannot be changed quietly — edits keep history
-- [ ] Serious blockers flagged to managers on submit
+- [ ] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
 ### 6 · Materials & Inventory
 - [ ] Define materials per site with unit and low-stock threshold
