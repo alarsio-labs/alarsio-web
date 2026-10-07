@@ -55,6 +55,8 @@ pnpm test:db       # SQL suites, needs Docker
 
 Manish Tiwari · Ishant Bhoyar · Nikhil Mehta · Anuradha Tiwari
 
+- **Nikhil Mehta** — Offline Sync · Materials & Inventory
+
 ## Licence
 
 Proprietary. All rights reserved.
