@@ -78,6 +78,28 @@ the system instead of one.
 
 ---
 
+## ADR-006 · Identity schema: enum role, org bootstrap function, owner-only writes
+**Date:** 2026-10-09 · **Status:** Proposed · **By:** Ishant
+
+**Context.** Week 1 needs `organizations`, `profiles` and `memberships` plus the
+`is_org_member` / `is_org_owner` predicates, and the docs fix no columns.
+
+**Decision.** `memberships.role` is a Postgres enum `app_role` of the four roles, so
+a fifth role needs a migration and an ADR (ADR-003). Organizations are created only
+through `create_organization()`, a `SECURITY DEFINER` function that makes the caller
+the first owner; there is no insert policy. Only owners write `memberships`. Column
+grants limit updates (`role`; `name`, `timezone`; `full_name`), so ids, `org_id`,
+`user_id` and `currency` are immutable. No table grants delete to anyone. `profiles`
+are readable only by their own user in week 1. Predicates are revoked from `anon`,
+so an anonymous call raises a permission error instead of returning false.
+
+**Consequences.** Simple, testable policies and no way to self-promote. Costs: teammate
+names are not visible until a published view or function exposes them; an owner can
+demote the last owner (a last-owner guard is not in week 1); membership removal in week 6
+will need a narrow function because there is no delete grant.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
