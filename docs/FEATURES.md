@@ -11,7 +11,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 
 | # | Module | Owner | Status | What it owns |
 | :-- | :-- | :-- | :-- | :-- |
-| 1 | **Identity & Access** | Ishant | ⬜ | `organizations`, `profiles`, `memberships`, `invites` |
+| 1 | **Identity & Access** | Ishant | 🟡 | `organizations`, `profiles`, `memberships`, `invites` |
 | 2 | **Sites** | Manish | ⬜ | `sites`, `site_assignments` |
 | 3 | **Workforce** | Ishant | ⬜ | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
