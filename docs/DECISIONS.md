@@ -100,6 +100,40 @@ will need a narrow function because there is no delete grant.
 
 ---
 
+## ADR-007 · Sites schema, and Identity's predicates reading Sites
+**Date:** 2026-10-09 · **Status:** Proposed · **By:** Manish (review: Ishant)
+
+**Context.** Sites is the first table most modules point at, so its shape spreads.
+Two things also cut across modules. Identity's `memberships` names its org column
+`org_id` while our docs said `organization_id`. And `has_site_access(site_id)`, an
+Identity predicate, must read `site_assignments` to know which sites a supervisor
+holds — an arrow from Identity up to Sites.
+
+**Decision.**
+- Organisation foreign keys are named `org_id` everywhere, matching `memberships`.
+- `has_site_access` may read `site_assignments`. This is the one permitted upward
+  read. Migration order is: Identity tables → Sites tables → Identity predicates →
+  Sites policies.
+- Geofence radius is whole metres, 50–2000, default 200. Coordinates are
+  `numeric(9,6)`, range-checked in the database.
+- Status is `text` + `CHECK`, not an enum: planned, active, paused, completed,
+  archived. Moves among the first four are free; `archived` is terminal and is
+  reached only through `archive_site()`, which is idempotent and closes open
+  assignments.
+- Address is one text field. Site names are unique per organisation, ignoring case,
+  archived sites included.
+- Sites and assignments are never deleted. Unassigning closes the row
+  (`unassigned_at`); the assignee must be a member of the site's organisation,
+  enforced by foreign key. Any member may be assigned in the MVP.
+
+**Consequences.** History of who held a site, and when, survives every change.
+Organisation membership is checked by the database, not by code. Cost: Sites cannot
+apply its policies until Identity ships its predicates, so the two modules' migrations
+interleave; an archived site cannot be restored without a new decision; and limiting
+assignment to supervisors needs a new Identity predicate later.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
