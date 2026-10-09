@@ -134,6 +134,36 @@ assignment to supervisors needs a new Identity predicate later.
 
 ---
 
+## ADR-008 · audit_log shape, and write_audit() as the only writer
+**Date:** 2026-10-09 · **Status:** Proposed · **By:** Anuradha
+
+**Context.** Every module must attach one generic audit trigger to the tables it
+owns (issue #4). The trigger has to work on tables with and without `org_id`
+(`profiles` has none; `organizations` *is* the org), with or without a signed-in
+actor, and must never let a client rewrite history.
+
+**Decision.**
+- `audit_log` columns: `id` (bigint identity), `table_name`, `row_id uuid`,
+  `operation` (`INSERT` / `UPDATE` / `DELETE`), `actor_id` (`auth.uid()`, nullable,
+  no foreign key), `org_id` (nullable), `old_data` / `new_data` (jsonb), `occurred_at`
+  (transaction time). A check ties which of old/new is present to the operation.
+- `org_id` is the row's `org_id`; for `organizations` it is the row's own `id`; for
+  tables with neither, null. It is stored now so a later read policy needs no backfill.
+- `write_audit()` is `SECURITY DEFINER`, `search_path = public`, and executable by no
+  client role. It refuses to run unless attached `AFTER … FOR EACH ROW`, and refuses
+  a table with no `id`, so it can never write a row for a change that did not happen.
+- `audit_log` has RLS on, no policies and no grants: closed to every client. A
+  `block_audit_log_mutation` trigger rejects `UPDATE`, `DELETE` and `TRUNCATE` even
+  for the table owner.
+
+**Consequences.** One row per changed row, provably, and no client can read, forge or
+erase one. Costs: every audited table must have a uuid `id`; nobody can read the log
+until a read policy or published function is decided; an `UPDATE` that sets a value to
+itself is still recorded; and the retention purge (week 2) — and customer offboarding —
+will need their own decision on how they get past the guard.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
