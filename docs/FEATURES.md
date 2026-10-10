@@ -19,7 +19,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
 | 8 | **Offline Sync** | Nikhil | ⬜ | device SQLite outbox, `sync_push` |
-| 9 | **Audit, Retention & Guards** | Anuradha | ⬜ | `audit_log`, `purge_log`, `rate_limit_counters` |
+| 9 | **Audit, Retention & Guards** | Anuradha | 🟡 | `audit_log`, `purge_log`, `rate_limit_counters` |
 
 ---
 
@@ -115,7 +115,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
-- [ ] Audit log is append-only
+- [x] Audit log is append-only
 - [ ] Removing a user or worker never deletes history
 - [ ] A customer can export all of their own data
 
