@@ -164,6 +164,61 @@ will need their own decision on how they get past the guard.
 
 ---
 
+## ADR-009 · sync_push verdicts, and what the phone shows for each
+**Date:** 2026-10-12 · **Status:** Proposed · **By:** Nikhil
+
+**Context.** `sync_push` answers every record a phone sends, and the app shows that
+answer to a supervisor, so the words are a contract every field module codes
+against (build plan, week 2). The docs disagreed on one of them: the build plan says
+`retry`, `docs/ARCHITECTURE.md` and the technical design say `retryable_error`. Nothing
+said which phone status each answer becomes, or what a replayed record gets back.
+
+**Decision.**
+- `sync_push` returns exactly one verdict **per record**, never one per batch. The four
+  words are `accepted` · `conflict` · `rejected` · `retryable_error`, matching
+  `docs/ARCHITECTURE.md`. `retry` is not used anywhere.
+  - `accepted` — the server holds this record. This includes a record it already had:
+    a replay of the same `(entity, record_id)` with the same content is `accepted`
+    again and creates nothing.
+  - `conflict` — the server holds something the phone may not overwrite: the same
+    `(entity, record_id)` with different content, or a record that targets one a
+    manager has already approved. The server keeps its version.
+  - `rejected` — this record will never succeed as sent: invalid input, an unknown
+    entity, or a permission check that says no. It carries a reason code and is not
+    retried.
+  - `retryable_error` — nothing was written and sending again may work: rate limit,
+    lock timeout, or an unexpected server error. If the whole batch is refused (for
+    example by the rate limit), every record in it gets `retryable_error`.
+- `record_id` is a uuid made on the phone and becomes the row's `id` on the server
+  (ADR-008 already requires a uuid `id` on every audited table). That id is what
+  makes a replay harmless.
+- The phone shows six statuses, mapped from the outbox and the verdict:
+
+  | Phone status | When |
+  | :-- | :-- |
+  | `pending` | saved on the phone, not sent yet |
+  | `syncing` | in a batch that has not been answered |
+  | `synced` | verdict `accepted` |
+  | `failed` | verdict `retryable_error`; stays in the outbox and is sent again |
+  | `conflict` | verdict `conflict`; kept on the phone and shown for review |
+  | `rejected` | verdict `rejected`; shown with its reason |
+
+  The app says "submitted" only for `synced`.
+- Identity comes from `auth.uid()`. A device id in the request is for logging only and
+  is never trusted as identity.
+- `sync_push` stays a thin router: it checks the envelope, then hands each record to
+  its owning module. How each module receives a record is a separate decision, to be
+  agreed with Attendance and Daily Reporting before week 5.
+
+**Consequences.** Every field module knows the four outcomes it must produce, and the
+app has one place that turns them into words. A replay is always safe. Costs: each
+owning module must tell "same content" from "different content" for its own records to
+choose between `accepted` and `conflict`; the list of reason codes for `rejected` still
+has to be written down in the week 2 spec; and nothing here settles the module handler
+contract.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
