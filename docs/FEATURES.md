@@ -67,6 +67,11 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] A supervisor sees only sites assigned to them
 
 ### 2 · Sites
+> **Status, 2026-10-13: not ticked.** Schema, policies and `archive_site()` are merged
+> (#9); the audit triggers and the rewritten `sites_test.sql` are in #21. `pnpm test:db`
+> has not passed: it stops at `20261009160000` until Identity publishes `has_site_access`
+> and `can_manage_sites`. Tick these rows, and delete this note, once it has.
+
 - [ ] Create and edit a site: name, address, map pin, geofence radius
 - [ ] Assign and unassign supervisors
 - [ ] Site status: planned, active, paused, completed, archived
