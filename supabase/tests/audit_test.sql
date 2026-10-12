@@ -1,19 +1,9 @@
 -- Audit, Retention & Guards: audit_log and write_audit(). Issue #4, one block
 -- per acceptance criterion. Positive and negative.
 --
--- Identity attaches the real triggers in its own migration. Here they are
--- attached inside this transaction and rolled back with everything else.
+-- Identity's migration 20261012100000 attaches the real triggers to these
+-- three tables, so none are created here.
 begin;
-
-create trigger organizations_audit
-  after insert or update or delete on public.organizations
-  for each row execute function public.write_audit();
-create trigger profiles_audit
-  after insert or update or delete on public.profiles
-  for each row execute function public.write_audit();
-create trigger memberships_audit
-  after insert or update or delete on public.memberships
-  for each row execute function public.write_audit();
 
 -- Fixture (as superuser, no JWT claim). Org A: alice owner, carol PM, bob
 -- supervisor. Org B: eve owner. frank and grace belong to nothing.
