@@ -64,7 +64,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Sign in with email + password and a verification link
 - [ ] Invite a team member by email or copyable link
 - [ ] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
-- [ ] A supervisor sees only sites assigned to them
+- [x] A supervisor sees only sites assigned to them
 
 ### 2 · Sites
 - [ ] Create and edit a site: name, address, map pin, geofence radius
