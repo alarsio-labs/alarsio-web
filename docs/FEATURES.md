@@ -67,10 +67,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] A supervisor sees only sites assigned to them
 
 ### 2 · Sites
-- [ ] Create and edit a site: name, address, map pin, geofence radius
-- [ ] Assign and unassign supervisors
-- [ ] Site status: planned, active, paused, completed, archived
-- [ ] An archived site is read-only
+- [x] Create and edit a site: name, address, map pin, geofence radius
+- [x] Assign and unassign supervisors
+- [x] Site status: planned, active, paused, completed, archived
+- [x] An archived site is read-only
 
 ### 3 · Workforce
 - [ ] Add a worker: name, trade, pay type, rate
