@@ -1,7 +1,8 @@
 -- Sites module: sites, site_assignments, archive_site(), and their audit trail.
 -- Issue #8. Runs on the team runner (supabase/tests/run.sh): plain postgres:15,
 -- auth_shim.sql, psql. One transaction, rolled back, so the database is left as
--- it was. Sections 1-7 carry the 57 cases of the first version, tagged [S.NN];
+-- it was. Sections 1-7 carry the 57 cases of the first version, tagged [S.NN],
+-- plus [4.09]-[4.12] (editing pin and radius, moving between free statuses);
 -- section 8 adds the audit cases.
 --
 -- Conventions, as in identity_test.sql:
@@ -326,6 +327,40 @@ begin
   reset role;
   select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000a2';
   perform test_assert(n = 1, '[4.08] the site is still there after the delete attempts, found ' || n);
+
+  -- An owner can edit the address, pin and radius, and move a site among the
+  -- four statuses that are free to change. 'archived' is archive_site()'s alone
+  -- ([4.06]).
+  declare
+    st text;
+    v  public.sites;
+  begin
+    perform test_as('00000000-0000-0000-0000-000000000a01');
+    update public.sites
+       set address = 'Nagpur Ring Road', latitude = 21.150000, longitude = 79.090000,
+           geofence_radius_m = 350
+     where id = '20000000-0000-0000-0000-0000000000a2';
+    get diagnostics n = row_count;
+    perform test_assert(n = 1, '[4.09] owner can edit address, pin and radius in one update, touched ' || n);
+    reset role;
+
+    select * into v from public.sites where id = '20000000-0000-0000-0000-0000000000a2';
+    perform test_assert(v.address = 'Nagpur Ring Road' and v.latitude = 21.150000
+                        and v.longitude = 79.090000 and v.geofence_radius_m = 350,
+      '[4.10] the edited address, pin and radius persisted');
+
+    perform test_as('00000000-0000-0000-0000-000000000a01');
+    foreach st in array array['paused', 'completed', 'planned', 'active'] loop
+      update public.sites set status = st where id = '20000000-0000-0000-0000-0000000000a2';
+      get diagnostics n = row_count;
+      perform test_assert(n = 1, '[4.11] owner can set status ' || st || ', touched ' || n);
+    end loop;
+    reset role;
+
+    select * into v from public.sites where id = '20000000-0000-0000-0000-0000000000a2';
+    perform test_assert(v.status = 'active' and v.archived_at is null and v.archived_by is null,
+      '[4.12] after the moves the site is active and carries no archive stamp');
+  end;
 end $$;
 
 -- =========================================================== 5. assignments
