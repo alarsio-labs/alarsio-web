@@ -997,4 +997,174 @@ begin
   reset role;
 end $$;
 
+-- ------------------------------------------------------------ photo storage
+do $$
+declare n int;
+  v_org  constant text := 'aaaaaaaa-0000-0000-0000-000000000001';
+  v_site constant text := '51000000-0000-0000-0000-000000000001';
+begin
+  perform test_assert(
+    (select not public and file_size_limit = 10485760
+            and allowed_mime_types = array['image/jpeg', 'image/png', 'image/webp']
+       from storage.buckets where id = 'report-photos'),
+    'report-photos is private, limited to 10 MB and to jpeg, png and webp');
+  perform test_assert(not exists (select 1 from storage.buckets where public), 'no public bucket exists');
+  perform test_assert(
+    not exists (select 1 from pg_policies where schemaname = 'storage' and tablename = 'objects'
+      and cmd in ('UPDATE', 'DELETE', 'ALL')),
+    'no update, delete or catch-all policy on storage objects');
+  perform test_assert(
+    (select count(*) from pg_policies where schemaname = 'storage' and tablename = 'objects'
+       and policyname in ('report_photos_objects_insert', 'report_photos_objects_select')) = 2,
+    'the two photo object policies exist');
+
+  -- fred files a photo of his own report (d33, site 1) so we can test crossing over.
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+  values ('e4000000-0000-0000-0000-000000000001', v_org::uuid, v_site::uuid, 'd1000000-0000-0000-0000-000000000033',
+          v_org || '/' || v_site || '/d1000000-0000-0000-0000-000000000033/e4000000-0000-0000-0000-000000000001.jpg',
+          3000, 'image/jpeg');
+  reset role;
+  -- bob files a photo of his draft d34.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+  values ('e4000000-0000-0000-0000-000000000002', v_org::uuid, v_site::uuid, 'd1000000-0000-0000-0000-000000000034',
+          v_org || '/' || v_site || '/d1000000-0000-0000-0000-000000000034/e4000000-0000-0000-0000-000000000002.jpg',
+          3000, 'image/jpeg');
+  reset role;
+end $$;
+
+-- upload: only the uploader named by the metadata row, only at its exact path.
+do $$
+declare denied int; u uuid; n int;
+  p_bob_r1   text := (select storage_path from public.report_photos where id = 'e2000000-0000-0000-0000-000000000002');
+  p_fred     text := 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000033/e4000000-0000-0000-0000-000000000001.jpg';
+  p_bob_draft text := 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000034/e4000000-0000-0000-0000-000000000002.jpg';
+begin
+  -- anon can neither upload nor read.
+  perform test_as_anon();
+  denied := 0;
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', p_bob_r1);
+  exception when insufficient_privilege then denied := 1; end;
+  perform test_assert(denied = 1 and (select count(*) from storage.objects) = 0, 'anon cannot upload or read photos');
+  reset role;
+
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into storage.objects (bucket_id, name) values ('report-photos', p_bob_r1);
+  insert into storage.objects (bucket_id, name) values ('report-photos', p_bob_draft);
+  -- no metadata row for this path; another user's row; a path that merely resembles one.
+  denied := 0;
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', 'aaaaaaaa-0000-0000-0000-000000000001/anywhere.jpg');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', p_fred);
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', replace(p_bob_r1, '.png', '.jpg'));
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into storage.objects (bucket_id, name) values ('other-bucket', p_bob_r1 || '.x');
+  exception when insufficient_privilege or foreign_key_violation then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 4, 'no upload without a metadata row of your own at that exact path');
+
+  -- nobody else uploads a file for bob's photo: colleague, owner, PM, accountant, other org.
+  foreach u in array array['f0000000-0000-0000-0000-00000000000f', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c', 'd0000000-0000-0000-0000-00000000000d',
+                           'e0000000-0000-0000-0000-00000000000e']::uuid[] loop
+    denied := 0;
+    perform test_as(u);
+    begin insert into storage.objects (bucket_id, name)
+      values ('report-photos', 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000001/e2000000-0000-0000-0000-000000000003.webp');
+    exception when insufficient_privilege then denied := denied + 1; end;
+    reset role;
+    perform test_assert(denied = 1 and not exists (select 1 from storage.objects where name like '%e2000000-0000-0000-0000-000000000003%'),
+      'cannot upload a file for bob''s photo: ' || u);
+  end loop;
+  -- fred uploads his own.
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  insert into storage.objects (bucket_id, name) values ('report-photos', p_fred);
+  reset role;
+  perform test_assert((select count(*) from storage.objects) = 3, 'only the three legitimate uploads exist');
+end $$;
+
+-- a metadata row made by someone else does not let the report's author upload
+-- to it: the file must come from the user the row names.
+do $$
+declare denied int := 0;
+  v_path text := 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000001/e5000000-0000-0000-0000-000000000001.jpg';
+begin
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type, uploaded_by)
+  values ('e5000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          'd1000000-0000-0000-0000-000000000001', v_path, 1000, 'image/jpeg', 'f0000000-0000-0000-0000-00000000000f');
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', v_path);
+  exception when insufficient_privilege then denied := denied + 1; end;
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  begin insert into storage.objects (bucket_id, name) values ('report-photos', v_path);
+  exception when insufficient_privilege then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 2, 'neither the author nor the named uploader can upload to a row the other made');
+  -- remove the probe row (as superuser) so later counts are unaffected.
+  alter table public.report_photos disable trigger user;
+  delete from public.report_photos where id = 'e5000000-0000-0000-0000-000000000001';
+  alter table public.report_photos enable trigger user;
+end $$;
+
+-- read: the same rule as the metadata row; a draft's file stays with its author.
+do $$
+declare n int;
+  p_bob_r1    text := (select storage_path from public.report_photos where id = 'e2000000-0000-0000-0000-000000000002');
+  p_bob_draft text := 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000034/e4000000-0000-0000-0000-000000000002.jpg';
+begin
+  perform test_as('a0000000-0000-0000-0000-00000000000a');           -- owner
+  perform test_assert((select count(*) from storage.objects where name = p_bob_r1) = 1, 'owner reads a submitted report''s photo');
+  perform test_assert((select count(*) from storage.objects where name = p_bob_draft) = 0, 'owner cannot read a draft''s photo');
+  perform test_assert((select count(*) from storage.objects) = 2, 'owner reads the two submitted reports'' photos only');
+  reset role;
+  perform test_as('c0000000-0000-0000-0000-00000000000c');           -- PM
+  perform test_assert((select count(*) from storage.objects where name = p_bob_draft) = 0, 'project_manager cannot read a draft''s photo');
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');           -- site colleague
+  perform test_assert((select count(*) from storage.objects where name = p_bob_r1) = 1, 'a site colleague reads the site''s photo');
+  perform test_assert((select count(*) from storage.objects where name = p_bob_draft) = 0, 'a colleague cannot read a draft''s photo');
+  reset role;
+  perform test_as('b0000000-0000-0000-0000-00000000000b');           -- the author
+  perform test_assert((select count(*) from storage.objects where name = p_bob_draft) = 1, 'the author reads their own draft''s photo');
+  reset role;
+  perform test_as('90000000-0000-0000-0000-000000000009');           -- gina, other site
+  perform test_assert((select count(*) from storage.objects) = 0, 'a supervisor of another site reads no photo');
+  reset role;
+  perform test_as('d0000000-0000-0000-0000-00000000000d');           -- accountant, no site
+  perform test_assert((select count(*) from storage.objects) = 0, 'an accountant with no site reads no photo');
+  reset role;
+  perform test_as('e0000000-0000-0000-0000-00000000000e');           -- another organisation
+  perform test_assert((select count(*) from storage.objects) = 0, 'another organisation reads no photo');
+  perform test_assert((select count(*) from storage.objects where name = p_bob_r1) = 0, 'another organisation cannot fetch a photo by path');
+  reset role;
+
+  -- submitting the draft releases its photo to managers.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set status = 'submitted' where id = 'd1000000-0000-0000-0000-000000000034';
+  reset role;
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert((select count(*) from storage.objects where name = p_bob_draft) = 1, 'the photo is readable once its report is submitted');
+  reset role;
+end $$;
+
+-- no client can replace or remove a stored photo.
+do $$
+declare n int; u uuid;
+begin
+  foreach u in array array['b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c']::uuid[] loop
+    perform test_as(u);
+    update storage.objects set name = name || '.moved';
+    get diagnostics n = row_count;
+    delete from storage.objects;
+    reset role;
+    perform test_assert(n = 0, 'update of a stored photo changes 0 rows for ' || u);
+  end loop;
+  perform test_assert((select count(*) from storage.objects) = 3 and not exists (select 1 from storage.objects where name like '%.moved'),
+    'no stored photo was renamed or deleted');
+end $$;
+
 rollback;
