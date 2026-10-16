@@ -113,6 +113,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] A repeated push creates no duplicate
 - [ ] One bad record does not block the rest of its batch
 
+*Server router `sync_push` is in place (#33): envelope, per-record verdicts and the
+rate limit, tested with stand-in handlers. The rows above get ticked when the real
+entity handlers are wired in week 5.*
+
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only

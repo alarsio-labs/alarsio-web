@@ -45,7 +45,7 @@ list, publish it deliberately and add it here in the same PR.
 | Daily Reporting | `review_daily_report` | `daily_report_status` |
 | Materials | `apply_material_transaction` | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
-| Offline Sync | `sync_push(batch)` | — |
+| Offline Sync | `sync_push(batch)` · types `sync_verdict` and `sync_result`, which every handler returns | — |
 | Audit & Guards | `write_audit` · `enforce_rate_limit` | — |
 
 ## The five ways modules may talk
@@ -97,6 +97,17 @@ Guarantees:
 `sync_push` is a **thin router**. It validates the envelope and delegates to the
 owning module. No business logic lives there — logic placed there runs only on
 phones.
+
+Each record goes to its owning module's **handler**, one per table
+(#13, ADR-011):
+
+```
+public.sync_<table>(p_record_id uuid, p_payload jsonb) returns sync_result
+```
+
+A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
+replay (`accepted`) against `conflict` for its own records. The module that owns
+the table publishes the handler and lists it in its row of the public surface above.
 
 ## What is deliberately not here
 
