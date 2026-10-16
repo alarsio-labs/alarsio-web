@@ -13,7 +13,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | :-- | :-- | :-- | :-- | :-- |
 | 1 | **Identity & Access** | Ishant | 🟡 | `organizations`, `profiles`, `memberships`, `invites` |
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
-| 3 | **Workforce** | Ishant | ⬜ | `workers`, `worker_site_assignments`, `worker_wage_rates` |
+| 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
@@ -73,10 +73,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] An archived site is read-only
 
 ### 3 · Workforce
-- [ ] Add a worker: name, trade, pay type, rate
+- [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
-- [ ] Effective-dated wage rates — never overwrite, always add
-- [ ] Assign workers to sites
+- [x] Effective-dated wage rates — never overwrite, always add
+- [x] Assign workers to sites
 
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
