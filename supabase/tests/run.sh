@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # Runs the SQL suites in supabase/tests against a throwaway Postgres in Docker.
-# Applies the auth shim, every migration in order, then each *_test.sql.
+# Applies the auth and storage shims, every migration in order, then each *_test.sql.
 set -euo pipefail
 cd "$(dirname "$0")"
 shopt -s nullglob
@@ -20,6 +20,7 @@ sleep 1
 psql_run() { docker exec -i "$name" psql -U postgres -h 127.0.0.1 -v ON_ERROR_STOP=1 -q -f -; }
 
 psql_run < support/auth_shim.sql
+psql_run < support/storage_shim.sql
 for m in ../migrations/*.sql; do
   echo "migrate  $(basename "$m")"
   psql_run < "$m"
