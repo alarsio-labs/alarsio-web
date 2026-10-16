@@ -1167,4 +1167,113 @@ begin
     'no stored photo was renamed or deleted');
 end $$;
 
+-- --------------------------------------------------------------------- audit
+do $$ begin
+  perform test_assert(
+    (select count(*) from pg_trigger
+      where not tgisinternal and tgenabled = 'O'
+        and tgname in ('daily_reports_audit', 'daily_report_revisions_audit', 'report_photos_audit')) = 3,
+    'audit trigger attached to all three daily reporting tables');
+  perform test_assert(
+    (select bool_and((tgtype & 1) = 1 and (tgtype & 2) = 0 and (tgtype & 4) = 4 and (tgtype & 8) = 8 and (tgtype & 16) = 16)
+       from pg_trigger
+      where not tgisinternal
+        and tgname in ('daily_reports_audit', 'daily_report_revisions_audit', 'report_photos_audit')),
+    'each audit trigger is AFTER, FOR EACH ROW, on insert, update and delete');
+end $$;
+
+do $$
+declare
+  v_org  constant text := 'aaaaaaaa-0000-0000-0000-000000000001';
+  v_site constant text := '51000000-0000-0000-0000-000000000001';
+  v_rep  constant uuid := 'd1000000-0000-0000-0000-000000000051';
+  v_path constant text := 'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000051/e6000000-0000-0000-0000-000000000001.jpg';
+  v_rev  uuid;
+  n      int;
+  c0     int;
+begin
+  -- insert: one INSERT row, with the actor and the organisation.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.daily_reports (id, org_id, site_id, report_date, headcount, work_done)
+  values (v_rep, v_org::uuid, v_site::uuid, '2026-10-06', 5, 'Audit probe');
+  reset role;
+  perform test_assert(
+    (select count(*) = 1 and bool_and(operation = 'INSERT' and actor_id = 'b0000000-0000-0000-0000-00000000000b'
+                                      and org_id = 'aaaaaaaa-0000-0000-0000-000000000001'
+                                      and new_data ->> 'status' = 'draft')
+       from public.audit_log where table_name = 'daily_reports' and row_id = v_rep),
+    'filing a report writes one INSERT audit row with actor and org');
+
+  -- submit: an UPDATE row showing draft -> submitted and the server's stamp.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set status = 'submitted' where id = v_rep;
+  reset role;
+  perform test_assert(
+    (select old_data ->> 'status' = 'draft' and new_data ->> 'status' = 'submitted'
+            and new_data ->> 'submitted_by' = 'b0000000-0000-0000-0000-00000000000b'
+       from public.audit_log where table_name = 'daily_reports' and row_id = v_rep and operation = 'UPDATE'
+       order by id desc limit 1),
+    'submitting writes an UPDATE audit row with the stamp');
+
+  -- edit after submit: an UPDATE row for the report and an INSERT row for its revision.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set headcount = 6, edit_reason = 'Recount' where id = v_rep;
+  reset role;
+  select id into v_rev from public.daily_report_revisions where report_id = v_rep;
+  perform test_assert(
+    (select old_data ->> 'headcount' = '5' and new_data ->> 'headcount' = '6' and new_data ->> 'edit_reason' is null
+       from public.audit_log where table_name = 'daily_reports' and row_id = v_rep and operation = 'UPDATE'
+       order by id desc limit 1),
+    'an edit writes an UPDATE audit row; the transient edit_reason is not kept');
+  perform test_assert(
+    (select count(*) = 1 and bool_and(new_data ->> 'reason' = 'Recount' and new_data ->> 'headcount' = '5'
+                                      and actor_id = 'b0000000-0000-0000-0000-00000000000b'
+                                      and org_id = 'aaaaaaaa-0000-0000-0000-000000000001')
+       from public.audit_log where table_name = 'daily_report_revisions' and row_id = v_rev and operation = 'INSERT'),
+    'the revision is audited with its reason and the old values');
+
+  -- photo: one INSERT row.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+  values ('e6000000-0000-0000-0000-000000000001', v_org::uuid, v_site::uuid, v_rep, v_path, 1500, 'image/jpeg');
+  reset role;
+  perform test_assert(
+    (select count(*) = 1 and bool_and(operation = 'INSERT' and org_id = 'aaaaaaaa-0000-0000-0000-000000000001')
+       from public.audit_log where table_name = 'report_photos' and row_id = 'e6000000-0000-0000-0000-000000000001'),
+    'attaching a photo writes one INSERT audit row');
+
+  -- refused and blocked writes leave nothing behind.
+  select count(*) into c0 from public.audit_log where table_name in ('daily_reports', 'daily_report_revisions', 'report_photos');
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  begin update public.daily_reports set headcount = 7 where id = v_rep;           -- no reason
+  exception when invalid_parameter_value then n := 1; end;
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  update public.daily_reports set headcount = 7, edit_reason = 'hijack' where id = v_rep;   -- not the author: 0 rows
+  get diagnostics n = row_count;
+  begin insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+    values ('e6000000-0000-0000-0000-000000000002', v_org::uuid, v_site::uuid, v_rep,
+            replace(v_path, 'e6000000-0000-0000-0000-000000000001', 'e6000000-0000-0000-0000-000000000002'), 1500, 'image/jpeg');
+  exception when insufficient_privilege then null; end;
+  reset role;
+  perform test_assert(n = 0 and (select count(*) from public.audit_log
+                                  where table_name in ('daily_reports', 'daily_report_revisions', 'report_photos')) = c0,
+    'a refused edit, a 0-row update and a refused photo write no audit row');
+
+  -- review: an UPDATE row showing the reviewer.
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  perform review_daily_report(v_rep, 'Seen');
+  reset role;
+  perform test_assert(
+    (select old_data ->> 'status' = 'submitted' and new_data ->> 'status' = 'reviewed'
+            and new_data ->> 'reviewed_by' = 'c0000000-0000-0000-0000-00000000000c'
+            and actor_id = 'c0000000-0000-0000-0000-00000000000c'
+       from public.audit_log where table_name = 'daily_reports' and row_id = v_rep and operation = 'UPDATE'
+       order by id desc limit 1),
+    'a review writes an UPDATE audit row naming the reviewer');
+  perform test_assert(
+    (select count(*) from public.audit_log where table_name = 'daily_reports' and row_id = v_rep) = 4,
+    'one report, four changes (file, submit, edit, review), four audit rows');
+end $$;
+
 rollback;
