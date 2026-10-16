@@ -444,4 +444,417 @@ begin
   perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000003') = 10,
     'a report holds at most ten photos');
 end $$;
+
+-- ================================================================ policies
+-- From here on every statement runs as a signed-in role, so grants and RLS apply.
+-- Fixture so far: R1 (bob, site 1, submitted, serious blocker, 2 revisions),
+-- R3 (bob, archived site 3, reviewed, 10 photos), d21 and d22 (gina, site 2,
+-- submitted), RB (hank, org B).
+
+-- ---------------------------------------------------------------- structure
+do $$ begin
+  perform test_assert(
+    not exists (select 1 from pg_policies where schemaname = 'public'
+      and tablename in ('daily_reports', 'daily_report_revisions', 'report_photos')
+      and cmd in ('DELETE', 'ALL')),
+    'no delete policy on any daily reporting table');
+  perform test_assert(
+    not exists (select 1 from pg_policies where schemaname = 'public'
+      and tablename in ('daily_report_revisions', 'report_photos') and cmd = 'UPDATE'),
+    'no update policy on revisions or photos');
+  perform test_assert(
+    not exists (select 1 from pg_policies where schemaname = 'public'
+      and tablename = 'daily_report_revisions' and cmd = 'INSERT'),
+    'no insert policy on revisions');
+  perform test_assert(
+    (select 'security_invoker=true' = any (reloptions) from pg_class where oid = 'public.daily_report_status'::regclass),
+    'daily_report_status is security_invoker');
+  perform test_assert(
+    (select prosecdef and proconfig @> array['search_path=public']
+       from pg_proc where oid = 'public.can_attach_report_photo(uuid)'::regprocedure),
+    'can_attach_report_photo pins search_path');
+  perform test_assert(
+    not exists (select 1 from information_schema.role_table_grants
+      where table_schema = 'public' and table_name = 'daily_report_revisions'
+        and grantee = 'authenticated' and privilege_type <> 'SELECT'),
+    'clients can only select revisions');
+  perform test_assert(
+    not exists (select 1 from information_schema.role_table_grants
+      where table_schema = 'public' and table_name = 'report_photos'
+        and grantee = 'authenticated' and privilege_type in ('UPDATE', 'DELETE')),
+    'clients cannot update or delete photos');
+end $$;
+
+-- ------------------------------------------------------------ anon is denied
+do $$
+declare denied int := 0;
+begin
+  perform test_as_anon();
+  begin perform count(*) from public.daily_reports;
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin perform count(*) from public.daily_report_revisions;
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin perform count(*) from public.report_photos;
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin perform count(*) from public.daily_report_status;
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin perform can_attach_report_photo('d1000000-0000-0000-0000-000000000001');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-02');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 6, 'anon is denied on tables, the view and the predicate');
+end $$;
+
+-- ------------------------------------------------------------ insert, roles
+do $$
+declare denied int; u uuid;
+begin
+  -- bob files a draft with an id made on the phone.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.daily_reports (id, org_id, site_id, report_date, headcount, work_done)
+  values ('d1000000-0000-0000-0000-000000000031', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          '2026-10-15', 9, 'Shuttering');
+  reset role;
+  perform test_assert(
+    (select author_id = 'b0000000-0000-0000-0000-00000000000b' and status = 'draft'
+       from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000031'),
+    'the assigned supervisor files a draft; author is the caller');
+
+  -- the other site-1 supervisor files a report already submitted, as the phone may.
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  insert into public.daily_reports (id, org_id, site_id, report_date, status, headcount, work_done)
+  values ('d1000000-0000-0000-0000-000000000033', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          '2026-10-09', 'submitted', 4, 'Cleaning');
+  reset role;
+  perform test_assert(
+    (select status = 'submitted' and submitted_by = 'f0000000-0000-0000-0000-00000000000f'
+       from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000033'),
+    'a report may be filed already submitted');
+
+  -- everyone else is refused: owner, PM, accountant, an unassigned supervisor.
+  foreach u in array array['a0000000-0000-0000-0000-00000000000a', 'c0000000-0000-0000-0000-00000000000c',
+                           'd0000000-0000-0000-0000-00000000000d', '90000000-0000-0000-0000-000000000009']::uuid[] loop
+    denied := 0;
+    perform test_as(u);
+    begin
+      insert into public.daily_reports (org_id, site_id, report_date, headcount, work_done)
+      values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-03', 1, 'Nope');
+    exception when insufficient_privilege then denied := 1; end;
+    reset role;
+    perform test_assert(denied = 1, 'cannot file a report on site 1: ' || u);
+  end loop;
+  perform test_assert(not exists (select 1 from public.daily_reports where report_date = '2026-10-03'), 'no row was created by a blocked insert');
+
+  -- bob: archived site, another organisation, a forged author, a reviewed status, a stamp.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  denied := 0;
+  begin insert into public.daily_reports (org_id, site_id, report_date)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000003', '2026-10-05');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date)
+    values ('bbbbbbbb-0000-0000-0000-000000000002', '51000000-0000-0000-0000-0000000000b1', '2026-10-05');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date, author_id)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-05', 'f0000000-0000-0000-0000-00000000000f');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date, status, headcount, work_done)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-05', 'reviewed', 1, 'x');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date, submitted_at)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-05', now());
+  exception when insufficient_privilege then denied := denied + 1; end;
+  -- the rules above the policy still apply: one report per site-day, no future date.
+  begin insert into public.daily_reports (org_id, site_id, report_date)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', '2026-10-14');
+  exception when unique_violation then denied := denied + 1; end;
+  begin insert into public.daily_reports (org_id, site_id, report_date)
+    values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', current_date + 5);
+  exception when invalid_parameter_value then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 7, 'archived site, other org, forged author, reviewed status, stamp, duplicate and future date are all refused');
+end $$;
+
+-- ------------------------------------------------------------------- reads
+do $$ begin
+  perform test_as('a0000000-0000-0000-0000-00000000000a');           -- owner A
+  perform test_assert((select count(*) from public.daily_reports) = 5, 'owner reads every submitted report of the org, and no draft');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000031') = 0, 'owner cannot read a draft, even by id');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-0000000000b1') = 0, 'owner A cannot fetch an org B report by id');
+  reset role;
+  perform test_as('c0000000-0000-0000-0000-00000000000c');           -- PM
+  perform test_assert((select count(*) from public.daily_reports) = 5, 'project_manager reads every submitted report, and no draft');
+  perform test_assert((select count(*) from public.daily_reports where status = 'draft') = 0, 'project_manager sees no draft');
+  reset role;
+  perform test_as('d0000000-0000-0000-0000-00000000000d');           -- accountant, no site
+  perform test_assert((select count(*) from public.daily_reports) = 0, 'an accountant with no site sees no report');
+  reset role;
+  perform test_as('b0000000-0000-0000-0000-00000000000b');           -- bob: sites 1 and 3
+  perform test_assert((select count(*) from public.daily_reports) = 4, 'bob sees site 1 and site 3 reports and his own draft');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000031') = 1, 'the author reads their own draft');
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');           -- fred: site 1
+  perform test_assert((select count(*) from public.daily_reports) = 2, 'a site colleague sees submitted reports of the site only');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000031') = 0, 'a site colleague cannot read bob''s draft by id');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000003') = 0, 'a supervisor cannot read an unassigned site''s report by id');
+  reset role;
+  perform test_as('90000000-0000-0000-0000-000000000009');           -- gina: site 2
+  perform test_assert((select count(*) from public.daily_reports) = 2, 'gina sees only site 2 reports');
+  perform test_assert((select count(*) from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001') = 0, 'gina cannot read site 1''s report by id');
+  perform test_assert((select count(*) from public.daily_report_revisions) = 0, 'gina reads no revisions of site 1');
+  reset role;
+  perform test_as('e0000000-0000-0000-0000-00000000000e');           -- owner B
+  perform test_assert((select count(*) from public.daily_reports) = 1, 'owner B sees only org B''s report');
+  perform test_assert((select count(*) from public.daily_reports where org_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 0, 'owner B reads no org A report');
+  perform test_assert((select count(*) from public.daily_report_revisions) = 0, 'owner B reads no org A revision');
+  perform test_assert((select count(*) from public.report_photos) = 0, 'owner B reads no org A photo');
+  reset role;
+end $$;
+
+-- ----------------------------------------------------------------- updates
+do $$
+declare denied int; n int; u uuid;
+begin
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set work_done = 'Shuttering and rebar' where id = 'd1000000-0000-0000-0000-000000000031';
+  get diagnostics n = row_count;
+  perform test_assert(n = 1, 'the author edits their draft');
+
+  -- the author cannot move a report, forge a stamp, or set the reviewed status.
+  denied := 0;
+  begin update public.daily_reports set site_id = '51000000-0000-0000-0000-000000000002' where id = 'd1000000-0000-0000-0000-000000000031';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin update public.daily_reports set author_id = 'f0000000-0000-0000-0000-00000000000f' where id = 'd1000000-0000-0000-0000-000000000031';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin update public.daily_reports set submitted_at = now() where id = 'd1000000-0000-0000-0000-000000000031';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin update public.daily_reports set reviewed_by = 'b0000000-0000-0000-0000-00000000000b' where id = 'd1000000-0000-0000-0000-000000000031';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin update public.daily_reports set status = 'reviewed' where id = 'd1000000-0000-0000-0000-000000000001';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  perform test_assert(denied = 5, 'site, author, stamps and the reviewed status are not client-writable');
+
+  -- a reviewed report on an archived site, and an edit after submit with no reason.
+  update public.daily_reports set headcount = 1, edit_reason = 'late' where id = 'd1000000-0000-0000-0000-000000000003';
+  get diagnostics n = row_count;
+  perform test_assert(n = 0, 'a reviewed report on an archived site changes 0 rows');
+  denied := 0;
+  begin update public.daily_reports set headcount = 20 where id = 'd1000000-0000-0000-0000-000000000001';
+  exception when invalid_parameter_value then denied := 1; end;
+  perform test_assert(denied = 1, 'an edit after submit still needs a reason through the API');
+  update public.daily_reports set headcount = 15, edit_reason = 'Late arrivals' where id = 'd1000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  perform test_assert(n = 1, 'the author edits a submitted report with a reason');
+  reset role;
+  perform test_assert((select count(*) from public.daily_report_revisions where report_id = 'd1000000-0000-0000-0000-000000000001') = 3,
+    'that edit wrote revision 3');
+
+  -- nobody else edits it: colleague, owner, PM, accountant, another org.
+  foreach u in array array['f0000000-0000-0000-0000-00000000000f', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c', 'd0000000-0000-0000-0000-00000000000d',
+                           'e0000000-0000-0000-0000-00000000000e']::uuid[] loop
+    perform test_as(u);
+    update public.daily_reports set headcount = 99, edit_reason = 'hijack' where id = 'd1000000-0000-0000-0000-000000000001';
+    get diagnostics n = row_count;
+    reset role;
+    perform test_assert(n = 0, 'update changes 0 rows for ' || u);
+  end loop;
+  perform test_assert((select headcount from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001') = 15, 'the report is not changed by blocked updates');
+  perform test_assert((select count(*) from public.daily_report_revisions where report_id = 'd1000000-0000-0000-0000-000000000001') = 3, 'blocked updates wrote no revision');
+
+  -- a colleague cannot edit a draft they cannot see.
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  update public.daily_reports set work_done = 'hijack' where id = 'd1000000-0000-0000-0000-000000000031';
+  get diagnostics n = row_count;
+  reset role;
+  perform test_assert(n = 0 and (select work_done from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000031') = 'Shuttering and rebar',
+    'a colleague cannot edit another supervisor''s draft');
+end $$;
+
+-- ----------------------------------------------------------------- deletes
+do $$
+declare denied int; u uuid; t text;
+begin
+  foreach u in array array['b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c', 'd0000000-0000-0000-0000-00000000000d']::uuid[] loop
+    foreach t in array array['daily_reports', 'daily_report_revisions', 'report_photos'] loop
+      denied := 0;
+      perform test_as(u);
+      begin execute format('delete from public.%I', t);
+      exception when insufficient_privilege then denied := denied + 1; end;
+      begin execute format('truncate public.%I', t);
+      exception when insufficient_privilege then denied := denied + 1; end;
+      reset role;
+      perform test_assert(denied = 2, format('delete and truncate on %s are denied for %s', t, u));
+    end loop;
+  end loop;
+  perform test_assert((select count(*) from public.daily_reports) = 7, 'no report was deleted');
+end $$;
+
+-- ---------------------------------------------------------------- revisions
+do $$
+declare denied int; u uuid;
+begin
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert((select count(*) from public.daily_report_revisions where report_id = 'd1000000-0000-0000-0000-000000000001') = 3,
+    'owner reads the history of a submitted report');
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  perform test_assert((select count(*) from public.daily_report_revisions) = 3, 'a site colleague reads the history too');
+  reset role;
+  foreach u in array array['b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c', 'd0000000-0000-0000-0000-00000000000d']::uuid[] loop
+    denied := 0;
+    perform test_as(u);
+    begin insert into public.daily_report_revisions (org_id, site_id, report_id, revision_no, serious_blocker, safety_incident, reason)
+      values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', 'd1000000-0000-0000-0000-000000000001', 9, false, false, 'forged');
+    exception when insufficient_privilege then denied := denied + 1; end;
+    begin update public.daily_report_revisions set reason = 'rewritten';
+    exception when insufficient_privilege then denied := denied + 1; end;
+    begin delete from public.daily_report_revisions;
+    exception when insufficient_privilege then denied := denied + 1; end;
+    reset role;
+    perform test_assert(denied = 3, 'revision insert, update and delete are denied for ' || u);
+  end loop;
+end $$;
+
+-- ------------------------------------------------------------------ photos
+do $$
+declare denied int; u uuid; n int;
+  v_org  constant text := 'aaaaaaaa-0000-0000-0000-000000000001';
+  v_site constant text := '51000000-0000-0000-0000-000000000001';
+begin
+  -- bob attaches a photo to his draft; managers do not see it until submit.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, caption, size_bytes, content_type)
+  values ('e2000000-0000-0000-0000-000000000001', v_org::uuid, v_site::uuid, 'd1000000-0000-0000-0000-000000000031',
+          v_org || '/' || v_site || '/d1000000-0000-0000-0000-000000000031/e2000000-0000-0000-0000-000000000001.jpg',
+          'Rebar', 4096, 'image/jpeg');
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000031') = 1, 'the author sees the photo of their draft');
+  perform test_assert((select uploaded_by from public.report_photos where id = 'e2000000-0000-0000-0000-000000000001') = 'b0000000-0000-0000-0000-00000000000b', 'uploaded_by is the caller');
+  reset role;
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000031') = 0, 'the owner does not see a draft''s photo');
+  reset role;
+
+  -- a photo on an already submitted report: photos never wait for submit.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+  values ('e2000000-0000-0000-0000-000000000002', v_org::uuid, v_site::uuid, 'd1000000-0000-0000-0000-000000000001',
+          v_org || '/' || v_site || '/d1000000-0000-0000-0000-000000000001/e2000000-0000-0000-0000-000000000002.png',
+          8192, 'image/png');
+  reset role;
+
+  -- others cannot attach: a colleague, owner, PM, accountant, another org's owner.
+  foreach u in array array['f0000000-0000-0000-0000-00000000000f', 'a0000000-0000-0000-0000-00000000000a',
+                           'c0000000-0000-0000-0000-00000000000c', 'd0000000-0000-0000-0000-00000000000d',
+                           'e0000000-0000-0000-0000-00000000000e']::uuid[] loop
+    denied := 0;
+    perform test_as(u);
+    begin insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+      values ('e2000000-0000-0000-0000-0000000000f1', v_org::uuid, v_site::uuid, 'd1000000-0000-0000-0000-000000000001',
+              v_org || '/' || v_site || '/d1000000-0000-0000-0000-000000000001/e2000000-0000-0000-0000-0000000000f1.jpg',
+              1000, 'image/jpeg');
+    exception when insufficient_privilege then denied := 1; end;
+    reset role;
+    perform test_assert(denied = 1, 'cannot attach a photo to bob''s report: ' || u);
+  end loop;
+
+  -- bob: a photo naming another site fails the composite key; a report on an
+  -- archived site is refused by the predicate; photos are never changed or removed.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  denied := 0;
+  begin insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+    values ('e2000000-0000-0000-0000-000000000009', v_org::uuid, '51000000-0000-0000-0000-000000000002', 'd1000000-0000-0000-0000-000000000001',
+            v_org || '/51000000-0000-0000-0000-000000000002/d1000000-0000-0000-0000-000000000001/e2000000-0000-0000-0000-000000000009.jpg',
+            1000, 'image/jpeg');
+  exception when foreign_key_violation then denied := denied + 1; end;
+  begin insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+    values ('e2000000-0000-0000-0000-00000000000a', v_org::uuid, '51000000-0000-0000-0000-000000000003', 'd1000000-0000-0000-0000-000000000003',
+            v_org || '/51000000-0000-0000-0000-000000000003/d1000000-0000-0000-0000-000000000003/e2000000-0000-0000-0000-00000000000a.jpg',
+            1000, 'image/jpeg');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin update public.report_photos set caption = 'edited';
+  exception when insufficient_privilege then denied := denied + 1; end;
+  begin delete from public.report_photos;
+  exception when insufficient_privilege then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 4, 'other-site report, archived site, update and delete are refused');
+
+  -- visibility of a submitted report's photo.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000001') = 1, 'owner sees a submitted report''s photo');
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000003') = 10, 'owner sees the photos of a reviewed report on an archived site');
+  reset role;
+  perform test_as('90000000-0000-0000-0000-000000000009');
+  perform test_assert((select count(*) from public.report_photos) = 0, 'gina sees no photo of other sites');
+  reset role;
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  perform test_assert((select count(*) from public.report_photos) = 0, 'owner B sees no org A photo');
+  reset role;
+
+  -- submit the draft with its photo still there; the owner then sees the photo.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set status = 'submitted' where id = 'd1000000-0000-0000-0000-000000000031';
+  get diagnostics n = row_count;
+  reset role;
+  perform test_assert(n = 1, 'the author submits the draft');
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000031') = 1, 'the photo becomes visible once the report is submitted');
+  reset role;
+end $$;
+
+-- --------------------------------------------------------- daily_report_status
+do $$
+declare n int;
+begin
+  -- a blocker and a safety flag raised on submit appear in the view.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.daily_reports (id, org_id, site_id, report_date, status, headcount, work_done, serious_blocker, blockers, safety_incident)
+  values ('d1000000-0000-0000-0000-000000000032', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          '2026-10-16', 'submitted', 8, 'Crane down', true, 'Crane out of service', false);
+  insert into public.daily_reports (id, org_id, site_id, report_date, headcount, work_done)
+  values ('d1000000-0000-0000-0000-000000000034', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          '2026-10-07', 3, 'Still a draft');
+  reset role;
+  perform test_as('90000000-0000-0000-0000-000000000009');
+  update public.daily_reports set safety_incident = true, edit_reason = 'Fall from scaffold' where id = 'd1000000-0000-0000-0000-000000000022';
+  reset role;
+
+  perform test_as('c0000000-0000-0000-0000-00000000000c');           -- PM
+  select count(*) into n from public.daily_report_status;
+  perform test_assert(n = 7, 'project_manager reads every submitted and reviewed report in the view');
+  perform test_assert((select count(*) from public.daily_report_status where status = 'draft') = 0, 'a draft is never in the view');
+  perform test_assert((select count(*) from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000034') = 0, 'bob''s draft is not in the manager''s view');
+  perform test_assert(
+    (select serious_blocker and flagged and not safety_incident and blockers = 'Crane out of service'
+       from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000032'),
+    'a serious blocker is flagged in the view');
+  perform test_assert(
+    (select safety_incident and flagged and not serious_blocker
+       from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000022'),
+    'a safety incident is flagged in the view');
+  perform test_assert((select count(*) from public.daily_report_status where flagged) = 3, 'exactly the flagged reports are flagged');
+  perform test_assert((select not flagged from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000021'), 'an unflagged report is not flagged');
+  perform test_assert((select photo_count from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000003') = 10, 'the view counts photos');
+  reset role;
+
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  perform test_assert((select count(*) from public.daily_report_status) = 5, 'bob reads the view for his sites, without his draft');
+  perform test_assert((select count(*) from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000034') = 0, 'the author''s own draft is not in the view');
+  reset role;
+  perform test_as('90000000-0000-0000-0000-000000000009');
+  perform test_assert((select count(*) from public.daily_report_status) = 2, 'gina''s view holds site 2 only');
+  perform test_assert((select count(*) from public.daily_report_status where site_id = '51000000-0000-0000-0000-000000000001') = 0, 'a supervisor''s view holds nothing of an unassigned site');
+  reset role;
+  perform test_as('d0000000-0000-0000-0000-00000000000d');
+  perform test_assert((select count(*) from public.daily_report_status) = 0, 'an accountant with no site sees an empty view');
+  reset role;
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  perform test_assert((select count(*) from public.daily_report_status) = 1, 'owner B''s view holds org B only');
+  perform test_assert((select count(*) from public.daily_report_status where org_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 0, 'owner B''s view holds no org A row');
+  reset role;
+end $$;
+
 rollback;
