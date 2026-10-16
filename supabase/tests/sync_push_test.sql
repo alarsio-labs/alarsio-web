@@ -1,4 +1,4 @@
--- Offline Sync: sync_push router. Issue #33, ADR-009, ADR-011.
+-- Offline Sync: sync_push router. Issue #33, ADR-009, ADR-013.
 --
 -- No real handlers exist yet, so this file creates test-only stand-ins inside
 -- its own transaction and rolls them back: a handler for material_transactions

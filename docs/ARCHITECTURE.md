@@ -99,7 +99,7 @@ owning module. No business logic lives there — logic placed there runs only on
 phones.
 
 Each record goes to its owning module's **handler**, one per table
-(#13, ADR-011):
+(#13, ADR-013):
 
 ```
 public.sync_<table>(p_record_id uuid, p_payload jsonb) returns sync_result

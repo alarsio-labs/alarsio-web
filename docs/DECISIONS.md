@@ -249,8 +249,8 @@ outbox work adds.
 
 ---
 
-## ADR-011 · sync_push envelope, handler contract and failure rules
-**Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish on #13)
+## ADR-013 · sync_push envelope, handler contract and failure rules
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish and Anuradha on #13)
 
 **Context.** ADR-009 fixed the four verdicts. Field modules also need to know what
 the phone sends, how a record reaches their table, and what happens when something

@@ -1,5 +1,5 @@
 -- Offline Sync: the sync_push router and the result type every handler returns.
--- Owner: Nikhil. Issue #33. Verdicts: ADR-009. Handler contract: #13. Shape: ADR-011.
+-- Owner: Nikhil. Issue #33. Verdicts: ADR-009. Handler contract: #13. Shape: ADR-013.
 --
 -- sync_push is a thin router (ARCHITECTURE rule 5). It checks the envelope, calls
 -- the rate limit once, then hands each record to its owning module's handler,
@@ -15,7 +15,7 @@ create type public.sync_verdict as enum (
 -- What a handler returns: the verdict, and a short reason code for anything
 -- other than accepted. Never a database error message.
 -- Cast it in RETURN: `return ('accepted', null)::public.sync_result;`. Without the
--- cast PL/pgSQL fails at run time, and sync_push reports server_error (ADR-011).
+-- cast PL/pgSQL fails at run time, and sync_push reports server_error (ADR-013).
 create type public.sync_result as (
   verdict public.sync_verdict,
   reason  text
@@ -138,12 +138,13 @@ begin
         end if;
         -- Only an accepted record may leave rows behind. Raising here rolls back
         -- whatever a rejecting or conflicting handler wrote; v_result survives,
-        -- because PL/pgSQL variables are not rolled back.
+        -- because PL/pgSQL variables are not rolled back. PS001 is private to
+        -- this function; nothing else may raise it.
         if v_result.verdict <> 'accepted' then
-          raise sqlstate 'PS409';
+          raise sqlstate 'PS001';
         end if;
       exception
-        when sqlstate 'PS409' then
+        when sqlstate 'PS001' then
           null;
         when undefined_function then
           v_result := ('retryable_error', 'handler_unavailable');
