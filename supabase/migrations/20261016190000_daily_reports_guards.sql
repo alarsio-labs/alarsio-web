@@ -25,19 +25,14 @@
 create function public.daily_reports_guard_insert()
 returns trigger
 language plpgsql
-security definer
 set search_path = public
 as $$
-declare
-  v_today date;
 begin
-  -- "Today" is the organisation's day, not the server's. One day of slack
-  -- for a phone whose clock is a little ahead.
-  select (now() at time zone o.timezone)::date into v_today
-    from public.organizations o
-   where o.id = new.org_id;
-
-  if new.report_date > v_today + 1 then
+  -- No report for the future. This reads nothing from another module, so the
+  -- limit is on the UTC date: the furthest-ahead time zone is UTC+14, so the
+  -- local "today" is at most UTC today + 1, and the local tomorrow (one day of
+  -- slack for a phone clock a little ahead) at most UTC today + 2.
+  if new.report_date > (now() at time zone 'utc')::date + 2 then
     raise exception 'report date % is in the future', new.report_date
       using errcode = '22023';
   end if;
