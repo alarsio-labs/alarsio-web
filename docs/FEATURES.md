@@ -15,7 +15,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
 | 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
-| 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
+| 5 | **Daily Reporting** | Anuradha | 🟡 | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
 | 8 | **Offline Sync** | Nikhil | 🟡 | device SQLite outbox, `sync_push` |
@@ -89,9 +89,9 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
 - [ ] Save as an offline draft
-- [ ] Photos optional, and never blocking submission
-- [ ] A submitted report cannot be changed quietly — edits keep history
-- [ ] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
+- [x] Photos optional, and never blocking submission
+- [x] A submitted report cannot be changed quietly — edits keep history
+- [x] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
 ### 6 · Materials & Inventory
 - [ ] Define materials per site with unit and low-stock threshold
