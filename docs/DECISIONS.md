@@ -232,3 +232,44 @@ contract.
 **Consequences.** What this makes easy, and what it makes hard. Be honest about
 the cost — a decision with no downside is usually a decision not yet understood.
 ```
+
+---
+
+## ADR-010 · Workforce schema: split wage rates, append-only, anonymize instead of delete
+**Date:** 2026-10-16 · **Status:** Proposed · **By:** Ishant (review: Manish)
+
+**Context.** Attendance points at workers, and Wage Summaries reads rates, so the shape
+spreads (issue #23). Rates are also the one thing a supervisor must never read, while
+the same supervisor needs the roster to mark attendance.
+
+**Decision.**
+- W1. Pay type is `daily` or `hourly`, as `text` + `CHECK`. Overtime pay belongs to
+  Wage Summaries.
+- W2. Rates live in `worker_wage_rates`, apart from `workers`, so RLS can close them
+  with `can_view_wages(org_id)` (owner and accountant) while `workers` stays readable
+  by the roster rule. A rate is `numeric(12,2)` rupees, greater than zero.
+- W3. Rates are effective-dated and append-only: a new rate is a new row, there is no
+  UPDATE or DELETE grant, and two rates cannot start on the same day. Owner and
+  accountant may add one (`can_view_wages`). `worker_effective_rates` (security
+  invoker) and `worker_rate_on(worker, date)` are how others read them.
+- W4. The worker code is chosen by the contractor and unique per organisation,
+  ignoring case. It and `org_id` cannot be changed after creation.
+- W5. Personal data is a name and an optional phone. One worker row per organisation.
+- W6. Nothing is deleted. `status` retires a worker; `anonymize_worker()` clears the
+  name and phone, closes open assignments, and is terminal. Assignments close
+  (`unassigned_at`), as in Sites, and a closed one is never reopened.
+- W7. The roster rule is `has_worker_access(worker)`: owner and project_manager
+  across the org, anyone with `has_site_access` to a site the worker is assigned to.
+  It is private to Workforce; other modules read a view.
+- W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
+  rows, one result per row. It takes the organisation as an argument because a user
+  may belong to several.
+
+**Consequences.** A supervisor can run attendance without ever seeing pay. Rate
+history is complete, so a wage summary can be reproduced for any past date. Costs:
+`audit_log` records the old row on an update, so an anonymized worker's earlier name
+stays in the log until the retention decision (#19) says how to purge it; the
+`workers_select` policy tests `can_manage_sites` first because a row being inserted
+is not yet visible to `has_worker_access`; and `import_workers` is not the published
+function the architecture lists as `import_workers(rows)`, so ARCHITECTURE.md gains
+the extra argument.
