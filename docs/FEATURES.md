@@ -18,7 +18,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
-| 8 | **Offline Sync** | Nikhil | ⬜ | device SQLite outbox, `sync_push` |
+| 8 | **Offline Sync** | Nikhil | 🟡 | device SQLite outbox, `sync_push` |
 | 9 | **Audit, Retention & Guards** | Anuradha | 🟡 | `audit_log`, `purge_log`, `rate_limit_counters` |
 
 ---
@@ -35,7 +35,7 @@ Everything depends on these. Nothing else starts cleanly until they exist.
 - [ ] **Identity & Access** — org, membership, 4 roles, RLS predicates — *Ishant*
 - [ ] **Sites** — sites, geofence, supervisor assignment — *Manish*
 - [ ] **Audit, Retention & Guards** — the generic audit trigger — *Anuradha*
-- [ ] Mobile app shell + test harness — *Nikhil*
+- [x] Mobile app shell + test harness — *Nikhil*
 
 ### Weeks 3–6 · Field capture
 These do not touch each other's tables, so they run in parallel.

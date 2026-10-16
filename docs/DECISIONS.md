@@ -219,6 +219,36 @@ contract.
 
 ---
 
+## ADR-010 · Mobile shell: device database behind an interface, tested on sql.js
+**Date:** 2026-10-12 · **Status:** Proposed · **By:** Nikhil
+
+**Context.** Every field module will keep records on the phone, and IMPROVEMENTS #6
+says the mobile app must be tested from week 1. Jest cannot load `expo-sqlite`, because
+it is native code. Mocking it would test our SQL against nothing. A native SQLite library
+for Node needs a C++ build, which is fragile on Windows, and CI runs on Node 20.
+
+**Decision.**
+- All on-device SQL goes through `DeviceDb` (`apps/mobile/src/db/device-db.ts`):
+  `exec`, `run`, `all` and `transaction`. The app implements it with `expo-sqlite`;
+  Jest implements it with in-memory **sql.js** (SQLite compiled to WebAssembly), so
+  tests execute the real SQL.
+- The device schema changes only through numbered migrations (1, 2, 3 …, no gaps),
+  tracked in `PRAGMA user_version`. Each one runs in a transaction with its version
+  bump. Shipped migrations are never edited.
+- Each connection turns on `foreign_keys` and WAL before migrating.
+- Navigation uses `expo-router`, with routes in `apps/mobile/src/app/`.
+- Until `packages/config` lands (Ishant is creating it, see #14), mobile uses Expo's
+  own eslint and tsconfig, plus `no-explicit-any` as an error.
+
+**Consequences.** Other modules write their mobile SQL against one interface and get
+real SQL tests for free. Costs: sql.js is not byte-for-byte the SQLite build on the
+phone, so anything version-specific still needs a check on a device; `transaction`
+uses our own BEGIN/COMMIT, which, like `withTransactionAsync`, can pull in a query
+started outside it; and the shell has no app-wide database handle yet, which the
+outbox work adds.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
