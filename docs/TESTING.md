@@ -40,7 +40,40 @@ Run through the unhappy path, not just the happy one:
 pnpm test                      # everything
 pnpm test --filter=web         # one workspace
 pnpm test:db                   # SQL suites (needs Docker running)
+pnpm test:db sync_push         # one SQL suite: supabase/tests/sync_push_test.sql
 pnpm typecheck && pnpm lint    # before every commit
 ```
 
 CI runs all of these on every PR. A red build does not get reviewed.
+
+## SQL suites (`pnpm test:db`)
+
+`supabase/tests/run.sh` starts a throwaway `postgres:15` in Docker, applies
+`support/auth_shim.sql`, then **every** migration in order, then the suites. Name
+one or more suites to run only those; every migration is applied either way.
+CI runs every suite on every PR (job *SQL suites*).
+
+**One style, no pgTAP.** Suites use the shim helpers, not pgTAP:
+
+| Helper | What it does |
+| :-- | :-- |
+| `test_as(user_id)` | Act as that signed-in user (`role authenticated`, `auth.uid()` set). `test_as(null)` acts as signed in with no user id |
+| `test_as_anon()` | Act as `anon` |
+| `test_assert(ok, 'message')` | Raise `ASSERT FAILED: message` unless `ok` is true |
+
+Write each suite as `begin; … rollback;`, so it leaves nothing behind for the next
+one, and run `reset role` after acting as a user. Read rows back to check a
+write: a write blocked by RLS changes zero rows and raises nothing.
+
+**What a failure looks like.** The runner stops at the first failure, names the
+file, and exits non-zero:
+
+```
+suite    sync_push_test.sql
+psql:<stdin>:288: ERROR:  ASSERT FAILED: a handler that wrote a row and then returned rejected leaves no row
+FAILED   suite sync_push_test.sql
+```
+
+A migration that does not apply shows `FAILED   migration <file>`, and a suite
+with a syntax error shows the `ERROR` line followed by `FAILED   suite <file>`.
+In CI the same line also appears as an annotation on the run.
