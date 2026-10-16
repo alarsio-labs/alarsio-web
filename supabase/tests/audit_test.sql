@@ -35,23 +35,26 @@ begin
     (select relrowsecurity from pg_class where oid = 'public.audit_log'::regclass),
     'RLS enabled on audit_log');
   perform test_assert(
-    not exists (select 1 from pg_policies where schemaname = 'public' and tablename = 'audit_log'),
-    'audit_log has no policies at all');
+    (select count(*) from pg_policies where schemaname = 'public' and tablename = 'audit_log') = 1
+    and exists (select 1 from pg_policies
+                 where schemaname = 'public' and tablename = 'audit_log'
+                   and policyname = 'audit_log_select' and cmd = 'SELECT'),
+    'audit_log has exactly one policy, for SELECT');
+  perform test_assert(not has_table_privilege('anon', 'public.audit_log', 'SELECT'), 'anon has no SELECT');
+  perform test_assert(has_table_privilege('authenticated', 'public.audit_log', 'SELECT'), 'authenticated has SELECT (rows filtered by policy)');
   foreach r in array array['anon', 'authenticated'] loop
-    foreach p in array array['SELECT', 'INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] loop
+    foreach p in array array['INSERT', 'UPDATE', 'DELETE', 'TRUNCATE'] loop
       perform test_assert(not has_table_privilege(r, 'public.audit_log', p),
         r || ' has no ' || p || ' on audit_log');
     end loop;
   end loop;
 end $$;
 
--- Clients are refused outright, even the owner of the org the rows belong to.
+-- Clients cannot write, even the owner of the org the rows belong to.
 do $$
 declare denied int := 0;
 begin
   perform test_as('a0000000-0000-0000-0000-00000000000a');
-  begin perform count(*) from audit_log;
-  exception when insufficient_privilege then denied := denied + 1; end;
   begin insert into audit_log (table_name, row_id, operation, new_data)
         values ('memberships', gen_random_uuid(), 'INSERT', '{}');
   exception when insufficient_privilege then denied := denied + 1; end;
@@ -59,12 +62,61 @@ begin
   exception when insufficient_privilege then denied := denied + 1; end;
   begin delete from audit_log;
   exception when insufficient_privilege then denied := denied + 1; end;
+  begin truncate audit_log;
+  exception when insufficient_privilege then denied := denied + 1; end;
   reset role;
   perform test_as_anon();
   begin perform count(*) from audit_log;
   exception when insufficient_privilege then denied := denied + 1; end;
   reset role;
-  perform test_assert(denied = 5, 'authenticated and anon refused on audit_log');
+  perform test_assert(denied = 5, 'writes by authenticated and any read by anon refused on audit_log');
+end $$;
+
+-- Who may read (issue #19, criterion 7). Fixture rows: org A memberships,
+-- org B organisation and membership, and two profiles with a null org_id.
+do $$
+declare
+  total int; org_a int; org_b int; null_org int; seen int;
+begin
+  select count(*), count(*) filter (where org_id = 'aaaaaaaa-0000-0000-0000-000000000001'),
+         count(*) filter (where org_id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+         count(*) filter (where org_id is null)
+    into total, org_a, org_b, null_org from audit_log;
+  perform test_assert(org_a > 0 and org_b > 0 and null_org > 0, 'fixture has rows for org A, org B and null org');
+
+  -- alice, owner of A: exactly A's rows, none of B's, none with a null org.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  select count(*) into seen from audit_log;
+  perform test_assert(seen = org_a, 'owner of A sees exactly org A rows');
+  perform test_assert(not exists (select 1 from audit_log where org_id is distinct from 'aaaaaaaa-0000-0000-0000-000000000001'),
+    'owner of A sees no other org and no null-org row');
+  reset role;
+
+  -- eve, owner of B, sees only B.
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  select count(*) into seen from audit_log;
+  perform test_assert(seen = org_b, 'owner of B sees exactly org B rows');
+  reset role;
+
+  -- carol (PM) and bob (supervisor) of A see nothing, and frank (no org) sees nothing.
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  select count(*) into seen from audit_log;
+  perform test_assert(seen = 0, 'project_manager sees 0 audit rows');
+  reset role;
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  select count(*) into seen from audit_log;
+  perform test_assert(seen = 0, 'supervisor sees 0 audit rows');
+  reset role;
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  select count(*) into seen from audit_log;
+  perform test_assert(seen = 0, 'a user with no membership sees 0 audit rows');
+  reset role;
+
+  -- Reading by id does not leak across organisations either.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform test_assert(not exists (select 1 from audit_log where row_id = 'bbbbbbbb-0000-0000-0000-000000000002'),
+    'owner of A cannot read org B by row id');
+  reset role;
 end $$;
 
 -- The guard stops even the table owner.
@@ -295,6 +347,38 @@ begin
   perform test_assert(blocked, 'supervisor insert into memberships blocked');
 
   perform test_assert((select count(*) from audit_log) = before_n, 'blocked writes left no audit row');
+end $$;
+
+-- ------------------------- issue #19 criterion 6 · removing a user keeps history
+-- (The worker half arrives with Workforce, #24: anonymize_worker keeps the row.)
+
+do $$
+declare n_before bigint; max_before bigint; n_actor bigint; n_subject bigint;
+begin
+  -- bob changed his own profile earlier in this file: he is an actor and a subject.
+  select count(*) into n_actor from audit_log where actor_id = 'b0000000-0000-0000-0000-00000000000b';
+  select count(*) into n_subject from audit_log where row_id = 'b0000000-0000-0000-0000-00000000000b';
+  perform test_assert(n_actor > 0 and n_subject > 0, 'bob is both an actor and a subject in the log');
+  select count(*), max(id) into n_before, max_before from audit_log;
+
+  -- Remove bob completely, as the database owner (no client role may).
+  perform set_config('request.jwt.claim.sub', '', true);
+  delete from memberships where user_id = 'b0000000-0000-0000-0000-00000000000b';
+  delete from profiles where id = 'b0000000-0000-0000-0000-00000000000b';
+  delete from auth.users where id = 'b0000000-0000-0000-0000-00000000000b';
+
+  perform test_assert((select count(*) from audit_log where id <= max_before) = n_before,
+    'every row written before the removal still exists');
+  perform test_assert(
+    (select count(*) from audit_log where actor_id = 'b0000000-0000-0000-0000-00000000000b' and id <= max_before) = n_actor,
+    'rows bob wrote keep his actor_id');
+  perform test_assert(
+    (select count(*) from audit_log where row_id = 'b0000000-0000-0000-0000-00000000000b' and id <= max_before) = n_subject,
+    'rows about bob survive');
+  perform test_assert(
+    exists (select 1 from audit_log where table_name = 'profiles' and operation = 'DELETE'
+              and row_id = 'b0000000-0000-0000-0000-00000000000b'),
+    'the removal itself is recorded');
 end $$;
 
 rollback;
