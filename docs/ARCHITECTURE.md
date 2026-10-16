@@ -46,7 +46,7 @@ list, publish it deliberately and add it here in the same PR.
 | Materials | `apply_material_transaction` | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
 | Offline Sync | `sync_push(batch)` | — |
-| Audit & Guards | `write_audit` · `enforce_rate_limit` | — |
+| Audit & Guards | `write_audit` · `enforce_rate_limit(key, limit, window)` | — |
 
 ## The five ways modules may talk
 

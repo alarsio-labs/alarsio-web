@@ -116,7 +116,9 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
-- [ ] Removing a user or worker never deletes history
+- [ ] Removing a user or worker never deletes history — users proven (#19); worker half waits for Workforce (#24)
+- [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
+- [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
 ---
