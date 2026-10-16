@@ -857,4 +857,144 @@ begin
   reset role;
 end $$;
 
+-- ------------------------------------------------------ review_daily_report
+-- A submitted report on the archived site, filed before it closed.
+insert into public.daily_reports
+  (id, org_id, site_id, report_date, author_id, status, headcount, work_done, submitted_at, submitted_by) values
+  ('d1000000-0000-0000-0000-000000000041', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000003',
+   '2026-10-02', 'b0000000-0000-0000-0000-00000000000b', 'submitted', 2, 'Snagging', now(), 'b0000000-0000-0000-0000-00000000000b');
+
+do $$ begin
+  perform test_assert(
+    (select prosecdef and proconfig @> array['search_path=public']
+       from pg_proc where oid = 'public.review_daily_report(uuid, text)'::regprocedure),
+    'review_daily_report is security definer and pins search_path');
+  perform test_assert(
+    not has_function_privilege('anon', 'public.review_daily_report(uuid, text)', 'execute')
+    and not has_function_privilege('public', 'public.review_daily_report(uuid, text)', 'execute')
+    and has_function_privilege('authenticated', 'public.review_daily_report(uuid, text)', 'execute'),
+    'review_daily_report is revoked from public and anon, granted to authenticated');
+end $$;
+
+do $$
+declare denied int := 0; u uuid; m_unknown text; m_draft text; m_foreign text; m_wrong text;
+begin
+  -- anon cannot execute it, and a call with no user is refused.
+  perform test_as_anon();
+  begin perform review_daily_report('d1000000-0000-0000-0000-000000000001');
+  exception when insufficient_privilege then denied := denied + 1; end;
+  reset role;
+  perform test_as(null);
+  begin perform review_daily_report('d1000000-0000-0000-0000-000000000001');
+  exception when invalid_authorization_specification then denied := denied + 1; end;
+  reset role;
+  perform test_assert(denied = 2, 'anon and a call with no signed-in user are refused');
+
+  -- the wrong role, the wrong organisation: each is refused and changes nothing.
+  foreach u in array array['b0000000-0000-0000-0000-00000000000b',     -- the author
+                           'f0000000-0000-0000-0000-00000000000f',     -- a colleague
+                           '90000000-0000-0000-0000-000000000009',     -- supervisor elsewhere
+                           'd0000000-0000-0000-0000-00000000000d',     -- accountant
+                           'e0000000-0000-0000-0000-00000000000e']::uuid[] loop
+    denied := 0;
+    perform test_as(u);
+    begin perform review_daily_report('d1000000-0000-0000-0000-000000000001', 'sneaky');
+    exception when insufficient_privilege then denied := 1; end;
+    reset role;
+    perform test_assert(denied = 1, 'cannot review report R1: ' || u);
+  end loop;
+  perform test_assert((select status = 'submitted' and reviewed_by is null and review_note is null
+                         from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001'),
+    'R1 is untouched by refused reviews');
+
+  -- the owner of org A cannot review org B's report.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  begin perform review_daily_report('d1000000-0000-0000-0000-0000000000b1');
+  exception when insufficient_privilege then get stacked diagnostics m_foreign = message_text; end;
+  -- an unknown id, and a draft that exists, give the manager the same answer.
+  begin perform review_daily_report('d1000000-0000-0000-0000-0000000009ff');
+  exception when insufficient_privilege then get stacked diagnostics m_unknown = message_text; end;
+  reset role;
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  begin perform review_daily_report('d1000000-0000-0000-0000-000000000034');
+  exception when insufficient_privilege then get stacked diagnostics m_draft = message_text; end;
+  reset role;
+  perform test_assert(m_foreign is not null and m_foreign = m_unknown and m_unknown = m_draft,
+    'another org''s report, an unknown id and a draft all give the same error');
+  perform test_assert((select status from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000034') = 'draft',
+    'the draft is still a draft');
+end $$;
+
+do $$
+declare n int;
+begin
+  -- the project manager reviews, with a note.
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  perform review_daily_report('d1000000-0000-0000-0000-000000000021', '  Checked with the site engineer  ');
+  reset role;
+  perform test_assert(
+    (select status = 'reviewed' and reviewed_by = 'c0000000-0000-0000-0000-00000000000c' and reviewed_at is not null
+            and review_note = 'Checked with the site engineer'
+            and headcount = 6 and work_done = 'Brickwork'
+       from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000021'),
+    'a project_manager marks a report reviewed; the note is trimmed and the content is untouched');
+
+  -- the owner reviews, with no note (a blank one is stored as none).
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform review_daily_report('d1000000-0000-0000-0000-000000000033', '   ');
+  perform review_daily_report('d1000000-0000-0000-0000-000000000041');          -- archived site
+  reset role;
+  perform test_assert(
+    (select status = 'reviewed' and reviewed_by = 'a0000000-0000-0000-0000-00000000000a' and review_note is null
+       from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000033'),
+    'the owner marks a report reviewed with no note');
+  perform test_assert((select status = 'reviewed' from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000041'),
+    'a report on an archived site can still be reviewed');
+
+  -- a second review changes nothing: the first reviewer and note stay.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform review_daily_report('d1000000-0000-0000-0000-000000000021', 'Second thoughts');
+  reset role;
+  perform test_assert(
+    (select reviewed_by = 'c0000000-0000-0000-0000-00000000000c' and review_note = 'Checked with the site engineer'
+       from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000021'),
+    'reviewing a reviewed report is a no-op');
+
+  -- a note over 1000 characters is refused and the report stays submitted.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  begin perform review_daily_report('d1000000-0000-0000-0000-000000000001', repeat('x', 1001));
+  exception when invalid_parameter_value then n := 1; end;
+  perform review_daily_report('d1000000-0000-0000-0000-000000000001', repeat('x', 1000));
+  reset role;
+  perform test_assert(n = 1 and (select status = 'reviewed' and char_length(review_note) = 1000
+                                   from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001'),
+    'the note limit is 1000 characters');
+
+  -- reviewed is final: the author's edits now change 0 rows, even with a reason.
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  update public.daily_reports set headcount = 1, edit_reason = 'too late' where id = 'd1000000-0000-0000-0000-000000000001';
+  get diagnostics n = row_count;
+  reset role;
+  perform test_assert(n = 0 and (select headcount = 15 from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001'),
+    'a reviewed report can no longer be edited by its author');
+  -- ...but a late photo may still be added (D6).
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  insert into public.report_photos (id, org_id, site_id, report_id, storage_path, size_bytes, content_type)
+  values ('e2000000-0000-0000-0000-000000000003', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          'd1000000-0000-0000-0000-000000000001',
+          'aaaaaaaa-0000-0000-0000-000000000001/51000000-0000-0000-0000-000000000001/d1000000-0000-0000-0000-000000000001/e2000000-0000-0000-0000-000000000003.webp',
+          5000, 'image/webp');
+  reset role;
+  perform test_assert((select count(*) from public.report_photos where report_id = 'd1000000-0000-0000-0000-000000000001') = 2,
+    'a photo can still be added to a reviewed report');
+
+  -- the view shows the review.
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  perform test_assert(
+    (select status = 'reviewed' and reviewed_by = 'c0000000-0000-0000-0000-00000000000c' and review_note = 'Checked with the site engineer'
+       from public.daily_report_status where id = 'd1000000-0000-0000-0000-000000000021'),
+    'daily_report_status shows who reviewed and the note');
+  reset role;
+end $$;
+
 rollback;
