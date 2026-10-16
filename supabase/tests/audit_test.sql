@@ -350,7 +350,6 @@ begin
 end $$;
 
 -- ------------------------- issue #19 criterion 6 · removing a user keeps history
--- (The worker half arrives with Workforce, #24: anonymize_worker keeps the row.)
 
 do $$
 declare n_before bigint; max_before bigint; n_actor bigint; n_subject bigint;
@@ -379,6 +378,36 @@ begin
     exists (select 1 from audit_log where table_name = 'profiles' and operation = 'DELETE'
               and row_id = 'b0000000-0000-0000-0000-00000000000b'),
     'the removal itself is recorded');
+end $$;
+
+-- ... and anonymizing a worker keeps the worker's history too.
+do $$
+declare w uuid; n_before bigint;
+begin
+  perform test_as('a0000000-0000-0000-0000-00000000000a');            -- alice, owner A
+  insert into workers (org_id, code, full_name, trade, pay_type)
+  values ('aaaaaaaa-0000-0000-0000-000000000001', 'W-AUD-1', 'Ravi Kumar', 'mason', 'daily')
+  returning id into w;
+  perform anonymize_worker(w);
+  reset role;
+  perform set_config('request.jwt.claim.sub', '', true);
+
+  perform test_assert((select full_name from workers where id = w) = 'Anonymized worker',
+    'the worker row is anonymized, not removed');
+  perform test_assert((select count(*) from audit_log where table_name = 'workers' and row_id = w) = 2,
+    'the worker has an INSERT and an UPDATE audit row');
+  perform test_assert(
+    (select old_data ->> 'full_name' from audit_log
+      where table_name = 'workers' and row_id = w and operation = 'UPDATE') = 'Ravi Kumar',
+    'the earlier name stays in the log until the retention floor (ADR-012)');
+  perform test_assert(
+    (select actor_id from audit_log where table_name = 'workers' and row_id = w and operation = 'UPDATE')
+      = 'a0000000-0000-0000-0000-00000000000a',
+    'the anonymization records who did it');
+
+  -- No role may delete a worker, so history cannot be orphaned that way either.
+  perform test_assert(not has_table_privilege('authenticated', 'public.workers', 'DELETE'),
+    'no client may delete a worker');
 end $$;
 
 rollback;
