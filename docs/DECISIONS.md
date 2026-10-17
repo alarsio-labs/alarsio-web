@@ -477,8 +477,12 @@ and there is no team dev Supabase project yet.
 **Consequences.** Capture screens only save to the outbox and call `requestSync()`.
 Costs: until sign-in exists the app syncs nothing; an end-to-end test needs a dev
 Supabase project with the migrations applied; supabase-js adds about 0.8 MB to the
-bundle; and download of sites, materials and the roster to the phone is a separate,
-still unplanned piece of Offline Sync.
+bundle; download of sites, materials and the roster to the phone is a separate,
+still unplanned piece of Offline Sync; and the outbox does not record who captured a
+row, so on a shared phone records saved under one user would be pushed under the
+next user's session. That must be closed before sign-in ships (#14): tag each row
+with its author and send only the signed-in user's rows, or block sign-out until
+the outbox is empty.
 
 ---
 
