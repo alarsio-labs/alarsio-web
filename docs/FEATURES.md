@@ -120,7 +120,9 @@ entity handlers are wired in week 5.*
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
-- [ ] Removing a user or worker never deletes history
+- [x] Removing a user or worker never deletes history
+- [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
+- [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
 ---

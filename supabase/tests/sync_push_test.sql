@@ -17,7 +17,7 @@ create table public.sync_test_rate_calls (key text, max_hits int, win interval);
 grant select, insert, update on public.sync_test_rows, public.sync_test_rate_calls
   to authenticated;
 
--- Stand-in for Anuradha's enforce_rate_limit (#32). Records each call, and
+-- Replaces Anuradha's enforce_rate_limit (#32) for this file only. Records each call, and
 -- raises PT429 or an unrelated error when the test asks it to.
 create or replace function public.enforce_rate_limit(p_key text, p_limit int, p_window interval)
 returns void language plpgsql as $$

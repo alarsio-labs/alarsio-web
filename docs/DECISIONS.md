@@ -249,6 +249,53 @@ outbox work adds.
 
 ---
 
+## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
+**Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
+
+**Context.** `audit_log` was closed to everyone and had no way to shed old rows, and
+`sync_push` needs a flood guard (ADR-009). The PDFs say the rate limit is per
+organisation; issue #19 says per user. The roadmap (CUJ-6) keeps attendance and wage
+records at least three years.
+
+**Decision.**
+- **Reading.** `audit_log_select` policy: `org_id is not null and is_org_owner(org_id)`,
+  plus `grant select` to `authenticated`. Project managers, supervisors and accountants
+  see zero rows; rows with a null `org_id` (`profiles`) stay closed. A policy, not a
+  function. No client gains any write.
+- **Rate limit.** `enforce_rate_limit(p_key text, p_limit int, p_window interval)
+  returns void`, `SECURITY DEFINER`, executable by `authenticated`. Counted **per user**
+  (`auth.uid()`) and key, in a fixed window; this supersedes "per organisation" in the
+  workflows and design PDFs. Past the limit it raises SQLSTATE **`PT429`** with a retry
+  HINT; nothing else raises it. Keys are an allowlist with a ceiling and a minimum
+  window each (`sync_push` 120 per 1 minute, `create_invite` 30 per 1 hour,
+  `accept_invite` 10 per 1 hour): a caller may be stricter, never looser, so calling the
+  function directly cannot loosen or reset one's own limit. `rate_limit_counters` has
+  RLS, no policies, no grants. The increment rolls back with the caller's transaction.
+- **Retention floor.** Three years, in `audit_retention_floor()`. `purge_audit_log(
+  p_before, p_reason)` is the only way to delete from `audit_log`. It is executable by no
+  client role (an operator runs it), needs a reason of 10+ characters, and refuses a
+  cutoff inside the floor. The append-only guard allows DELETE only while the purge's
+  transaction-local switch is on **and** the row is older than the floor; UPDATE and
+  TRUNCATE stay blocked for everyone. `purge_log` also has a table CHECK that a row
+  cannot record a purge inside the floor. So the floor is enforced in three places.
+- **`purge_log`.** Append-only, no client grant, one row per purge (including one that
+  matches nothing), none for a refused purge. It records counts, not purged rows.
+  It carries no audit trigger: it is itself a log.
+- **Removing a user or worker** never touches `audit_log`: `actor_id` has no foreign
+  key. An anonymized worker's earlier name stays in `audit_log` until the floor passes;
+  this is the documented retention exception (roadmap), pending counsel review, rather
+  than a second path past the guard.
+
+**Consequences.** Owners can finally see their organisation's history, a stuck phone
+cannot starve its colleagues, and no row younger than three years can be purged by any
+route short of dropping the guard. Costs: raising a rate ceiling or the floor needs a
+migration; a superuser can still drop the triggers, as before; there is no scheduler,
+so purges are run by hand; `rate_limit_counters` rows are never cleaned up (one row per
+user and key, so small); and the design PDF's name `purge_expired_non_statutory`
+differs from `purge_audit_log`.
+
+---
+
 ## ADR-014 · sync_push envelope, handler contract and failure rules
 **Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish and Anuradha on #13)
 
@@ -284,9 +331,9 @@ count back with the caller's transaction, which matters for how errors are retur
 a poison record or a rate-limited phone each has one defined outcome. Costs: the
 no-duplicate guarantee depends on each of seven handlers being idempotent, which a
 shared handler contract test must check when they are wired (week 5); a sub-transaction
-per record costs a little per record, capped by the 100-record limit; and until
-`enforce_rate_limit` (#32) merges, `sync_push` fails on a real database, which is
-acceptable because nothing calls it before week 5.
+per record costs a little per record, capped by the 100-record limit; and
+`sync_push` depends on `enforce_rate_limit` (#32): if that function is ever removed
+or renamed, every push fails instead of running unlimited.
 
 ---
 
