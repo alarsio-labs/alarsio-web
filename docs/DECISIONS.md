@@ -325,6 +325,44 @@ negative balance does, and where the low-stock threshold lives.
 is never lost. Costs: a new unit needs a migration; a supervisor cannot add a material
 that is not defined yet (watch it in the pilot); and a manager can still rename a
 material on an archived site.
+## ADR-014 · sync_push envelope, handler contract and failure rules
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish and Anuradha on #13)
+
+**Context.** ADR-009 fixed the four verdicts. Field modules also need to know what
+the phone sends, how a record reaches their table, and what happens when something
+fails, before they build their tables in weeks 3–4. The rate limit (#19) rolls its
+count back with the caller's transaction, which matters for how errors are returned.
+
+**Decision.**
+- `sync_push(p_batch jsonb) returns jsonb` is `SECURITY INVOKER`, executable by
+  `authenticated` only, and refuses a call with no `auth.uid()`. Envelope:
+  `{ version: 1, device_id, records: [{ entity, record_id, payload }] }`, with 0–100
+  records and `(entity, record_id)` unique within a batch. The response is
+  `{ results: [...] }`, one result per record, in request order.
+- A bad envelope is answered as `{ error: "invalid_envelope", reason }`, not raised,
+  so the rate-limit increment is kept and malformed calls still count.
+- `enforce_rate_limit('sync_push', 120, '1 minute')` runs once per call, before
+  anything else. Only `PT429` is caught, and it makes every record
+  `retryable_error` / `rate_limited`. Any other error, including the function being
+  missing, fails the whole call. The router never skips the limit.
+- Each record goes to `sync_<entity>(p_record_id uuid, p_payload jsonb) returns
+  sync_result`, for one of seven fixed entities, in its own sub-transaction. A
+  record whose handler does not return `accepted` leaves no rows. Handler
+  exceptions map to fixed reason codes (#33). Database error text never reaches
+  the client.
+- The handler, not the router, decides replay against conflict, because only the
+  owning module knows which columns are "the same content".
+- A handler must cast what it returns, e.g. `return ('accepted', null)::public.sync_result;`.
+  A bare `('accepted', null)` fails at run time ("returned type unknown does not
+  match expected type sync_verdict"), and the router reports it as `server_error`.
+
+**Consequences.** Every field module codes against one fixed shape, and a replay,
+a poison record or a rate-limited phone each has one defined outcome. Costs: the
+no-duplicate guarantee depends on each of seven handlers being idempotent, which a
+shared handler contract test must check when they are wired (week 5); a sub-transaction
+per record costs a little per record, capped by the 100-record limit; and
+`sync_push` depends on `enforce_rate_limit` (#32): if that function is ever removed
+or renamed, every push fails instead of running unlimited.
 
 ---
 
