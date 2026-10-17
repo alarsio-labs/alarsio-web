@@ -415,6 +415,39 @@ or renamed, every push fails instead of running unlimited.
 
 ---
 
+## ADR-016 · The device outbox: one row per record, dirty edits, backoff, recovery
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #39)
+
+**Context.** Every field record must survive no signal and a killed app, reach the
+server exactly once (ADR-009, #33), and never show as submitted early. The outbox is
+the one place on the phone that decides what is sent and what each answer means.
+
+**Decision.**
+- Device migration 1 creates `outbox`: one row per `(entity, record_id)`, with
+  `seq` as the send order, so a parent captured first is sent first. The table
+  itself checks the entity list, the status list and that the payload is a JSON
+  object.
+- Saving a record again keeps its row and its place, and takes the new payload. If
+  its batch is in flight, the row is marked `dirty`, and after any verdict it
+  returns to `pending`, so an edit made during a push (a draft submitted while the
+  draft was being sent) is never lost.
+- A batch is at most 100 rows: `pending`, plus `failed` rows whose retry is due.
+  `retryable_error` and a failed push back off 30 s, 60 s, 2 min, …, at most 30 min.
+  `conflict` and `rejected` are never retried by themselves; saving the record
+  again re-queues it.
+- On app start, rows left `syncing` by a killed app return to `pending`. This is
+  safe because the server never duplicates a replayed record.
+- Only `accepted` makes a row `synced`, the one state the app may call
+  "submitted". Ids come from `expo-crypto`'s `randomUUID` on the phone.
+
+**Consequences.** The sender (week 5) only has to claim a batch, send it, and hand
+back the answers or a failure. Costs: one in-flight batch at a time, by design; a
+record waiting on a 30-minute backoff waits even if the network returns sooner
+(the sender may later offer a manual retry); and `synced` rows stay in the table
+until a cleanup rule is decided.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
