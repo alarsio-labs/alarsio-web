@@ -16,7 +16,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
-| 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
+| 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
 | 8 | **Offline Sync** | Nikhil | 🟡 | device SQLite outbox, `sync_push` |
 | 9 | **Audit, Retention & Guards** | Anuradha | 🟡 | `audit_log`, `purge_log`, `rate_limit_counters` |
@@ -94,7 +94,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
 ### 6 · Materials & Inventory
-- [ ] Define materials per site with unit and low-stock threshold
+- [x] Define materials per site with unit and low-stock threshold
 - [ ] Record opening balance, receipt, usage, adjustment
 - [ ] Running balance computed server-side
 - [ ] Warn on low or negative stock; a reason is mandatory on adjustment
