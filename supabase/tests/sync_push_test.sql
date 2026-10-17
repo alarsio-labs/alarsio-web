@@ -1,4 +1,4 @@
--- Offline Sync: sync_push router. Issue #33, ADR-009, ADR-013.
+-- Offline Sync: sync_push router. Issue #33, ADR-009, ADR-014.
 --
 -- No real handlers exist yet, so this file creates test-only stand-ins inside
 -- its own transaction and rolls them back: a handler for material_transactions
@@ -49,6 +49,7 @@ begin
     when 'not_null'       then raise exception 'nn'  using errcode = '23502';
     when 'bad_number'     then perform ('not a number')::int;
     when 'unique'         then raise exception 'uq'  using errcode = '23505';
+    when 'invalid_state'  then raise exception 'st'  using errcode = '55000';
     when 'missing_parent' then raise exception 'fk'  using errcode = '23503';
     when 'busy'           then raise exception 'ser' using errcode = '40001';
     when 'deadlock'       then raise exception 'dl'  using errcode = '40P01';
@@ -339,13 +340,14 @@ begin
       {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000007", "payload": {"mode": "deadlock"}},
       {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000008", "payload": {"mode": "locked"}},
       {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000009", "payload": {"mode": "boom"}},
-      {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000010", "payload": {"mode": "null"}}]'));
+      {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000010", "payload": {"mode": "null"}},
+      {"entity": "material_transactions", "record_id": "55555555-0000-0000-0000-000000000011", "payload": {"mode": "invalid_state"}}]'));
 
   perform test_assert(
     public.sync_test_verdicts(v_response) = 'rejected:permission_denied,rejected:invalid_input,'
       || 'rejected:invalid_input,conflict:duplicate,retryable_error:missing_parent,'
       || 'retryable_error:busy,retryable_error:busy,retryable_error:busy,'
-      || 'retryable_error:server_error,retryable_error:server_error',
+      || 'retryable_error:server_error,retryable_error:server_error,rejected:invalid_state',
     format('exception mapping, got %s', public.sync_test_verdicts(v_response)));
   perform test_assert(position('secret internal detail' in v_response::text) = 0,
     'a database error message never reaches the phone');

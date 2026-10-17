@@ -1,5 +1,5 @@
 -- Offline Sync: the sync_push router and the result type every handler returns.
--- Owner: Nikhil. Issue #33. Verdicts: ADR-009. Handler contract: #13. Shape: ADR-013.
+-- Owner: Nikhil. Issue #33. Verdicts: ADR-009. Handler contract: #13. Shape: ADR-014.
 --
 -- sync_push is a thin router (ARCHITECTURE rule 5). It checks the envelope, calls
 -- the rate limit once, then hands each record to its owning module's handler,
@@ -15,7 +15,7 @@ create type public.sync_verdict as enum (
 -- What a handler returns: the verdict, and a short reason code for anything
 -- other than accepted. Never a database error message.
 -- Cast it in RETURN: `return ('accepted', null)::public.sync_result;`. Without the
--- cast PL/pgSQL fails at run time, and sync_push reports server_error (ADR-013).
+-- cast PL/pgSQL fails at run time, and sync_push reports server_error (ADR-014).
 create type public.sync_result as (
   verdict public.sync_verdict,
   reason  text
@@ -158,6 +158,13 @@ begin
           v_result := ('retryable_error', 'missing_parent');
         when serialization_failure or deadlock_detected or lock_not_available then
           v_result := ('retryable_error', 'busy');
+        -- A guard refused a move the record's state does not allow, such as
+        -- submitted back to draft (Daily Reporting) or a new assignment on an
+        -- archived site (Sites). Sending it again cannot help. This must come
+        -- after the lock clause above: a code ending in 000 matches its whole
+        -- class, so this also catches 55P03 if it is reached first.
+        when sqlstate '55000' then
+          v_result := ('rejected', 'invalid_state');
         when others then
           v_result := ('retryable_error', 'server_error');
       end;
