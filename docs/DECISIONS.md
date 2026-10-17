@@ -448,6 +448,40 @@ until a cleanup rule is decided.
 
 ---
 
+## ADR-018 · The sync sender: transport seam, signed-in only, one run at a time
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #47)
+
+**Context.** The outbox (ADR-016) and `sync_push` (ADR-014) exist; nothing yet moves
+records from one to the other. The PRD asks that records "sync on their own when the
+network returns". No Supabase client exists on the phone, sign-in is Identity's (#14),
+and there is no team dev Supabase project yet.
+
+**Decision.**
+- `runSync()` claims a batch, sends `{ version: 1, device_id, records }`, applies the
+  verdicts and releases anything unanswered, up to 5 batches per run. A failed call or
+  a refused envelope releases the batch and stops the run; the outbox backoff decides
+  the next try.
+- **Nothing is claimed when no one is signed in**, so records are not marked failed,
+  and do not pile up backoff, for a reason that is not theirs.
+- The server is reached only through a `SyncTransport` (`hasSession`, `push`). The real
+  one calls `supabase.rpc('sync_push')` and turns an error into a reason code
+  (`server:<SQLSTATE>` or `network`), so every sender path is tested without a network.
+- Runs never overlap (`singleFlight`). They start once at launch, on returning to the
+  foreground, when connectivity returns, every 60 s while open, and 2 s after
+  `requestSync()`, which capture screens call after a save.
+- The device id lives in device migration 2 (`device_settings`) and is for logging only.
+- The app's one Supabase client uses the publishable key and stores the session
+  encrypted (the Supabase Expo guide's `LargeSecureStore`), because site phones get
+  lost and shared. Sign-in screens stay Identity's.
+
+**Consequences.** Capture screens only save to the outbox and call `requestSync()`.
+Costs: until sign-in exists the app syncs nothing; an end-to-end test needs a dev
+Supabase project with the migrations applied; supabase-js adds about 0.8 MB to the
+bundle; and download of sites, materials and the roster to the phone is a separate,
+still unplanned piece of Offline Sync.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
