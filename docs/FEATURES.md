@@ -95,9 +95,9 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
-- [ ] Record opening balance, receipt, usage, adjustment
-- [ ] Running balance computed server-side
-- [ ] Warn on low or negative stock; a reason is mandatory on adjustment
+- [x] Record opening balance, receipt, usage, adjustment
+- [x] Running balance computed server-side
+- [x] Warn on low or negative stock; a reason is mandatory on adjustment
 
 ### 7 · Wage Summaries
 - [ ] Weekly or monthly period, using **approved attendance only**
