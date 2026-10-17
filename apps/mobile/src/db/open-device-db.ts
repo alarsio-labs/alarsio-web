@@ -3,6 +3,7 @@
 
 import * as SQLite from 'expo-sqlite';
 
+import { recoverInterrupted } from '../sync/outbox';
 import { serialTransactions, type DeviceDb } from './device-db';
 import { deviceMigrations } from './migrations';
 import { prepareDeviceDb } from './prepare-device-db';
@@ -13,6 +14,8 @@ export async function openDeviceDb(): Promise<DeviceDb> {
   const native = await SQLite.openDatabaseAsync(DEVICE_DB_NAME);
   const db = wrapExpoDatabase(native);
   await prepareDeviceDb(db, deviceMigrations);
+  // A push the app was killed during left rows syncing; queue them again.
+  await recoverInterrupted(db);
   return db;
 }
 
