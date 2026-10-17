@@ -249,6 +249,38 @@ outbox work adds.
 
 ---
 
+## ADR-015 · Materials: fixed units, a unit that never changes, warn on negative stock
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #30)
+
+**Context.** Materials is defined per site and fed by a ledger that phones write
+offline (part 2, week 4). The issue left open the quantity type, the units, what a
+negative balance does, and where the low-stock threshold lives.
+
+**Decision.**
+- Quantities and the threshold are `numeric(12,3)`.
+- `unit` is text + CHECK over a fixed list: `nos, bag, kg, tonne, litre, cft, cum,
+  sqft, sqm, rft, m, brass, trip`. A unit is **fixed once the material exists**:
+  there is no update grant on it, because changing bags to kg would silently change
+  what every earlier ledger row means. A wrong unit means a new material.
+- A negative balance is **warned, never blocked**. Two phones offline can both record
+  usage, and only the server sees the total, so blocking would bounce real field
+  records. Part 2 flags it in `material_alerts`.
+- The threshold lives on the material; null means no alert.
+- Managers (`can_manage_sites`) define and edit materials on the dashboard; only the
+  name and threshold change, and nothing is deleted. Reading follows
+  `has_site_access`. Recording (part 2) follows `can_record_on_site`.
+- On an archived site, definitions stay editable by managers. The ledger is closed
+  there by `can_record_on_site`, and freezing definitions too would mean reading
+  Sites' `status` column, which the boundary rules allow only through a published
+  Sites function or view.
+
+**Consequences.** Units stay comparable across sites and exports, and offline usage
+is never lost. Costs: a new unit needs a migration; a supervisor cannot add a material
+that is not defined yet (watch it in the pilot); and a manager can still rename a
+material on an archived site.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
