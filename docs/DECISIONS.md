@@ -249,6 +249,55 @@ outbox work adds.
 
 ---
 
+## ADR-011 · Workforce schema: split wage rates, append-only, anonymize instead of delete
+**Date:** 2026-10-16 · **Status:** Accepted · **By:** Ishant (review: Manish, on #23)
+
+*First merged as a second ADR-010; renumbered. Migration comments that say
+"ADR-010" for Workforce mean this one.*
+
+**Context.** Attendance points at workers, and Wage Summaries reads rates, so the shape
+spreads (issue #23). Rates are also the one thing a supervisor must never read, while
+the same supervisor needs the roster to mark attendance.
+
+**Decision.**
+- W1. Pay type is `daily` or `hourly`, as `text` + `CHECK`. Overtime pay belongs to
+  Wage Summaries.
+- W2. Rates live in `worker_wage_rates`, apart from `workers`, so RLS can close them
+  with `can_view_wages(org_id)` (owner and accountant) while `workers` stays readable
+  by the roster rule. A rate is `numeric(12,2)` rupees, greater than zero.
+- W3. Rates are effective-dated and append-only: a new rate is a new row, there is no
+  UPDATE or DELETE grant, and two rates cannot start on the same day. Owner and
+  accountant may add one (`can_view_wages`). `worker_effective_rates` (security
+  invoker) and `worker_rate_on(worker, date)` are how others read them.
+- W4. The worker code is chosen by the contractor and unique per organisation,
+  ignoring case. It and `org_id` cannot be changed after creation.
+- W5. Personal data is a name and an optional phone. One worker row per organisation.
+- W6. Nothing is deleted. `status` retires a worker; `anonymize_worker()` clears the
+  name and phone, closes open assignments, and is terminal. Assignments close
+  (`unassigned_at`), as in Sites, and a closed one is never reopened.
+- W7. The roster rule is `has_worker_access(worker)`: owner and project_manager
+  across the org, anyone with `has_site_access` to a site the worker is assigned to.
+  It is private to Workforce; other modules read a view.
+- W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
+  rows, one result per row. It takes the organisation as an argument because a user
+  may belong to several.
+- W9. Attendance reads the roster only through `worker_roster` (security
+  invoker): one row per assignment, open and closed, with worker code, name,
+  trade and status, and no rates. So a closed row keeps its name,
+  `has_worker_access` also counts a closed assignment at a site the caller can
+  access: a supervisor sees everyone ever rostered at their site, no one else.
+
+**Consequences.** A supervisor can run attendance without ever seeing pay. Rate
+history is complete, so a wage summary can be reproduced for any past date. Costs:
+`audit_log` records the old row on an update, so an anonymized worker's earlier name
+stays in the log until the retention decision (#19) says how to purge it; the
+`workers_select` policy tests `can_manage_sites` first because a row being inserted
+is not yet visible to `has_worker_access`; and `import_workers` is not the published
+function the architecture lists as `import_workers(rows)`, so ARCHITECTURE.md gains
+the extra argument.
+
+---
+
 ## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
 **Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
 
@@ -293,6 +342,47 @@ migration; a superuser can still drop the triggers, as before; there is no sched
 so purges are run by hand; `rate_limit_counters` rows are never cleaned up (one row per
 user and key, so small); and the design PDF's name `purge_expired_non_statutory`
 differs from `purge_audit_log`.
+
+---
+
+## ADR-014 · sync_push envelope, handler contract and failure rules
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish and Anuradha on #13)
+
+**Context.** ADR-009 fixed the four verdicts. Field modules also need to know what
+the phone sends, how a record reaches their table, and what happens when something
+fails, before they build their tables in weeks 3–4. The rate limit (#19) rolls its
+count back with the caller's transaction, which matters for how errors are returned.
+
+**Decision.**
+- `sync_push(p_batch jsonb) returns jsonb` is `SECURITY INVOKER`, executable by
+  `authenticated` only, and refuses a call with no `auth.uid()`. Envelope:
+  `{ version: 1, device_id, records: [{ entity, record_id, payload }] }`, with 0–100
+  records and `(entity, record_id)` unique within a batch. The response is
+  `{ results: [...] }`, one result per record, in request order.
+- A bad envelope is answered as `{ error: "invalid_envelope", reason }`, not raised,
+  so the rate-limit increment is kept and malformed calls still count.
+- `enforce_rate_limit('sync_push', 120, '1 minute')` runs once per call, before
+  anything else. Only `PT429` is caught, and it makes every record
+  `retryable_error` / `rate_limited`. Any other error, including the function being
+  missing, fails the whole call. The router never skips the limit.
+- Each record goes to `sync_<entity>(p_record_id uuid, p_payload jsonb) returns
+  sync_result`, for one of seven fixed entities, in its own sub-transaction. A
+  record whose handler does not return `accepted` leaves no rows. Handler
+  exceptions map to fixed reason codes (#33). Database error text never reaches
+  the client.
+- The handler, not the router, decides replay against conflict, because only the
+  owning module knows which columns are "the same content".
+- A handler must cast what it returns, e.g. `return ('accepted', null)::public.sync_result;`.
+  A bare `('accepted', null)` fails at run time ("returned type unknown does not
+  match expected type sync_verdict"), and the router reports it as `server_error`.
+
+**Consequences.** Every field module codes against one fixed shape, and a replay,
+a poison record or a rate-limited phone each has one defined outcome. Costs: the
+no-duplicate guarantee depends on each of seven handlers being idempotent, which a
+shared handler contract test must check when they are wired (week 5); a sub-transaction
+per record costs a little per record, capped by the 100-record limit; and
+`sync_push` depends on `enforce_rate_limit` (#32): if that function is ever removed
+or renamed, every push fails instead of running unlimited.
 
 ---
 
@@ -342,44 +432,3 @@ until a cleanup rule is decided.
 **Consequences.** What this makes easy, and what it makes hard. Be honest about
 the cost — a decision with no downside is usually a decision not yet understood.
 ```
-
----
-
-## ADR-010 · Workforce schema: split wage rates, append-only, anonymize instead of delete
-**Date:** 2026-10-16 · **Status:** Proposed · **By:** Ishant (review: Manish)
-
-**Context.** Attendance points at workers, and Wage Summaries reads rates, so the shape
-spreads (issue #23). Rates are also the one thing a supervisor must never read, while
-the same supervisor needs the roster to mark attendance.
-
-**Decision.**
-- W1. Pay type is `daily` or `hourly`, as `text` + `CHECK`. Overtime pay belongs to
-  Wage Summaries.
-- W2. Rates live in `worker_wage_rates`, apart from `workers`, so RLS can close them
-  with `can_view_wages(org_id)` (owner and accountant) while `workers` stays readable
-  by the roster rule. A rate is `numeric(12,2)` rupees, greater than zero.
-- W3. Rates are effective-dated and append-only: a new rate is a new row, there is no
-  UPDATE or DELETE grant, and two rates cannot start on the same day. Owner and
-  accountant may add one (`can_view_wages`). `worker_effective_rates` (security
-  invoker) and `worker_rate_on(worker, date)` are how others read them.
-- W4. The worker code is chosen by the contractor and unique per organisation,
-  ignoring case. It and `org_id` cannot be changed after creation.
-- W5. Personal data is a name and an optional phone. One worker row per organisation.
-- W6. Nothing is deleted. `status` retires a worker; `anonymize_worker()` clears the
-  name and phone, closes open assignments, and is terminal. Assignments close
-  (`unassigned_at`), as in Sites, and a closed one is never reopened.
-- W7. The roster rule is `has_worker_access(worker)`: owner and project_manager
-  across the org, anyone with `has_site_access` to a site the worker is assigned to.
-  It is private to Workforce; other modules read a view.
-- W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
-  rows, one result per row. It takes the organisation as an argument because a user
-  may belong to several.
-
-**Consequences.** A supervisor can run attendance without ever seeing pay. Rate
-history is complete, so a wage summary can be reproduced for any past date. Costs:
-`audit_log` records the old row on an update, so an anonymized worker's earlier name
-stays in the log until the retention decision (#19) says how to purge it; the
-`workers_select` policy tests `can_manage_sites` first because a row being inserted
-is not yet visible to `has_worker_access`; and `import_workers` is not the published
-function the architecture lists as `import_workers(rows)`, so ARCHITECTURE.md gains
-the extra argument.
