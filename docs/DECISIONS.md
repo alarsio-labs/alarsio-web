@@ -249,24 +249,11 @@ outbox work adds.
 
 ---
 
-## Template — copy this for a new decision
+## ADR-011 · Workforce schema: split wage rates, append-only, anonymize instead of delete
+**Date:** 2026-10-16 · **Status:** Accepted · **By:** Ishant (review: Manish, on #23)
 
-```
-## ADR-00N · Short title
-**Date:** YYYY-MM-DD · **Status:** Proposed | Accepted | Superseded by ADR-00M · **By:** name
-
-**Context.** What situation forced a choice?
-
-**Decision.** What we chose, in one or two sentences.
-
-**Consequences.** What this makes easy, and what it makes hard. Be honest about
-the cost — a decision with no downside is usually a decision not yet understood.
-```
-
----
-
-## ADR-010 · Workforce schema: split wage rates, append-only, anonymize instead of delete
-**Date:** 2026-10-16 · **Status:** Proposed · **By:** Ishant (review: Manish)
+*First merged as a second ADR-010; renumbered. Migration comments that say
+"ADR-010" for Workforce mean this one.*
 
 **Context.** Attendance points at workers, and Wage Summaries reads rates, so the shape
 spreads (issue #23). Rates are also the one thing a supervisor must never read, while
@@ -294,6 +281,11 @@ the same supervisor needs the roster to mark attendance.
 - W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
   rows, one result per row. It takes the organisation as an argument because a user
   may belong to several.
+- W9. Attendance reads the roster only through `worker_roster` (security
+  invoker): one row per assignment, open and closed, with worker code, name,
+  trade and status, and no rates. So a closed row keeps its name,
+  `has_worker_access` also counts a closed assignment at a site the caller can
+  access: a supervisor sees everyone ever rostered at their site, no one else.
 
 **Consequences.** A supervisor can run attendance without ever seeing pay. Rate
 history is complete, so a wage summary can be reproduced for any past date. Costs:
@@ -360,3 +352,166 @@ date is refused by the unique key (sync will show a conflict); the photo-limit t
 runs before RLS and so steps aside for callers the policy will refuse; and the bucket
 policies on `storage.objects` are tested here only against a shim, so they need one
 check on a real Supabase project.
+## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
+**Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
+
+**Context.** `audit_log` was closed to everyone and had no way to shed old rows, and
+`sync_push` needs a flood guard (ADR-009). The PDFs say the rate limit is per
+organisation; issue #19 says per user. The roadmap (CUJ-6) keeps attendance and wage
+records at least three years.
+
+**Decision.**
+- **Reading.** `audit_log_select` policy: `org_id is not null and is_org_owner(org_id)`,
+  plus `grant select` to `authenticated`. Project managers, supervisors and accountants
+  see zero rows; rows with a null `org_id` (`profiles`) stay closed. A policy, not a
+  function. No client gains any write.
+- **Rate limit.** `enforce_rate_limit(p_key text, p_limit int, p_window interval)
+  returns void`, `SECURITY DEFINER`, executable by `authenticated`. Counted **per user**
+  (`auth.uid()`) and key, in a fixed window; this supersedes "per organisation" in the
+  workflows and design PDFs. Past the limit it raises SQLSTATE **`PT429`** with a retry
+  HINT; nothing else raises it. Keys are an allowlist with a ceiling and a minimum
+  window each (`sync_push` 120 per 1 minute, `create_invite` 30 per 1 hour,
+  `accept_invite` 10 per 1 hour): a caller may be stricter, never looser, so calling the
+  function directly cannot loosen or reset one's own limit. `rate_limit_counters` has
+  RLS, no policies, no grants. The increment rolls back with the caller's transaction.
+- **Retention floor.** Three years, in `audit_retention_floor()`. `purge_audit_log(
+  p_before, p_reason)` is the only way to delete from `audit_log`. It is executable by no
+  client role (an operator runs it), needs a reason of 10+ characters, and refuses a
+  cutoff inside the floor. The append-only guard allows DELETE only while the purge's
+  transaction-local switch is on **and** the row is older than the floor; UPDATE and
+  TRUNCATE stay blocked for everyone. `purge_log` also has a table CHECK that a row
+  cannot record a purge inside the floor. So the floor is enforced in three places.
+- **`purge_log`.** Append-only, no client grant, one row per purge (including one that
+  matches nothing), none for a refused purge. It records counts, not purged rows.
+  It carries no audit trigger: it is itself a log.
+- **Removing a user or worker** never touches `audit_log`: `actor_id` has no foreign
+  key. An anonymized worker's earlier name stays in `audit_log` until the floor passes;
+  this is the documented retention exception (roadmap), pending counsel review, rather
+  than a second path past the guard.
+
+**Consequences.** Owners can finally see their organisation's history, a stuck phone
+cannot starve its colleagues, and no row younger than three years can be purged by any
+route short of dropping the guard. Costs: raising a rate ceiling or the floor needs a
+migration; a superuser can still drop the triggers, as before; there is no scheduler,
+so purges are run by hand; `rate_limit_counters` rows are never cleaned up (one row per
+user and key, so small); and the design PDF's name `purge_expired_non_statutory`
+differs from `purge_audit_log`.
+
+---
+
+## ADR-015 · Materials: fixed units, a unit that never changes, warn on negative stock
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #30)
+
+**Context.** Materials is defined per site and fed by a ledger that phones write
+offline (part 2, week 4). The issue left open the quantity type, the units, what a
+negative balance does, and where the low-stock threshold lives.
+
+**Decision.**
+- Quantities and the threshold are `numeric(12,3)`.
+- `unit` is text + CHECK over a fixed list: `nos, bag, kg, tonne, litre, cft, cum,
+  sqft, sqm, rft, m, brass, trip`. A unit is **fixed once the material exists**:
+  there is no update grant on it, because changing bags to kg would silently change
+  what every earlier ledger row means. A wrong unit means a new material.
+- A negative balance is **warned, never blocked**. Two phones offline can both record
+  usage, and only the server sees the total, so blocking would bounce real field
+  records. Part 2 flags it in `material_alerts`.
+- The threshold lives on the material; null means no alert.
+- Managers (`can_manage_sites`) define and edit materials on the dashboard; only the
+  name and threshold change, and nothing is deleted. Reading follows
+  `has_site_access`. Recording (part 2) follows `can_record_on_site`.
+- On an archived site, definitions stay editable by managers. The ledger is closed
+  there by `can_record_on_site`, and freezing definitions too would mean reading
+  Sites' `status` column, which the boundary rules allow only through a published
+  Sites function or view.
+
+**Consequences.** Units stay comparable across sites and exports, and offline usage
+is never lost. Costs: a new unit needs a migration; a supervisor cannot add a material
+that is not defined yet (watch it in the pilot); and a manager can still rename a
+material on an archived site.
+## ADR-014 · sync_push envelope, handler contract and failure rules
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Nikhil (handler shape agreed with Manish and Anuradha on #13)
+
+**Context.** ADR-009 fixed the four verdicts. Field modules also need to know what
+the phone sends, how a record reaches their table, and what happens when something
+fails, before they build their tables in weeks 3–4. The rate limit (#19) rolls its
+count back with the caller's transaction, which matters for how errors are returned.
+
+**Decision.**
+- `sync_push(p_batch jsonb) returns jsonb` is `SECURITY INVOKER`, executable by
+  `authenticated` only, and refuses a call with no `auth.uid()`. Envelope:
+  `{ version: 1, device_id, records: [{ entity, record_id, payload }] }`, with 0–100
+  records and `(entity, record_id)` unique within a batch. The response is
+  `{ results: [...] }`, one result per record, in request order.
+- A bad envelope is answered as `{ error: "invalid_envelope", reason }`, not raised,
+  so the rate-limit increment is kept and malformed calls still count.
+- `enforce_rate_limit('sync_push', 120, '1 minute')` runs once per call, before
+  anything else. Only `PT429` is caught, and it makes every record
+  `retryable_error` / `rate_limited`. Any other error, including the function being
+  missing, fails the whole call. The router never skips the limit.
+- Each record goes to `sync_<entity>(p_record_id uuid, p_payload jsonb) returns
+  sync_result`, for one of seven fixed entities, in its own sub-transaction. A
+  record whose handler does not return `accepted` leaves no rows. Handler
+  exceptions map to fixed reason codes (#33). Database error text never reaches
+  the client.
+- The handler, not the router, decides replay against conflict, because only the
+  owning module knows which columns are "the same content".
+- A handler must cast what it returns, e.g. `return ('accepted', null)::public.sync_result;`.
+  A bare `('accepted', null)` fails at run time ("returned type unknown does not
+  match expected type sync_verdict"), and the router reports it as `server_error`.
+
+**Consequences.** Every field module codes against one fixed shape, and a replay,
+a poison record or a rate-limited phone each has one defined outcome. Costs: the
+no-duplicate guarantee depends on each of seven handlers being idempotent, which a
+shared handler contract test must check when they are wired (week 5); a sub-transaction
+per record costs a little per record, capped by the 100-record limit; and
+`sync_push` depends on `enforce_rate_limit` (#32): if that function is ever removed
+or renamed, every push fails instead of running unlimited.
+
+---
+
+## ADR-016 · The device outbox: one row per record, dirty edits, backoff, recovery
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #39)
+
+**Context.** Every field record must survive no signal and a killed app, reach the
+server exactly once (ADR-009, #33), and never show as submitted early. The outbox is
+the one place on the phone that decides what is sent and what each answer means.
+
+**Decision.**
+- Device migration 1 creates `outbox`: one row per `(entity, record_id)`, with
+  `seq` as the send order, so a parent captured first is sent first. The table
+  itself checks the entity list, the status list and that the payload is a JSON
+  object.
+- Saving a record again keeps its row and its place, and takes the new payload. If
+  its batch is in flight, the row is marked `dirty`, and after any verdict it
+  returns to `pending`, so an edit made during a push (a draft submitted while the
+  draft was being sent) is never lost.
+- A batch is at most 100 rows: `pending`, plus `failed` rows whose retry is due.
+  `retryable_error` and a failed push back off 30 s, 60 s, 2 min, …, at most 30 min.
+  `conflict` and `rejected` are never retried by themselves; saving the record
+  again re-queues it.
+- On app start, rows left `syncing` by a killed app return to `pending`. This is
+  safe because the server never duplicates a replayed record.
+- Only `accepted` makes a row `synced`, the one state the app may call
+  "submitted". Ids come from `expo-crypto`'s `randomUUID` on the phone.
+
+**Consequences.** The sender (week 5) only has to claim a batch, send it, and hand
+back the answers or a failure. Costs: one in-flight batch at a time, by design; a
+record waiting on a 30-minute backoff waits even if the network returns sooner
+(the sender may later offer a manual retry); and `synced` rows stay in the table
+until a cleanup rule is decided.
+
+---
+
+## Template — copy this for a new decision
+
+```
+## ADR-00N · Short title
+**Date:** YYYY-MM-DD · **Status:** Proposed | Accepted | Superseded by ADR-00M · **By:** name
+
+**Context.** What situation forced a choice?
+
+**Decision.** What we chose, in one or two sentences.
+
+**Consequences.** What this makes easy, and what it makes hard. Be honest about
+the cost — a decision with no downside is usually a decision not yet understood.
+```
