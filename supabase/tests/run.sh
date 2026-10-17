@@ -20,6 +20,27 @@ fail() {
   exit 1
 }
 
+# Migration names, checked before anything starts. `supabase db push` tracks a
+# migration by its version (the 14-digit prefix) alone, so two files with one
+# version cannot be told apart on a real project (#44).
+versions=()
+for m in ../migrations/*.sql; do
+  file="$(basename "$m")"
+  if [[ ! "$file" =~ ^[0-9]{14}_[a-z0-9_]+\.sql$ ]]; then
+    echo "Migration '$file' is not named YYYYMMDDHHMMSS_short_description.sql." >&2
+    fail "migration naming ($file)"
+  fi
+  versions+=("${file%%_*}")
+done
+duplicates="$(printf '%s\n' "${versions[@]}" | sort | uniq -d | tr '\n' ' ')"
+if [ -n "$duplicates" ]; then
+  for v in $duplicates; do
+    echo "Version $v is used by more than one migration:" >&2
+    for m in ../migrations/"$v"_*.sql; do echo "  $(basename "$m")" >&2; done
+  done
+  fail "migration versions (duplicate: ${duplicates% })"
+fi
+
 if [ "$#" -gt 0 ]; then
   suites=()
   for arg in "$@"; do
