@@ -107,7 +107,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 8 · Offline Sync
 - [ ] Every field write saves locally first, with a device-generated id
-- [ ] Outbox keyed on (entity, record_id)
+- [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
 - [ ] A repeated push creates no duplicate
