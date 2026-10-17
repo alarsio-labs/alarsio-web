@@ -47,6 +47,20 @@ jobs:
       - name: Build
         run: pnpm build
 
+  test-db:
+    name: SQL suites (pnpm test:db)
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+
+      # Applies the auth shim and every migration to a throwaway postgres:15, then
+      # runs every supabase/tests/*_test.sql. Without this job a broken migration
+      # chain reached main with every check green (#12). Docker is preinstalled on
+      # ubuntu-latest, and the runner needs no pnpm install, so it runs directly.
+      - name: Run SQL suites
+        run: bash supabase/tests/run.sh
+
   scope-guard:
     name: Scope guard
     runs-on: ubuntu-latest
