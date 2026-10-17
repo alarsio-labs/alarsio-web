@@ -75,8 +75,8 @@ describe('outbox', () => {
   });
 
   describe('migration 1', () => {
-    it('creates the outbox as device version 1', async () => {
-      expect(await readUserVersion(db)).toBe(1);
+    it('brings the device database to the latest version, with an empty outbox', async () => {
+      expect(await readUserVersion(db)).toBe(deviceMigrations.length);
       expect(await rows(db)).toEqual([]);
     });
 
