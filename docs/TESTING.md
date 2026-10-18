@@ -76,9 +76,9 @@ FAILED   suite sync_push_test.sql
 
 A migration that does not apply shows `FAILED   migration <file>`, and a suite
 with a syntax error shows the `ERROR` line followed by `FAILED   suite <file>`.
+In CI the same line also appears as an annotation on the run.
 
 **Migration names are checked first**, before Docker starts. Every file must be
 `YYYYMMDDHHMMSS_short_description.sql`, and no two files may share the 14-digit
 version: `supabase db push` tracks a migration by that version alone (#44). Pick a
 timestamp later than every file on `main` when you rebase, not when you branch.
-In CI the same line also appears as an annotation on the run.
