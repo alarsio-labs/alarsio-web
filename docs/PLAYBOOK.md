@@ -47,11 +47,15 @@ branch, not only `main`:
 git fetch origin
 git status -sb
 git for-each-ref --format='%(refname:short)' refs/remotes/origin | while read b; do git ls-tree -r --name-only "$b" -- supabase/migrations; done | sort -u | tail -8
-for b in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do git show "$b:docs/DECISIONS.md" 2>/dev/null | grep -H --label="$b" '^## ADR-' | tail -1; done
+for b in $(git for-each-ref --format='%(refname:short)' refs/remotes/origin); do git show "$b:docs/DECISIONS.md" 2>/dev/null | grep -oE '^## ADR-[0-9]{3}'; done | sort -u | tail -3
 ```
 
+The first command lists the newest migration files on any branch; the second the
+highest ADR numbers on any branch (the template line `ADR-00N` is skipped on purpose).
 Pick a migration version **later than every file on every branch**, unique, and the
-next free ADR number. Create the branch from `main`: `feat/<module>-<thing>`,
+next free ADR number. If another open PR already uses the version you would pick,
+say so on that PR before you push: the later PR renames when it rebases
+(`docs/TESTING.md`). Create the branch from `main`: `feat/<module>-<thing>`,
 `fix/<thing>`, `chore/<thing>`, `docs/<thing>`.
 
 **A3 · Spec.** Run `/spec`. Give the sections it lists plus the **open decisions with
