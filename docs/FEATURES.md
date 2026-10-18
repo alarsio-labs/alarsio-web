@@ -78,6 +78,8 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
 
+*Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
+
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
 - [ ] Outside the geofence asks for a reason, never silently accepts
