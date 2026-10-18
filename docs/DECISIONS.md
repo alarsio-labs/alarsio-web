@@ -298,6 +298,60 @@ the extra argument.
 
 ---
 
+## ADR-013 · Daily reports: draft, submit, edit with history, review is final
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Anuradha (review: Nikhil)
+
+**Context.** Issue #29. Daily Reporting is the second field-capture module, and
+Offline Sync (#13) will push its records, so the shape has to survive replays and a
+stale phone. The issue left three questions open: what makes a blocker serious, the
+size limits, and whether a manager can edit.
+
+**Decision.**
+- R1. A report has a status: `draft`, `submitted` or `reviewed`, as `text` + `CHECK`.
+  A draft may be incomplete and is visible only to its author. Completeness
+  (headcount and non-blank work done) is checked when it becomes `submitted`.
+- R2. One report per site per date, whoever files it. The date may not be later than
+  UTC today + 2, which allows the local tomorrow in every time zone. The guard reads
+  no Identity table, so it needs no new published function.
+- R3. A serious blocker is a boolean `serious_blocker` the supervisor sets, and it
+  needs blocker text. `daily_report_status.flagged` is `serious_blocker or
+  safety_incident`; both are also shown on their own. A flag is a column and a view,
+  nothing more: no push, email or SMS.
+- R4. Limits: work done 4000, blockers 2000, next-day plan 2000, edit reason 500,
+  review note 1000, photo caption 200, headcount 0-1000, photos 10 per report, 10 MB
+  each, jpeg, png or webp.
+- R5. Only the author edits, and only until the report is reviewed. A manager marks a
+  report reviewed through `review_daily_report(report_id, note)` and never edits.
+- R6. An edit to a submitted report is an ordinary `UPDATE` that must carry
+  `edit_reason`. A `BEFORE UPDATE` trigger copies the previous values into
+  `daily_report_revisions` with the editor, the time and the reason, then clears the
+  reason. Because it is a trigger it binds every writer: web, phone and the future
+  sync handler. A report cannot go back to draft, and a reviewed report refuses every
+  update, so a stale phone cannot overwrite it.
+- R7. Revisions are append-only, even for the table owner: no client grant, and a
+  trigger rejects UPDATE, DELETE and TRUNCATE.
+- R8. A photo is metadata in `report_photos`; the file is in the private
+  `report-photos` bucket at `<org>/<site>/<report>/<photo>.<ext>`, a path the row
+  fixes. A photo may be added after submit and after review (a slow upload must not be
+  lost) but is never changed or removed. A file can be uploaded only at the exact path
+  of a metadata row made by the uploader, and read only by someone who can read that
+  row, so a draft's file stays with its author.
+- R9. `review_daily_report` answers a missing id, a draft and another organisation's
+  report with the same `42501`, and reviewing a reviewed report is a no-op.
+- R10. For `sync_daily_reports` and `sync_report_photos`, "same content" is
+  `site_id, report_date, status, headcount, work_done, blockers, serious_blocker,
+  safety_incident, next_day_plan` and `report_id, storage_path, caption, size_bytes,
+  content_type`. The handlers wait for Offline Sync's `sync_result` type.
+
+**Consequences.** A submitted report has complete history, and every rule that matters
+is in the database, so no client can skip it. A manager who disagrees with a report can
+only say so in the review note. Costs: `audit_log` records each row's content, so once
+an owner may read it (PR #32) the owner can read a supervisor's draft text there,
+which R1 hides from the reports table; a second supervisor who files the same site and
+date is refused by the unique key (sync will show a conflict); the photo-limit trigger
+runs before RLS and so steps aside for callers the policy will refuse; and the bucket
+policies on `storage.objects` are tested here only against a shim, so they need one
+check on a real Supabase project.
 ## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
 **Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
 
@@ -681,6 +735,55 @@ too (owner-readable, kept at least 3 years, ADR-012); an organisation outside In
 `attendance_local_date` changed; there is no lower bound on `attendance_date`, so a long-offline
 phone can back-fill, which the approval step is there to catch; and a supervisor unassigned
 while offline can no longer check out the visit they opened.
+## ADR-022 · Daily Reporting sync handlers: update in place, replay before permission
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Anuradha (issue #63; contract agreed with Nikhil on #13)
+
+**Context.** `sync_push` routes `daily_reports` and `report_photos` to handlers that
+did not exist, so every report a phone sent came back `handler_unavailable`. Unlike
+the stock ledger, a report is not insert-only: a draft pushed earlier is submitted
+later, and a submitted report is edited, under the same `record_id`. The #35 guard
+triggers already hold the lifecycle rules, and #13 agreed the handlers are
+`SECURITY INVOKER`. Three things were open: where the report's `org_id` comes from,
+what a reviewed report answers, and whether a replay is answered before permission.
+
+**Decision.**
+- H1. `sync_daily_reports` and `sync_report_photos` are `SECURITY INVOKER`. They read
+  the payload, answer a replay, and insert or update under the caller's RLS. Every
+  lifecycle rule stays in the #35 triggers, so web and phone follow one rule.
+- H2. The report payload is the whole report. `org_id`, `site_id`, `report_date` and
+  `status` are required; each field has one JSON type, so `"12"` is not a headcount.
+  Status may only be `draft` or `submitted`.
+- H3. The phone sends the report's `org_id`, because the composite key to `sites` needs
+  it and Daily Reporting may not read `sites` itself. A `23503` on a report insert can
+  only mean the site is not in that organisation (sites never sync from a phone), so
+  the handler raises it as `22023`: `rejected`, never a retry loop.
+- H4. An existing report by the caller, pushed with different content, is an `UPDATE`.
+  The handler never answers `accepted` for an update that changed 0 rows: it re-reads
+  the row and answers `conflict` / `reviewed` if it was reviewed meanwhile, otherwise
+  `rejected` / `permission_denied`.
+- H5. The handlers return two conflicts themselves: `reviewed` (the server's version is
+  final) and `different_report` (this id already holds another site or date). The
+  rest come from `sync_push`'s mapping: no reason `invalid_input`, un-submit
+  `invalid_state`, a second report for the site and day `duplicate`.
+- H6. **Replay before permission**, as Materials does (ADR-017). Private `SECURITY
+  DEFINER` matchers (`daily_report_matches`, `report_photo_matches`) compare only the
+  caller's own row and return a boolean. So a phone that missed an answer still hears
+  `accepted` after losing the site. A reviewed report matches its submitted content,
+  because the server holds exactly what the phone sent.
+- H7. A photo's site and organisation come from its report, which this module owns, so
+  the photo payload is exactly the #13 "same content". A report the caller cannot see
+  is `retryable_error` / `missing_parent` (not synced yet), unless it is the caller's
+  own (`is_own_daily_report`, definer, true only for the caller's reports): then the
+  caller lost the site, and it is `rejected` / `permission_denied`.
+
+**Consequences.** A report filed offline needs one record, a replay never writes, and a
+stale phone cannot overwrite a reviewed report. Costs: the phone must send `org_id`
+for a report; three small definer helpers are executable by `authenticated`, though
+each speaks only about the caller's own rows; a photo for another user's report that
+the caller cannot see retries with backoff instead of being refused, since under RLS
+it looks the same as a report still on its way (the phone only sends photos of its
+own reports); and the race in H4, a review landing between the read and the update,
+is handled in code but not covered by a test, as the SQL suites run on one connection.
 
 ---
 
