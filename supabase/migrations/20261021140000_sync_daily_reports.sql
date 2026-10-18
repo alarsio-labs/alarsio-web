@@ -1,5 +1,5 @@
 -- Daily Reporting: sync_daily_reports, the handler sync_push calls for a report.
--- Owner: Anuradha. Issue #63. Contract: #13, ADR-014. Decisions: ADR-013, ADR-021.
+-- Owner: Anuradha. Issue #63. Contract: #13, ADR-014. Decisions: ADR-013, ADR-022.
 --
 -- SECURITY INVOKER, as agreed on #13: every write runs under the caller's RLS,
 -- and the #35 guard triggers decide the lifecycle (submit stamp, edit reason,

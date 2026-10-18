@@ -1,6 +1,6 @@
 -- Daily Reporting: sync_report_photos, the handler sync_push calls for a
 -- photo's metadata row. Owner: Anuradha. Issue #63. Contract: #13, ADR-014.
--- Decisions: ADR-013 (D3, D6), ADR-021.
+-- Decisions: ADR-013 (D3, D6), ADR-022.
 --
 -- Metadata only. The file goes to the report-photos bucket after this row is
 -- accepted, and Storage takes it only because this row exists (#35). A photo

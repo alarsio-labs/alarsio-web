@@ -652,7 +652,7 @@ every user's rows until the sync status screen shows per-user counts.
 
 ---
 
-## ADR-021 · Daily Reporting sync handlers: update in place, replay before permission
+## ADR-022 · Daily Reporting sync handlers: update in place, replay before permission
 **Date:** 2026-10-18 · **Status:** Proposed · **By:** Anuradha (issue #63; contract agreed with Nikhil on #13)
 
 **Context.** `sync_push` routes `daily_reports` and `report_photos` to handlers that
