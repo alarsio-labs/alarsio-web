@@ -63,6 +63,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
 - [ ] Invite a team member by email or copyable link
+  *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
 - [x] A supervisor sees only sites assigned to them
 
@@ -77,6 +78,8 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
+
+*Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
