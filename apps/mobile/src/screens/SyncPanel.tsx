@@ -7,7 +7,7 @@
 import { Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SyncStatus } from '../sync/engine';
-import { entityLabel, reasonText, syncLine } from '../sync/status-text';
+import { entityLabel, pullLine, reasonText, syncLine } from '../sync/status-text';
 
 export interface SyncPanelProps {
   status: SyncStatus;
@@ -15,9 +15,11 @@ export interface SyncPanelProps {
 }
 
 export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
+  const offline = pullLine(status.lastPull);
   return (
     <View style={styles.panel}>
       <Text style={styles.line}>{syncLine(status)}</Text>
+      {offline && <Text style={styles.subline}>{offline}</Text>}
 
       {status.attention.length > 0 && (
         <View style={styles.list}>
@@ -50,6 +52,7 @@ export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
 const styles = StyleSheet.create({
   panel: { alignSelf: 'stretch', alignItems: 'center', gap: 12 },
   line: { fontSize: 16, textAlign: 'center' },
+  subline: { fontSize: 14, color: '#555', textAlign: 'center' },
   list: { alignSelf: 'stretch', gap: 8 },
   heading: { fontSize: 14, fontWeight: '600', color: '#b00020' },
   item: { borderLeftWidth: 3, borderLeftColor: '#b00020', paddingLeft: 8 },

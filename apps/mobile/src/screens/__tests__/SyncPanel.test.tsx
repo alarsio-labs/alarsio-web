@@ -7,6 +7,7 @@ const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, reject
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  lastPull: null,
   last: null,
   running: false,
   userId: '11111111-0000-4000-8000-00000000000a',
@@ -34,6 +35,13 @@ describe('SyncPanel (#68)', () => {
     expect(screen.getByText('A manager already reviewed it.')).toBeTruthy();
     expect(screen.getByText('Material entry · Refused')).toBeTruthy();
     expect(screen.getByText('Refused (brand_new)')).toBeTruthy();
+  });
+
+  it('says what the phone holds after a pull', async () => {
+    await render(
+      <SyncPanel status={status({ lastPull: { kind: 'done', sites: 2, materials: 3, roster: 4 } })} onSyncNow={jest.fn()} />,
+    );
+    expect(screen.getByText('On this phone: 2 sites, 3 materials, 4 workers')).toBeTruthy();
   });
 
   it('shows no list when nothing needs attention', async () => {

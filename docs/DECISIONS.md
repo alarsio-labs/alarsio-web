@@ -787,6 +787,49 @@ is handled in code but not covered by a test, as the SQL suites run on one conne
 
 ---
 
+## ADR-023 · Pull: full refresh into mirrors owned by one user, through published views only
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Nikhil (issue #49)
+
+**Context.** Capture screens need sites, materials and today's roster with no
+signal. ADR-018 left the download direction unplanned. Phones are shared (ADR-020),
+the PostgREST row cap fails silently, and the server decides who sees what through
+RLS.
+
+**Decision.**
+- **Full refresh, not incremental.** When a supervisor is taken off a site, RLS
+  simply stops returning it, and only a full refresh notices that. The assignment
+  tables have no `updated_at` to page on. The data is small.
+- **Three mirrors, in device migration 4:** sites, materials (from Materials'
+  `material_balances`) and roster (from Workforce's `worker_roster`: open assignments
+  of active workers, with no phone number and no rate). Every column is named, never
+  `*`, so a column added on the server reaches phones only by decision.
+- **One transaction, all or nothing.** Every page of every source must arrive and
+  parse, or the old mirror stays whole. Pages are 1000 rows, the PostgREST default,
+  and a full page means fetch again.
+- **Owned by one user.** `mirror_state` records whose mirror it is. Reads for anyone
+  else return nothing, so B never sees A's sites offline on a shared phone.
+  `clearMirrors()` is there for sign-out.
+- **One session per page.** Each page reads the session once, refuses if it belongs
+  to someone else, and sends that session's token (as the push does, ADR-020). A
+  user switch mid-pull fails the pull instead of storing B's rows as A's.
+- **When:** after a sync run, at start and then at most every 5 minutes. Sync now
+  forces one. Only a finished pull resets the clock.
+- **Quantities are integer thousandths,** which is exact for `numeric(…, 3)`, so the
+  Materials screen's estimated balance (server balance plus outbox) adds up without
+  float drift. A null or non-numeric value fails the pull rather than becoming 0.
+- **Sites through a published view only.** Sites publishes `site_geofence`, which
+  has no name or status. The mirror must not read `sites` directly (ARCHITECTURE
+  rule 4), so it waits for Sites to publish a view with name, address and status
+  (asked on #49).
+
+**Consequences.** Capture screens get a consistent, per-user offline copy that is
+never half-written. Costs: every refresh re-downloads everything, which is fine at
+pilot scale and an ADR to revisit if data grows; the mirror is at most about 5
+minutes old while online, and as old as the last pull while offline; and the sites
+mirror depends on Sites publishing a view.
+
+---
+
 ## Template — copy this for a new decision
 
 ```

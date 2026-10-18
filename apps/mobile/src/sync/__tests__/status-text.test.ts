@@ -1,12 +1,13 @@
 import type { SyncStatus } from '../engine';
 import { SYNC_ENTITIES } from '../entities';
-import { entityLabel, reasonText, syncLine } from '../status-text';
+import { entityLabel, pullLine, reasonText, syncLine } from '../status-text';
 
 const USER = '11111111-0000-4000-8000-00000000000a';
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  lastPull: null,
   last: null,
   running: false,
   userId: USER,
@@ -68,6 +69,17 @@ describe('syncLine (#68)', () => {
         }
       }
     }
+  });
+});
+
+describe('pullLine (#49)', () => {
+  it('says what the phone holds, or why it was not refreshed', () => {
+    expect(pullLine(null)).toBeNull();
+    expect(pullLine({ kind: 'signed_out' })).toBeNull();
+    expect(pullLine({ kind: 'done', sites: 1, materials: 14, roster: 1 })).toBe(
+      'On this phone: 1 site, 14 materials, 1 worker',
+    );
+    expect(pullLine({ kind: 'failed', reason: 'network' })).toBe('Offline copy not refreshed (network)');
   });
 });
 

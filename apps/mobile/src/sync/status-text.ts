@@ -4,6 +4,7 @@
 
 import type { SyncStatus } from './engine';
 import type { SyncEntity } from './entities';
+import type { PullResult } from './pull';
 
 const ENTITY_LABELS: Record<SyncEntity, string> = {
   site_visits: 'Site visit',
@@ -56,6 +57,14 @@ export function syncLine(status: SyncStatus): string {
   const note = lastRunNote(last, userId);
   if (note) parts.push(note);
   return parts.join(' · ');
+}
+
+/** What the phone holds for offline use, after the last pull (#49). Null before one. */
+export function pullLine(lastPull: PullResult | null): string | null {
+  if (lastPull === null || lastPull.kind === 'signed_out') return null;
+  if (lastPull.kind === 'failed') return `Offline copy not refreshed (${lastPull.reason})`;
+  const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  return `On this phone: ${n(lastPull.sites, 'site', 'sites')}, ${n(lastPull.materials, 'material', 'materials')}, ${n(lastPull.roster, 'worker', 'workers')}`;
 }
 
 function lastRunNote(last: SyncStatus['last'], userId: string | null): string | null {
