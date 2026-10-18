@@ -1,0 +1,58 @@
+import { fireEvent, render, screen } from '@testing-library/react-native';
+
+import type { SyncStatus } from '../../sync/engine';
+import { SyncPanel } from '../SyncPanel';
+
+const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
+const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
+  counts: zero,
+  attention: [],
+  last: null,
+  running: false,
+  userId: '11111111-0000-4000-8000-00000000000a',
+  ...over,
+});
+const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+
+describe('SyncPanel (#68)', () => {
+  it('shows the sync line and lists records that need attention, in plain words', async () => {
+    await render(
+      <SyncPanel
+        status={status({
+          counts: { ...zero, conflict: 1, rejected: 1 },
+          attention: [
+            { entity: 'daily_reports', recordId: ID(1), status: 'conflict', reason: 'reviewed', updatedAt: 'x' },
+            { entity: 'material_transactions', recordId: ID(2), status: 'rejected', reason: 'brand_new', updatedAt: 'x' },
+          ],
+        })}
+        onSyncNow={jest.fn()}
+      />,
+    );
+
+    expect(screen.getByText('2 need attention')).toBeTruthy();
+    expect(screen.getByText('Daily report · Conflict')).toBeTruthy();
+    expect(screen.getByText('A manager already reviewed it.')).toBeTruthy();
+    expect(screen.getByText('Material entry · Refused')).toBeTruthy();
+    expect(screen.getByText('Refused (brand_new)')).toBeTruthy();
+  });
+
+  it('shows no list when nothing needs attention', async () => {
+    await render(<SyncPanel status={status()} onSyncNow={jest.fn()} />);
+
+    expect(screen.getByText('All your records are on the server')).toBeTruthy();
+    expect(screen.queryByText('Needs attention')).toBeNull();
+  });
+
+  it('runs Sync now once per tap, and not while a run is in progress', async () => {
+    const onSyncNow = jest.fn();
+    const { rerender } = await render(<SyncPanel status={status()} onSyncNow={onSyncNow} />);
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Sync now' }));
+    expect(onSyncNow).toHaveBeenCalledTimes(1);
+
+    await rerender(<SyncPanel status={status({ running: true })} onSyncNow={onSyncNow} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'Sync now' }));
+    expect(onSyncNow).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole('button', { name: 'Sync now' })).toBeDisabled();
+  });
+});

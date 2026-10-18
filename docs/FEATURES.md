@@ -133,6 +133,11 @@ as an offline draft" is ticked when the phone's report screen ships.*
 rate limit, tested with stand-in handlers. The rows above get ticked when the real
 entity handlers are wired in week 5.*
 
+*The home screen shows the signed-in user's sync status (#68): counts, an honest
+sync line that never says "submitted", the conflict and rejected records with their
+reason, and Sync now. "Status shown" and "Never shows submitted" stay unticked until
+the capture screens show each record's own status.*
+
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only

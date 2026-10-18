@@ -268,6 +268,57 @@ export async function countUnsent(db: DeviceDb, authorId: string): Promise<numbe
   return row?.n ?? 0;
 }
 
+/** A record the server refused or would not overwrite, for the phone to show (#68). */
+export interface AttentionRow {
+  entity: SyncEntity;
+  recordId: string;
+  status: 'conflict' | 'rejected';
+  reason: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Conflict and rejected records, newest first: this user's, or every user's
+ * when no author is given. They are never retried by themselves (ADR-016).
+ */
+export async function listAttention(db: DeviceDb, authorId?: string, limit = 50): Promise<AttentionRow[]> {
+  const rows = await db.all<{
+    entity: SyncEntity;
+    record_id: string;
+    status: 'conflict' | 'rejected';
+    reason: string | null;
+    updated_at: string;
+  }>(
+    `select entity, record_id, status, reason, updated_at from outbox
+      where status in ('conflict', 'rejected')
+        and (? is null or author_id = ?)
+      order by updated_at desc, seq desc
+      limit ?`,
+    [authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null, Math.max(1, limit)],
+  );
+  return rows.map((r) => ({
+    entity: r.entity,
+    recordId: r.record_id,
+    status: r.status,
+    reason: r.reason,
+    updatedAt: r.updated_at,
+  }));
+}
+
+/**
+ * "Sync now": makes this user's failed records due at once instead of waiting
+ * out their backoff (ADR-016's manual retry). Conflict and rejected records stay
+ * as they are; only saving them again re-queues them. Returns how many changed.
+ */
+export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date = new Date()): Promise<number> {
+  const { changes } = await db.run(
+    `update outbox set next_attempt_at = null, updated_at = ?
+      where status = 'failed' and (? is null or author_id = ?)`,
+    [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
+  );
+  return changes;
+}
+
 async function requeue(db: DeviceDb, seq: number, at: string): Promise<void> {
   await db.run(
     `update outbox set status = 'pending', dirty = 0, reason = null, attempts = 0,
