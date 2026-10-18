@@ -298,6 +298,60 @@ the extra argument.
 
 ---
 
+## ADR-013 · Daily reports: draft, submit, edit with history, review is final
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Anuradha (review: Nikhil)
+
+**Context.** Issue #29. Daily Reporting is the second field-capture module, and
+Offline Sync (#13) will push its records, so the shape has to survive replays and a
+stale phone. The issue left three questions open: what makes a blocker serious, the
+size limits, and whether a manager can edit.
+
+**Decision.**
+- R1. A report has a status: `draft`, `submitted` or `reviewed`, as `text` + `CHECK`.
+  A draft may be incomplete and is visible only to its author. Completeness
+  (headcount and non-blank work done) is checked when it becomes `submitted`.
+- R2. One report per site per date, whoever files it. The date may not be later than
+  UTC today + 2, which allows the local tomorrow in every time zone. The guard reads
+  no Identity table, so it needs no new published function.
+- R3. A serious blocker is a boolean `serious_blocker` the supervisor sets, and it
+  needs blocker text. `daily_report_status.flagged` is `serious_blocker or
+  safety_incident`; both are also shown on their own. A flag is a column and a view,
+  nothing more: no push, email or SMS.
+- R4. Limits: work done 4000, blockers 2000, next-day plan 2000, edit reason 500,
+  review note 1000, photo caption 200, headcount 0-1000, photos 10 per report, 10 MB
+  each, jpeg, png or webp.
+- R5. Only the author edits, and only until the report is reviewed. A manager marks a
+  report reviewed through `review_daily_report(report_id, note)` and never edits.
+- R6. An edit to a submitted report is an ordinary `UPDATE` that must carry
+  `edit_reason`. A `BEFORE UPDATE` trigger copies the previous values into
+  `daily_report_revisions` with the editor, the time and the reason, then clears the
+  reason. Because it is a trigger it binds every writer: web, phone and the future
+  sync handler. A report cannot go back to draft, and a reviewed report refuses every
+  update, so a stale phone cannot overwrite it.
+- R7. Revisions are append-only, even for the table owner: no client grant, and a
+  trigger rejects UPDATE, DELETE and TRUNCATE.
+- R8. A photo is metadata in `report_photos`; the file is in the private
+  `report-photos` bucket at `<org>/<site>/<report>/<photo>.<ext>`, a path the row
+  fixes. A photo may be added after submit and after review (a slow upload must not be
+  lost) but is never changed or removed. A file can be uploaded only at the exact path
+  of a metadata row made by the uploader, and read only by someone who can read that
+  row, so a draft's file stays with its author.
+- R9. `review_daily_report` answers a missing id, a draft and another organisation's
+  report with the same `42501`, and reviewing a reviewed report is a no-op.
+- R10. For `sync_daily_reports` and `sync_report_photos`, "same content" is
+  `site_id, report_date, status, headcount, work_done, blockers, serious_blocker,
+  safety_incident, next_day_plan` and `report_id, storage_path, caption, size_bytes,
+  content_type`. The handlers wait for Offline Sync's `sync_result` type.
+
+**Consequences.** A submitted report has complete history, and every rule that matters
+is in the database, so no client can skip it. A manager who disagrees with a report can
+only say so in the review note. Costs: `audit_log` records each row's content, so once
+an owner may read it (PR #32) the owner can read a supervisor's draft text there,
+which R1 hides from the reports table; a second supervisor who files the same site and
+date is refused by the unique key (sync will show a conflict); the photo-limit trigger
+runs before RLS and so steps aside for callers the policy will refuse; and the bucket
+policies on `storage.objects` are tested here only against a shim, so they need one
+check on a real Supabase project.
 ## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
 **Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
 

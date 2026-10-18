@@ -42,7 +42,7 @@ list, publish it deliberately and add it here in the same PR.
 | Sites | `archive_site` | `site_timeline` |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` |
 | Attendance | `review_attendance_day` · `review_attendance_correction` | approved `attendance_days` · `site_exceptions` |
-| Daily Reporting | `review_daily_report` | `daily_report_status` |
+| Daily Reporting | `review_daily_report(report_id, note)` | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
 | Offline Sync | `sync_push(batch)` · types `sync_verdict` and `sync_result`, which every handler returns | — |
