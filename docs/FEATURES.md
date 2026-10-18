@@ -13,10 +13,10 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | :-- | :-- | :-- | :-- | :-- |
 | 1 | **Identity & Access** | Ishant | 🟡 | `organizations`, `profiles`, `memberships`, `invites` |
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
-| 3 | **Workforce** | Ishant | ⬜ | `workers`, `worker_site_assignments`, `worker_wage_rates` |
+| 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
-| 6 | **Materials & Inventory** | Nikhil | ⬜ | `materials`, `material_transactions` |
+| 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
 | 8 | **Offline Sync** | Nikhil | 🟡 | device SQLite outbox, `sync_push` |
 | 9 | **Audit, Retention & Guards** | Anuradha | 🟡 | `audit_log`, `purge_log`, `rate_limit_counters` |
@@ -63,7 +63,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
 - [ ] Invite a team member by email or copyable link
-- [ ] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
+- [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
 - [x] A supervisor sees only sites assigned to them
 
 ### 2 · Sites
@@ -73,10 +73,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] An archived site is read-only
 
 ### 3 · Workforce
-- [ ] Add a worker: name, trade, pay type, rate
+- [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
-- [ ] Effective-dated wage rates — never overwrite, always add
-- [ ] Assign workers to sites
+- [x] Effective-dated wage rates — never overwrite, always add
+- [x] Assign workers to sites
 
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
@@ -94,10 +94,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
 ### 6 · Materials & Inventory
-- [ ] Define materials per site with unit and low-stock threshold
-- [ ] Record opening balance, receipt, usage, adjustment
-- [ ] Running balance computed server-side
-- [ ] Warn on low or negative stock; a reason is mandatory on adjustment
+- [x] Define materials per site with unit and low-stock threshold
+- [x] Record opening balance, receipt, usage, adjustment
+- [x] Running balance computed server-side
+- [x] Warn on low or negative stock; a reason is mandatory on adjustment
 
 ### 7 · Wage Summaries
 - [ ] Weekly or monthly period, using **approved attendance only**
@@ -107,16 +107,22 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 8 · Offline Sync
 - [ ] Every field write saves locally first, with a device-generated id
-- [ ] Outbox keyed on (entity, record_id)
+- [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
 - [ ] A repeated push creates no duplicate
 - [ ] One bad record does not block the rest of its batch
 
+*Server router `sync_push` is in place (#33): envelope, per-record verdicts and the
+rate limit, tested with stand-in handlers. The rows above get ticked when the real
+entity handlers are wired in week 5.*
+
 ### 9 · Audit, Retention & Guards
 - [ ] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
-- [ ] Removing a user or worker never deletes history
+- [x] Removing a user or worker never deletes history
+- [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
+- [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
 ---
