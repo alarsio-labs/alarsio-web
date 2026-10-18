@@ -652,6 +652,89 @@ every user's rows until the sync status screen shows per-user counts.
 
 ---
 
+## ADR-021 · Attendance capture: one visit row, geofence in the database, days keyed by site and date
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28; handler contract agreed on #13, review: Anuradha)
+
+**Context.** Attendance is the first module a supervisor uses on the phone with no signal,
+and the first whose wage-relevant rows are approved by someone else. The issue left open
+how check-out is stored, how half a day and overtime are shaped, how many days a site has,
+what a replayed record is compared on, and whose clock counts. Two things also cut across
+modules: the geofence needs a site's coordinates, and two supervisors on one site can open
+the same day on two phones.
+
+**Decision.**
+- **D1 · Check-out is the same row.** `site_visits` has one row per visit. Check-in creates it
+  with a phone-made uuid; check-out sets the check-out columns of that row, once. The policy
+  matches only a row with `check_out_at is null`, so a second check-out, or a colleague's,
+  changes 0 rows. No "one open visit" rule (D12): a forgotten check-out must not become a
+  permanent conflict on the next day's check-in.
+- **D2 · Half a day is a status**: `present`, `absent`, `half_day`, `leave`. No fraction.
+- **D3 · Overtime** is `numeric(4,2)` hours, 0 to 8 inclusive, and non-zero only on `present`
+  or `half_day`. Raising the maximum is a migration.
+- **D4 · One day per site per date**, not per supervisor. A unique index on
+  `(site_id, attendance_date)`.
+- **D5 · Entries point at their day by natural key** `(org_id, site_id, attendance_date)`, not by
+  the day's id. Two phones that open the same day offline with different uuids do not strand
+  each other's entries; the second day insert is a harmless duplicate that the sync handler
+  answers `accepted`. Two phones marking the *same worker* is a real disagreement: one entry per
+  worker per day, first writer wins, the second hears `conflict` (#34). Rejected: a day-id foreign
+  key (the second phone's entries would retry forever on a parent that is not there) and a
+  hash-derived day id (needs the same hash on the phone).
+- **D6 · "Same content" for a replay** is the caller-writable columns of that push, excluding
+  ids, timestamps and anything the server stamps. Check-in push: `site_id`, `check_in_at`,
+  `check_in_lat`, `check_in_lng`, `check_in_reason`. Check-out push: `check_out_at`,
+  `check_out_lat`, `check_out_lng`, `check_out_reason`. A handler compares only the fields its
+  push carries, so replaying the check-in after the check-out is `accepted`. Day:
+  `site_id`, `attendance_date`. Entry: `site_id`, `attendance_date`, `worker_id`, `status`,
+  `overtime_hours`, `note`. The handlers themselves arrive in the next PR.
+- **D7 · Two clocks.** `check_in_at` / `check_out_at` are the phone's clock, because an offline
+  record is hours old by design; `created_at` / `updated_at` are the server's. The phone's clock
+  is accepted up to one day ahead of the server and not beyond. Nothing is paid on a clock: a
+  manager approves the day.
+- **D8 · The geofence rule applies to check-out too.** The database computes the distance
+  (pure-SQL haversine, Earth radius 6371008.8 m, no PostGIS) and flags the visit when distance
+  is greater than `geofence_radius_m`; exactly on the radius is inside. Outside, a trimmed
+  reason of 1–500 characters is mandatory. The distance and the flag have no column grant, so
+  the phone cannot set them. The flag is a record of the day and is not recomputed if the radius
+  changes later.
+- **D9 · Sites publishes `site_geofence`** (`security_invoker`: `id`, `org_id`, `latitude`,
+  `longitude`, `geofence_radius_m`). Attendance reads a site's pin only through it, as the
+  architecture requires. A caller who cannot see a site gets no row, and the trigger answers
+  `42501`, the same as for a site that does not exist.
+- **D10 · Rostered on a date** is the Asia/Kolkata calendar day of `assigned_at` and
+  `unassigned_at`, both ends inclusive, read from `worker_roster`. One helper function
+  (`attendance_local_date`) holds the zone. `organizations.timezone` has no published view, so
+  it is not read.
+- **D11 · `attendance_days` has its final shape now**: `status` (`open`, `approved`, `rejected`)
+  and the reviewer's stamp, with a table rule that an open day carries no stamp, a reviewed day
+  says who and when, and a rejection says why. No client can write them yet, so every day is
+  `open`; the review function and the lock come next.
+- **D12 · No one-open-visit rule.** A visit is not refused because the same user has another
+  open visit. A forgotten check-out must not turn the next day's check-in into a permanent sync
+  conflict; managers see open visits instead.
+- **D13 · FEATURES ticks.** A row is ticked only when a named test proves the database side of its
+  wording. Parts that need a screen or the phone stay unticked, and the module note says so.
+- **Validation failures are `23514`** (the sync router answers `rejected` / `invalid_input`): a
+  missing reason, a bad range, a phone clock too far ahead, a date beyond UTC today + 1, and a
+  worker who was not rostered. The roster rule is an AFTER INSERT trigger on entries, so the
+  policy answers first (`42501`) and another organisation's worker is stopped by the foreign key
+  (`23503`).
+- `mark_all_present(site, date)` is `SECURITY INVOKER`: it opens the day if needed and adds a
+  `present` entry for every active worker rostered that day who has none yet, so it never
+  overwrites an exception and returns how many it created. Offline, the phone writes those
+  records itself.
+- The two pure helpers (`attendance_distance_m`, `attendance_local_date`) are executable by
+  `authenticated`, because the triggers run as the caller and must call them. They read no table.
+
+**Consequences.** Once the phone screens and the sync handlers ship (next PR and the mobile
+work), a supervisor can check in, mark a site and fix exceptions with no signal; the keys are
+chosen so that a replay or a second phone cannot create a duplicate day or visit. The geofence cannot be
+bypassed by any writer. Costs: the distance is that of the coordinates the phone reports, so a
+spoofed GPS passes; `audit_log` copies the whole row, so check-in coordinates are stored there
+too (owner-readable, kept at least 3 years, ADR-012); an organisation outside India would need
+`attendance_local_date` changed; there is no lower bound on `attendance_date`, so a long-offline
+phone can back-fill, which the approval step is there to catch; and a supervisor unassigned
+while offline can no longer check out the visit they opened.
 ## ADR-022 · Daily Reporting sync handlers: update in place, replay before permission
 **Date:** 2026-10-18 · **Status:** Proposed · **By:** Anuradha (issue #63; contract agreed with Nikhil on #13)
 
