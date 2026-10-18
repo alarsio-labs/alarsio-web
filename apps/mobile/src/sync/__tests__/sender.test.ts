@@ -4,7 +4,7 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { getDeviceId } from '../device-id';
 import type { SyncResultRow } from '../entities';
-import { countByStatus, enqueue, getStatus } from '../outbox';
+import { countByStatus, enqueue, getStatus, MAX_BATCH } from '../outbox';
 import {
   runSync,
   SESSION_CHANGED,
@@ -167,6 +167,77 @@ describe('runSync', () => {
       };
       await runSync(db, transport, { now: () => T0 });
       expect(seen).toEqual([USER_A]);
+    });
+  });
+
+  describe('overlapping runs, e.g. a user switch while a push is in flight (#56)', () => {
+    const USER_B = '22222222-0000-4000-8000-00000000000b';
+
+    /** A gate the test opens by hand, so a push stays in flight until it does. */
+    function gate() {
+      let open!: () => void;
+      const opened = new Promise<void>((resolve) => (open = resolve));
+      return { opened, open };
+    }
+    const settle = () => new Promise((resolve) => setTimeout(resolve, 0));
+
+    async function twoUsers() {
+      let user = USER_A;
+      const gates: Record<string, ReturnType<typeof gate>> = { [USER_A]: gate(), [USER_B]: gate() };
+      const transport: SyncTransport = {
+        currentUserId: async () => user,
+        push: async (batch, userId) => {
+          if (userId !== user) throw new SyncTransportError(SESSION_CHANGED);
+          await gates[userId]!.opened;
+          return acceptAll(batch);
+        },
+      };
+      return { transport, gates, switchTo: (next: string) => (user = next) };
+    }
+
+    const enqueueAs = (n: number, authorId: string) =>
+      enqueue(db, { entity: 'material_transactions', recordId: ID(n), authorId, payload: {} }, T0);
+
+    it("finishing A's run leaves B's in-flight batch alone", async () => {
+      await enqueueAs(1, USER_A);
+      await enqueueAs(2, USER_B);
+      const { transport, gates, switchTo } = await twoUsers();
+
+      const runA = runSync(db, transport, { now: () => T0 });
+      await settle();
+      switchTo(USER_B);
+      const runB = runSync(db, transport, { now: () => T0 });
+      await settle();
+
+      gates[USER_A]!.open();
+      await runA;
+      expect(await status(db, 2)).toBe('syncing');
+
+      gates[USER_B]!.open();
+      await runB;
+      expect(await status(db, 1)).toBe('synced');
+      expect(await status(db, 2)).toBe('synced');
+    });
+
+    it("A's refused next batch hands back only A's rows, not B's in-flight batch", async () => {
+      for (let n = 1; n <= MAX_BATCH + 1; n += 1) await enqueueAs(n, USER_A);
+      await enqueueAs(500, USER_B);
+      const { transport, gates, switchTo } = await twoUsers();
+
+      const runA = runSync(db, transport, { now: () => T0 });
+      await settle();
+      switchTo(USER_B);
+      const runB = runSync(db, transport, { now: () => T0 });
+      await settle();
+
+      gates[USER_A]!.open();
+      expect(await runA).toMatchObject({ kind: 'failed', reason: SESSION_CHANGED, batches: 1 });
+      expect(await status(db, MAX_BATCH + 1)).toBe('pending');
+      expect(await status(db, 500)).toBe('syncing');
+
+      gates[USER_B]!.open();
+      await runB;
+      expect(await status(db, 500)).toBe('synced');
     });
   });
 

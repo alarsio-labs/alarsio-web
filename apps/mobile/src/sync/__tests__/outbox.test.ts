@@ -16,6 +16,7 @@ import {
   newRecordId,
   recoverInterrupted,
   releaseBatch,
+  returnBatch,
   type NewOutboxEntry,
 } from '../outbox';
 
@@ -282,13 +283,13 @@ describe('outbox', () => {
   });
 
   describe('releaseBatch', () => {
-    it('fails every syncing record with a backoff when the whole push failed', async () => {
+    it("fails the batch's syncing records with a backoff when the whole push failed", async () => {
       await enqueue(db, entry(1), T0);
       await enqueue(db, entry(2), T0);
-      await claimBatch(db, USER_A, T0);
+      const batch = await claimBatch(db, USER_A, T0);
       await enqueue(db, entry(2, { qty: 22 }), at(1)); // edited during the push
 
-      await releaseBatch(db, 'network', at(2));
+      await releaseBatch(db, batch, 'network', at(2));
 
       expect(await row(db, 1)).toMatchObject({
         status: 'failed',
@@ -297,6 +298,35 @@ describe('outbox', () => {
         next_attempt_at: at(32).toISOString(),
       });
       expect(await row(db, 2)).toMatchObject({ status: 'pending', dirty: 0 });
+    });
+
+    it("leaves another batch's syncing records alone (#56)", async () => {
+      await enqueue(db, entry(1), T0);
+      const mine = await claimBatch(db, USER_A, T0);
+      await enqueue(db, entry(2), T0);
+      await claimBatch(db, USER_A, T0); // a second run's batch, still in flight
+
+      await releaseBatch(db, mine, 'no_result', at(1));
+
+      expect(await row(db, 1)).toMatchObject({ status: 'failed', reason: 'no_result' });
+      expect(await row(db, 2)).toMatchObject({ status: 'syncing', attempts: 0 });
+    });
+  });
+
+  describe('returnBatch', () => {
+    it('puts only its own syncing records back to pending, with no retry penalty', async () => {
+      await enqueue(db, entry(1), T0);
+      const first = await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [verdict(1, 'retryable_error', 'busy')], T0);
+      const retried = await claimBatch(db, USER_A, at(31)); // record 1 again, attempts 1
+      expect(retried).toEqual(first);
+      await enqueue(db, entry(2), at(31));
+      await claimBatch(db, USER_A, at(31)); // another run's batch
+
+      await returnBatch(db, retried, at(32));
+
+      expect(await row(db, 1)).toMatchObject({ status: 'pending', attempts: 1, dirty: 0 });
+      expect(await row(db, 2)).toMatchObject({ status: 'syncing' });
     });
   });
 
@@ -415,7 +445,7 @@ describe('outbox', () => {
     it("counts a user's unsent rows: everything but synced, and only theirs", async () => {
       for (let n = 1; n <= 5; n += 1) await enqueue(db, entry(n), T0);
       await enqueue(db, asB(6), T0);
-      await claimBatch(db, USER_A, T0);
+      const batch = await claimBatch(db, USER_A, T0);
       await applyVerdicts(
         db,
         [
@@ -426,7 +456,7 @@ describe('outbox', () => {
         ],
         T0,
       );
-      await releaseBatch(db, 'no_result', T0); // record 5 had no answer
+      await releaseBatch(db, batch, 'no_result', T0); // record 5 had no answer
 
       expect(await countUnsent(db, USER_A)).toBe(4);
       expect(await countUnsent(db, USER_B)).toBe(1);
