@@ -96,6 +96,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] A submitted report cannot be changed quietly — edits keep history
 - [x] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
+*Server side of offline filing is in place (#63, ADR-021): `sync_daily_reports` and
+`sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
+as an offline draft" is ticked when the phone's report screen ships.*
+
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
 - [x] Record opening balance, receipt, usage, adjustment
