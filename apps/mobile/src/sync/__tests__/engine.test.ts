@@ -18,6 +18,7 @@ jest.mock('expo-crypto', () => {
   };
 });
 
+const USER_A = '11111111-0000-4000-8000-00000000000a';
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 /** Triggers the test fires by hand, and timers it can inspect. */
@@ -58,9 +59,9 @@ function countingTransport(signedIn = true) {
   const pushes: SyncBatch[] = [];
   let sessionChecks = 0;
   const transport: SyncTransport = {
-    hasSession: async () => {
+    currentUserId: async () => {
       sessionChecks += 1;
-      return signedIn;
+      return signedIn ? USER_A : null;
     },
     push: async (batch): Promise<PushResponse> => {
       pushes.push(batch);
@@ -86,7 +87,7 @@ describe('startSyncEngine', () => {
   });
 
   it('syncs once at start, and publishes counts and the result', async () => {
-    await enqueue(db, { entity: 'material_transactions', recordId: ID(1), payload: {} });
+    await enqueue(db, { entity: 'material_transactions', recordId: ID(1), authorId: USER_A, payload: {} });
     const { env } = fakeEnv();
     const { transport, pushes } = countingTransport();
     const seen: SyncStatus[] = [];
@@ -154,7 +155,7 @@ describe('startSyncEngine', () => {
   });
 
   it('reports signed out without sending', async () => {
-    await enqueue(db, { entity: 'material_transactions', recordId: ID(1), payload: {} });
+    await enqueue(db, { entity: 'material_transactions', recordId: ID(1), authorId: USER_A, payload: {} });
     const { env } = fakeEnv();
     const { transport, pushes } = countingTransport(false);
     const handle = startSyncEngine(db, transport, env);
@@ -168,7 +169,7 @@ describe('startSyncEngine', () => {
   it('keeps an error inside a run as the result instead of throwing', async () => {
     const { env } = fakeEnv();
     const transport: SyncTransport = {
-      hasSession: async () => {
+      currentUserId: async () => {
         throw new Error('storage unavailable');
       },
       push: async () => ({ results: [] }),

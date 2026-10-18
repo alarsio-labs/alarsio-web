@@ -93,6 +93,7 @@ Guarantees:
 - One bad record does not block the rest of its batch
 - The app never shows "submitted" before the server confirms
 - A stale device cannot overwrite an approved day
+- On a shared phone, a record is sent only under the session of the user who saved it (ADR-020)
 
 `sync_push` is a **thin router**. It validates the envelope and delegates to the
 owning module. No business logic lives there — logic placed there runs only on
