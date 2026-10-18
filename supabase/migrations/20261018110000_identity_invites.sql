@@ -1,5 +1,5 @@
 -- Identity & Access, week 2: invites, create_invite(), accept_invite(),
--- revoke_invite(). Owner: Ishant. Issue #25. Decisions in ADR-017.
+-- revoke_invite(). Owner: Ishant. Issue #25. Decisions in ADR-019.
 --
 -- I1. The link alone grants access: whoever signs in and opens it joins with the
 --     invited role. The invited email is where the link is sent, not a check.
@@ -34,7 +34,7 @@ create index invites_org_email_idx on public.invites (org_id, email);
 
 -- ------------------------------------------------------------ create_invite
 -- Returns the raw token once. The web app builds the link from it and emails
--- it (ADR-017); the database never sees the token again.
+-- it (ADR-019); the database never sees the token again.
 create function public.create_invite(
   p_org_id uuid,
   p_email  text,

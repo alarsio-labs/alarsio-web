@@ -1,5 +1,5 @@
 -- Identity & Access: invites, create_invite(), accept_invite(), revoke_invite().
--- Issue #25, ADR-017. Positive and negative.
+-- Issue #25, ADR-019. Positive and negative.
 begin;
 
 -- Org A: alice owner, carol PM, bob supervisor, dave accountant.
