@@ -51,11 +51,11 @@ begin
   perform test_assert(tok ~ '^[0-9a-f]{64}$', 'token is 64 hex characters');
   perform test_assert(
     (select email = 'frank@x.in' and role = 'supervisor'
-            and expires_at between now() + interval '9 minutes 59 seconds' and now() + interval '10 minutes 1 second'
+            and expires_at between now() + interval '71 hours 59 minutes' and now() + interval '72 hours 1 minute'
             and token_hash = sha256(convert_to(tok, 'UTF8'))
             and token_hash <> convert_to(tok, 'UTF8')
        from public.invites where email = 'frank@x.in'),
-    'invite stored with normalised email, 10-minute expiry and only a hash of the token');
+    'invite stored with normalised email, 72-hour expiry and only a hash of the token');
 
   -- I3: an owner may invite another owner.
   perform test_as('a0000000-0000-0000-0000-00000000000a');
@@ -170,8 +170,8 @@ begin
   tok_exp := create_invite('aaaaaaaa-0000-0000-0000-000000000001', 'late@x.in', 'supervisor');
   tok_rev := create_invite('aaaaaaaa-0000-0000-0000-000000000001', 'gone@x.in', 'supervisor');
   reset role;
-  -- I2: age the first invite past its 10 minutes (as superuser).
-  update public.invites set created_at = now() - interval '11 minutes', expires_at = now() - interval '1 minute'
+  -- I2: age the first invite past its 72 hours (as superuser).
+  update public.invites set created_at = now() - interval '73 hours', expires_at = now() - interval '1 minute'
    where email = 'late@x.in';
 
   -- revoke: non-owner, other org owner and unknown id get the same error.

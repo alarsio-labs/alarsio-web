@@ -3,7 +3,7 @@
 --
 -- I1. The link alone grants access: whoever signs in and opens it joins with the
 --     invited role. The invited email is where the link is sent, not a check.
--- I2. An invite lives 10 minutes, set here, never by the client.
+-- I2. An invite lives 72 hours, set here, never by the client.
 -- I3. Any of the four roles may be invited, owner included. Only an owner invites.
 -- I4. Only a sha256 of the token is stored. The raw token is returned once.
 
@@ -90,7 +90,7 @@ begin
 
   insert into public.invites (org_id, email, role, token_hash, expires_at, created_by)
   values (p_org_id, v_email, p_role, sha256(convert_to(v_token, 'UTF8')),
-          now() + interval '10 minutes', v_uid);
+          now() + interval '72 hours', v_uid);
 
   return v_token;
 end;

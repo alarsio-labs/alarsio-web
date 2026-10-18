@@ -448,7 +448,7 @@ until a cleanup rule is decided.
 
 ---
 
-## ADR-019 · Invites: link grants access, 10-minute expiry, owners may invite owners
+## ADR-019 · Invites: link grants access, 72-hour expiry, owners may invite owners
 **Date:** 2026-10-17 · **Status:** Proposed · **By:** Ishant (review: Nikhil; issue #25)
 
 **Context.** ADR-004 fixed email + password sign-in with an invite by copyable link,
@@ -459,7 +459,9 @@ whether the email is actually sent. Answered by Ishant on #25.
 - I1. The link alone grants access: any signed-in user who opens a valid link joins
   with the invited role. The invited email is the address the link is sent to, not a
   check on who accepts.
-- I2. An invite is valid for 10 minutes, set by `create_invite()`, never by the client.
+- I2. An invite is valid for 72 hours, set by `create_invite()`, never by the client.
+  First set to 10 minutes, then raised because the link goes by email and a supervisor
+  on site may read it hours later; 72 hours covers a weekend. The owner can revoke early.
 - I3. Only an owner invites, and any of the four roles may be invited, owner included.
 - I4. Only a sha256 of the token is stored. The raw token (244 random bits) is
   returned once to the inviting owner.
@@ -468,15 +470,18 @@ whether the email is actually sent. Answered by Ishant on #25.
   counter rolls back with the caller, and a raising refusal would make token guessing
   free. Accepting is limited to 10 tries an hour per user; creating to 30.
 - I6. An existing member who accepts keeps their role, and the invite is used up.
-- I7. The invite email is sent in the MVP. The sender is not decided yet: Supabase's
-  built-in invite needs the service-role key, which we never use (rule 2).
+- I7. The invite email is sent in the MVP, from the organisation's own mailbox over
+  SMTP, by a server action in `apps/web` acting as the signed-in owner. Supabase's
+  built-in invite is not used, because it needs the service-role key (rule 2). The
+  same mailbox is set as Supabase Auth's custom SMTP, so verification and invite
+  emails come from one address. The owner also sees the link once, to copy, in case
+  the email does not arrive.
 
 **Consequences.** Onboarding is one tap, with no email match to get wrong. Cost: a
-forwarded or leaked link admits whoever opens it within 10 minutes, with the invited
-role, and for an owner invite that means full control. The 10-minute window is the
-main protection, and it is short for email: a supervisor who reads it late needs a
-new invite. Sending email needs a provider, a secret and a server-side sender, which
-is a new dependency for this team (I7).
+forwarded or leaked link admits whoever opens it within 72 hours, with the invited
+role, and for an owner invite that means full control. Revoking and the hash-only
+token are the protections; the window is not short. Sending email adds SMTP
+credentials, which live only in server env, never in git or the browser (I7).
 
 ---
 
