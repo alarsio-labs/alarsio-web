@@ -103,7 +103,8 @@ do $$ begin
   reset role;
   perform test_as('d0000000-0000-0000-0000-00000000000d');           -- accountant
   perform test_assert((select count(*) from public.worker_wage_rates) = 1, 'accountant reads rates');
-  perform test_assert((select count(*) from public.workers) = 0, 'unassigned accountant sees no workers by roster rule');
+  perform test_assert((select count(*) from public.workers) = 2, 'accountant reads every org A worker, to pay them (W10)');
+  perform test_assert((select count(*) from public.workers where id = '77000000-0000-0000-0000-0000000000b1') = 0, 'accountant cannot read an org B worker by id');
   reset role;
   perform test_as('b0000000-0000-0000-0000-00000000000b');           -- supervisor at site 1
   perform test_assert((select count(*) from public.workers) = 1, 'supervisor sees only the worker at their site');

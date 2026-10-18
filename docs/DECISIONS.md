@@ -286,6 +286,10 @@ the same supervisor needs the roster to mark attendance.
   trade and status, and no rates. So a closed row keeps its name,
   `has_worker_access` also counts a closed assignment at a site the caller can
   access: a supervisor sees everyone ever rostered at their site, no one else.
+- W10. An accountant reads every worker of their organisation (name, code, trade,
+  status), through `can_view_wages` inside `has_worker_access`. They already read
+  every rate; without the names a rate is useless for paying anyone. They still
+  cannot create, edit, assign or import (2026-10-18).
 
 **Consequences.** A supervisor can run attendance without ever seeing pay. Rate
 history is complete, so a wage summary can be reproduced for any past date. Costs:
