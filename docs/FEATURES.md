@@ -14,7 +14,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 1 | **Identity & Access** | Ishant | 🟡 | `organizations`, `profiles`, `memberships`, `invites` |
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
 | 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
-| 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
+| 4 | **Attendance & Site Presence** | Manish | 🟡 | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
@@ -83,11 +83,18 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
-- [ ] Outside the geofence asks for a reason, never silently accepts
+- [x] Outside the geofence asks for a reason, never silently accepts
 - [ ] Mark everyone present in one tap, then change exceptions
-- [ ] Half-day, leave, overtime hours, per-worker note
+- [x] Half-day, leave, overtime hours, per-worker note
 - [ ] A correction keeps the old value, the new value and the reason
 - [ ] Manager approves or rejects a day
+
+*Database side of capture is in #28 (ADR-021): `site_visits` with the geofence, `attendance_days`,
+`attendance_entries` and `mark_all_present`. Two rows are ticked because the database refuses the
+bad case and stores the values (tested). "Check in and check out" stays unticked because location
+captured only on that tap is device behaviour, and "mark everyone present in one tap" because the
+tap is a screen and offline mark-all is phone code. Corrections, review and the approved-day lock
+are the next PR.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
