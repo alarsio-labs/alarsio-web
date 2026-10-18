@@ -33,4 +33,15 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index outbox_status_seq on outbox (status, seq);
     `,
   },
+  {
+    // Issue #47. Small per-install settings, such as the device id sent with each push.
+    version: 2,
+    name: 'device settings',
+    sql: `
+      create table device_settings (
+        key   text primary key check (length(key) between 1 and 64),
+        value text not null
+      );
+    `,
+  },
 ];
