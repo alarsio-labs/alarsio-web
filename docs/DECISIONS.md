@@ -652,6 +652,58 @@ every user's rows until the sync status screen shows per-user counts.
 
 ---
 
+## ADR-022 · Daily Reporting sync handlers: update in place, replay before permission
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Anuradha (issue #63; contract agreed with Nikhil on #13)
+
+**Context.** `sync_push` routes `daily_reports` and `report_photos` to handlers that
+did not exist, so every report a phone sent came back `handler_unavailable`. Unlike
+the stock ledger, a report is not insert-only: a draft pushed earlier is submitted
+later, and a submitted report is edited, under the same `record_id`. The #35 guard
+triggers already hold the lifecycle rules, and #13 agreed the handlers are
+`SECURITY INVOKER`. Three things were open: where the report's `org_id` comes from,
+what a reviewed report answers, and whether a replay is answered before permission.
+
+**Decision.**
+- H1. `sync_daily_reports` and `sync_report_photos` are `SECURITY INVOKER`. They read
+  the payload, answer a replay, and insert or update under the caller's RLS. Every
+  lifecycle rule stays in the #35 triggers, so web and phone follow one rule.
+- H2. The report payload is the whole report. `org_id`, `site_id`, `report_date` and
+  `status` are required; each field has one JSON type, so `"12"` is not a headcount.
+  Status may only be `draft` or `submitted`.
+- H3. The phone sends the report's `org_id`, because the composite key to `sites` needs
+  it and Daily Reporting may not read `sites` itself. A `23503` on a report insert can
+  only mean the site is not in that organisation (sites never sync from a phone), so
+  the handler raises it as `22023`: `rejected`, never a retry loop.
+- H4. An existing report by the caller, pushed with different content, is an `UPDATE`.
+  The handler never answers `accepted` for an update that changed 0 rows: it re-reads
+  the row and answers `conflict` / `reviewed` if it was reviewed meanwhile, otherwise
+  `rejected` / `permission_denied`.
+- H5. The handlers return two conflicts themselves: `reviewed` (the server's version is
+  final) and `different_report` (this id already holds another site or date). The
+  rest come from `sync_push`'s mapping: no reason `invalid_input`, un-submit
+  `invalid_state`, a second report for the site and day `duplicate`.
+- H6. **Replay before permission**, as Materials does (ADR-017). Private `SECURITY
+  DEFINER` matchers (`daily_report_matches`, `report_photo_matches`) compare only the
+  caller's own row and return a boolean. So a phone that missed an answer still hears
+  `accepted` after losing the site. A reviewed report matches its submitted content,
+  because the server holds exactly what the phone sent.
+- H7. A photo's site and organisation come from its report, which this module owns, so
+  the photo payload is exactly the #13 "same content". A report the caller cannot see
+  is `retryable_error` / `missing_parent` (not synced yet), unless it is the caller's
+  own (`is_own_daily_report`, definer, true only for the caller's reports): then the
+  caller lost the site, and it is `rejected` / `permission_denied`.
+
+**Consequences.** A report filed offline needs one record, a replay never writes, and a
+stale phone cannot overwrite a reviewed report. Costs: the phone must send `org_id`
+for a report; three small definer helpers are executable by `authenticated`, though
+each speaks only about the caller's own rows; a photo for another user's report that
+the caller cannot see retries with backoff instead of being refused, since under RLS
+it looks the same as a report still on its way (the phone only sends photos of its
+own reports); and the race in H4, a review landing between the read and the update,
+is handled in code but not covered by a test, as the SQL suites run on one connection.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
