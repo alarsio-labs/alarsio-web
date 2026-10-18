@@ -1,0 +1,4 @@
+{
+  "extends": "@alarsio/config/tsconfig.base.json",
+  "include": ["src"]
+}

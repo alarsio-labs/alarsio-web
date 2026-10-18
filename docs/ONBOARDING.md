@@ -60,6 +60,23 @@ Fill in your Supabase URL and publishable key from the project dashboard
 **Never** put the service-role key in any file in this repo. Not once, not
 temporarily. CI fails the build if it finds the string.
 
+### Supabase Auth settings (once per project)
+
+The web sign-in needs two settings in the Supabase dashboard. They live in the
+project, not in this repo.
+
+1. **Authentication → URL Configuration:** set *Site URL* to `NEXT_PUBLIC_SITE_URL`
+   (`http://localhost:3000` locally) and add it to *Redirect URLs*.
+2. **Authentication → Email Templates → Confirm signup:** change the link to
+   ```
+   {{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email
+   ```
+   This makes the confirmation link work on any device, not only the browser that
+   signed up.
+3. **Authentication → SMTP Settings (optional for local, required for the pilot):**
+   enter the organisation mailbox's SMTP host, port, user and password, so
+   verification emails come from our own address (ADR-019, I7).
+
 ## 6 · Check it runs
 
 ```bash

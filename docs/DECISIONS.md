@@ -448,6 +448,45 @@ until a cleanup rule is decided.
 
 ---
 
+## ADR-017 · The stock ledger: one writer, replay before permission, warn-only alerts
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Nikhil (issue #30)
+
+**Context.** Materials part 2 adds the ledger phones write offline and the web writes
+online. It must never duplicate a replayed push (#33), never be edited, give one
+error for "missing" and "not yours", and compute the balance itself. The PRD says
+low or negative stock is warned "where a reason is required"; FEATURES.md and #30 say
+the reason is mandatory on an adjustment.
+
+**Decision.**
+- `material_transactions` is append-only, enforced by a trigger even for the table
+  owner, with no client write grant. `apply_material_transaction()` (`SECURITY
+  DEFINER`) is its only writer, and `sync_material_transactions()` is a thin
+  `SECURITY INVOKER` handler that calls it, so web and phone follow one rule.
+- Opening, receipt and usage are positive; an adjustment is signed and non-zero and
+  needs a reason. One opening per material. A future `occurred_on` is refused (UTC
+  today + 1, since India is ahead of UTC). Following FEATURES.md, the single source of
+  scope, a reason is required on an **adjustment**, not on usage that goes negative:
+  a phone offline cannot know the true balance, so that rule could not be enforced.
+- **Replay before permission.** The caller's own record, sent again with the same
+  content, returns at once, even if the caller has since lost the right to record
+  (e.g. the site was archived). This is so a phone that missed the answer still
+  hears "done". Anything else is checked first: a missing, foreign, other-site or
+  archived material and a wrong role all raise one `42501`; the same id with
+  different content raises `23505` (sync_push: `conflict`).
+- Only the assigned supervisor records (`can_record_on_site`); owners and managers
+  review, as the PRD's roles say.
+- `material_balances` sums the ledger (usage negative) per material, 0 when empty.
+  `material_alerts` flags `negative` below zero and `low` at or under the threshold;
+  no threshold, no low alert. Both are `security_invoker`.
+
+**Consequences.** The balance a manager sees can always be rebuilt from the ledger,
+and a replay can never double stock. Costs: an office correction needs a supervisor
+on that site; a material with a threshold and no movements shows as low until its
+opening is recorded; and stock never leaves the ledger, so offboarding will need a
+decision on how to get past the guard.
+
+---
+
 ## ADR-018 · The sync sender: transport seam, signed-in only, one run at a time
 **Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #47)
 
@@ -483,6 +522,43 @@ row, so on a shared phone records saved under one user would be pushed under the
 next user's session. That must be closed before sign-in ships (#14): tag each row
 with its author and send only the signed-in user's rows, or block sign-out until
 the outbox is empty.
+
+---
+
+## ADR-019 · Invites: link grants access, 72-hour expiry, owners may invite owners
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Ishant (review: Nikhil; issue #25)
+
+**Context.** ADR-004 fixed email + password sign-in with an invite by copyable link,
+but left open who a link admits, how long it lives, which roles may be invited, and
+whether the email is actually sent. Answered by Ishant on #25.
+
+**Decision.**
+- I1. The link alone grants access: any signed-in user who opens a valid link joins
+  with the invited role. The invited email is the address the link is sent to, not a
+  check on who accepts.
+- I2. An invite is valid for 72 hours, set by `create_invite()`, never by the client.
+  First set to 10 minutes, then raised because the link goes by email and a supervisor
+  on site may read it hours later; 72 hours covers a weekend. The owner can revoke early.
+- I3. Only an owner invites, and any of the four roles may be invited, owner included.
+- I4. Only a sha256 of the token is stored. The raw token (244 random bits) is
+  returned once to the inviting owner.
+- I5. `accept_invite()` returns the organisation id, or null for every refusal
+  (unknown, expired, revoked, used). It does not raise, because `enforce_rate_limit`'s
+  counter rolls back with the caller, and a raising refusal would make token guessing
+  free. Accepting is limited to 10 tries an hour per user; creating to 30.
+- I6. An existing member who accepts keeps their role, and the invite is used up.
+- I7. The invite email is sent in the MVP, from the organisation's own mailbox over
+  SMTP, by a server action in `apps/web` acting as the signed-in owner. Supabase's
+  built-in invite is not used, because it needs the service-role key (rule 2). The
+  same mailbox is set as Supabase Auth's custom SMTP, so verification and invite
+  emails come from one address. The owner also sees the link once, to copy, in case
+  the email does not arrive.
+
+**Consequences.** Onboarding is one tap, with no email match to get wrong. Cost: a
+forwarded or leaked link admits whoever opens it within 72 hours, with the invited
+role, and for an owner invite that means full control. Revoking and the hash-only
+token are the protections; the window is not short. Sending email adds SMTP
+credentials, which live only in server env, never in git or the browser (I7).
 
 ---
 

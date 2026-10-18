@@ -39,3 +39,6 @@ coverage/
 
 # claude local overrides (personal, not shared)
 .claude/settings.local.json
+
+# next
+next-env.d.ts
