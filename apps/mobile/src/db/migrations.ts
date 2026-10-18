@@ -33,4 +33,26 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index outbox_status_seq on outbox (status, seq);
     `,
   },
+  {
+    // Issue #47. Small per-install settings, such as the device id sent with each push.
+    version: 2,
+    name: 'device settings',
+    sql: `
+      create table device_settings (
+        key   text primary key check (length(key) between 1 and 64),
+        value text not null
+      );
+    `,
+  },
+  {
+    // Issue #54, ADR-020. The user who saved each row; only their session sends it.
+    // Null only for rows saved before this migration, which are never sent.
+    version: 3,
+    name: 'outbox author',
+    sql: `
+      alter table outbox add column author_id text
+        check (author_id is null or length(author_id) = 36);
+      create index outbox_author_status_seq on outbox (author_id, status, seq);
+    `,
+  },
 ];
