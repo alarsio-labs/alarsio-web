@@ -448,6 +448,45 @@ until a cleanup rule is decided.
 
 ---
 
+## ADR-017 · The stock ledger: one writer, replay before permission, warn-only alerts
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Nikhil (issue #30)
+
+**Context.** Materials part 2 adds the ledger phones write offline and the web writes
+online. It must never duplicate a replayed push (#33), never be edited, give one
+error for "missing" and "not yours", and compute the balance itself. The PRD says
+low or negative stock is warned "where a reason is required"; FEATURES.md and #30 say
+the reason is mandatory on an adjustment.
+
+**Decision.**
+- `material_transactions` is append-only, enforced by a trigger even for the table
+  owner, with no client write grant. `apply_material_transaction()` (`SECURITY
+  DEFINER`) is its only writer, and `sync_material_transactions()` is a thin
+  `SECURITY INVOKER` handler that calls it, so web and phone follow one rule.
+- Opening, receipt and usage are positive; an adjustment is signed and non-zero and
+  needs a reason. One opening per material. A future `occurred_on` is refused (UTC
+  today + 1, since India is ahead of UTC). Following FEATURES.md, the single source of
+  scope, a reason is required on an **adjustment**, not on usage that goes negative:
+  a phone offline cannot know the true balance, so that rule could not be enforced.
+- **Replay before permission.** The caller's own record, sent again with the same
+  content, returns at once, even if the caller has since lost the right to record
+  (e.g. the site was archived). This is so a phone that missed the answer still
+  hears "done". Anything else is checked first: a missing, foreign, other-site or
+  archived material and a wrong role all raise one `42501`; the same id with
+  different content raises `23505` (sync_push: `conflict`).
+- Only the assigned supervisor records (`can_record_on_site`); owners and managers
+  review, as the PRD's roles say.
+- `material_balances` sums the ledger (usage negative) per material, 0 when empty.
+  `material_alerts` flags `negative` below zero and `low` at or under the threshold;
+  no threshold, no low alert. Both are `security_invoker`.
+
+**Consequences.** The balance a manager sees can always be rebuilt from the ledger,
+and a replay can never double stock. Costs: an office correction needs a supervisor
+on that site; a material with a threshold and no movements shows as low until its
+opening is recorded; and stock never leaves the ledger, so offboarding will need a
+decision on how to get past the guard.
+
+---
+
 ## ADR-019 · Invites: link grants access, 72-hour expiry, owners may invite owners
 **Date:** 2026-10-17 · **Status:** Proposed · **By:** Ishant (review: Nikhil; issue #25)
 

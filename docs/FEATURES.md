@@ -63,6 +63,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
 - [ ] Invite a team member by email or copyable link
+  *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
 - [x] A supervisor sees only sites assigned to them
 
@@ -95,9 +96,9 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
-- [ ] Record opening balance, receipt, usage, adjustment
-- [ ] Running balance computed server-side
-- [ ] Warn on low or negative stock; a reason is mandatory on adjustment
+- [x] Record opening balance, receipt, usage, adjustment
+- [x] Running balance computed server-side
+- [x] Warn on low or negative stock; a reason is mandatory on adjustment
 
 ### 7 · Wage Summaries
 - [ ] Weekly or monthly period, using **approved attendance only**
