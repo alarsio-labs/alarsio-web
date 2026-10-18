@@ -1,6 +1,6 @@
 // The sender: takes batches from the outbox, sends them to sync_push, and
 // applies the answers. Owner: Offline Sync (Nikhil). Issue #47.
-// Envelope and verdicts: #33, ADR-009, ADR-014. Outbox rules: ADR-016.
+// Envelope and verdicts: #33, ADR-009, ADR-014. Outbox rules: ADR-016, ADR-020.
 //
 // It talks to the server only through a SyncTransport, so every path here is
 // tested without a network, and the real transport (Supabase) is one small file.
@@ -8,7 +8,7 @@
 import type { DeviceDb } from '../db/device-db';
 import { getDeviceId } from './device-id';
 import type { SyncEntity, SyncResultRow } from './entities';
-import { applyVerdicts, claimBatch, releaseBatch, type Payload } from './outbox';
+import { applyVerdicts, claimBatch, recoverInterrupted, releaseBatch, type Payload } from './outbox';
 
 export const MAX_BATCHES_PER_RUN = 5;
 
@@ -24,11 +24,18 @@ export type PushResponse =
   | { error: 'invalid_envelope'; reason: string };
 
 export interface SyncTransport {
-  /** True when a user is signed in, so a push can carry their identity. */
-  hasSession(): Promise<boolean>;
-  /** Sends one batch. Throws SyncTransportError when the call itself fails. */
-  push(batch: SyncBatch): Promise<PushResponse>;
+  /** The signed-in user's id, or null when no one is signed in. */
+  currentUserId(): Promise<string | null>;
+  /**
+   * Sends one batch under `userId`'s session, and only that session. If someone
+   * else is signed in by now, throws SyncTransportError('session_changed')
+   * without sending. Throws SyncTransportError when the call itself fails.
+   */
+  push(batch: SyncBatch, userId: string): Promise<PushResponse>;
 }
+
+/** The signed-in user changed after the batch was claimed (ADR-020). */
+export const SESSION_CHANGED = 'session_changed';
 
 /** The call did not reach sync_push or did not complete. `reason` is a short code. */
 export class SyncTransportError extends Error {
@@ -49,24 +56,26 @@ export interface RunSyncOptions {
 }
 
 /**
- * Sends everything that is due, one batch at a time, up to `maxBatches`.
- * Nothing is claimed when no one is signed in, so records are not marked
- * failed for a reason that is not theirs. A failed push stops the run; the
- * outbox's backoff decides when those records go again.
+ * Sends everything due for the signed-in user, one batch at a time, up to
+ * `maxBatches`. Nothing is claimed when no one is signed in, so records are not
+ * marked failed for a reason that is not theirs, and another user's records
+ * wait for that user (ADR-020). A failed push stops the run; the outbox's
+ * backoff decides when those records go again.
  */
 export async function runSync(
   db: DeviceDb,
   transport: SyncTransport,
   { now = () => new Date(), maxBatches = MAX_BATCHES_PER_RUN }: RunSyncOptions = {},
 ): Promise<SyncRunResult> {
-  if (!(await transport.hasSession())) return { kind: 'signed_out' };
+  const userId = await transport.currentUserId();
+  if (userId === null) return { kind: 'signed_out' };
 
   const deviceId = await getDeviceId(db);
   let batches = 0;
   let records = 0;
 
   while (batches < maxBatches) {
-    const claimed = await claimBatch(db, now());
+    const claimed = await claimBatch(db, userId, now());
     if (claimed.length === 0) break;
 
     const batch: SyncBatch = {
@@ -77,9 +86,14 @@ export async function runSync(
 
     let response: PushResponse;
     try {
-      response = await transport.push(batch);
+      response = await transport.push(batch, userId);
     } catch (error) {
       const reason = error instanceof SyncTransportError ? error.reason : 'network';
+      if (reason === SESSION_CHANGED) {
+        // Nothing was sent. Hand the batch back untouched for its author's next session.
+        await recoverInterrupted(db, now());
+        return { kind: 'failed', reason, batches, records };
+      }
       await releaseBatch(db, reason, now());
       return { kind: 'failed', reason, batches, records };
     }

@@ -4,17 +4,33 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import type { SyncResultRow } from './entities';
-import { SyncTransportError, type PushResponse, type SyncBatch, type SyncTransport } from './sender';
+import {
+  SESSION_CHANGED,
+  SyncTransportError,
+  type PushResponse,
+  type SyncBatch,
+  type SyncTransport,
+} from './sender';
 
 export function supabaseTransport(supabase: SupabaseClient): SyncTransport {
   return {
-    async hasSession() {
+    async currentUserId() {
       const { data } = await supabase.auth.getSession();
-      return data.session !== null;
+      return data.session?.user.id ?? null;
     },
 
-    async push(batch: SyncBatch): Promise<PushResponse> {
-      const { data, error } = await supabase.rpc('sync_push', { p_batch: batch });
+    async push(batch: SyncBatch, userId: string): Promise<PushResponse> {
+      // One session read decides both who is signed in and which token goes out,
+      // so a user switch cannot slip between the check and the call (ADR-020).
+      // supabase-js keeps an Authorization header that is already set.
+      const { data: auth } = await supabase.auth.getSession();
+      const session = auth.session;
+      if (!session || session.user.id.toLowerCase() !== userId.toLowerCase()) {
+        throw new SyncTransportError(SESSION_CHANGED);
+      }
+      const { data, error } = await supabase
+        .rpc('sync_push', { p_batch: batch })
+        .setHeader('Authorization', `Bearer ${session.access_token}`);
       if (error) {
         // A PostgREST error carries a SQLSTATE in `code` (28000: not signed in,
         // PT429: rate limit). A fetch that never reached the server has none.

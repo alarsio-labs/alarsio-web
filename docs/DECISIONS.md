@@ -562,6 +562,42 @@ credentials, which live only in server env, never in git or the browser (I7).
 
 ---
 
+## ADR-020 · Outbox rows belong to their author; only that user's session sends them
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Nikhil (issue #54)
+
+**Context.** ADR-018 left a gap: the outbox did not record who saved a row. Site
+phones are shared, so after supervisor A signs out and B signs in, A's unsent
+records would go out under B's session. The server would write them as B or reject
+them under B's RLS. Either A's work is misattributed, or it is lost to a verdict
+that is not A's fault. This had to close before mobile sign-in ships.
+
+**Decision.**
+- Device migration 3 adds `outbox.author_id`, the signed-in user's id at save time.
+  `enqueue` requires it. A re-save makes the saver the author, because that person
+  is responsible for the latest payload. The server still decides under their RLS.
+- `claimBatch` takes an author and claims only their rows. The sender asks the
+  transport for `currentUserId()` at the start of a run and claims for that user.
+- `push(batch, userId)` binds the batch to its author. The transport reads the
+  session **once**, refuses if it belongs to anyone else, and sends that same
+  session's access token as the `Authorization` header (supabase-js keeps a header
+  that is already set). A user switch cannot slip between the check and the call.
+  A refused push hands the batch back to `pending` with no retry penalty, and the
+  run stops (`session_changed`).
+- Sign-out is **not** blocked. Other users' rows wait and go out when their author
+  signs in again. `countUnsent(db, authorId)` lets the sign-out screen warn first.
+- A row with no author (only possible from before migration 3, and none exist,
+  since no capture screen had shipped) is never sent.
+
+**Consequences.** Switching users on a shared phone loses nothing, and each user's
+records go out under their own session. Costs: a user who never signs in again
+leaves their rows on the phone, visible as unsent but not sent. After a switch, the
+new user's records wait for the next trigger (at most 60 s). The transport depends
+on supabase-js not overwriting an `Authorization` header we set, which a library
+upgrade must not break; a test covers our side of it. The home screen still counts
+every user's rows until the sync status screen shows per-user counts.
+
+---
+
 ## Template — copy this for a new decision
 
 ```

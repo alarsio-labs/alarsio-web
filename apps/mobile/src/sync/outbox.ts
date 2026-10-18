@@ -1,7 +1,8 @@
 // The device outbox: every field record waits here until sync_push accepts it.
-// Owner: Offline Sync (Nikhil). Issue #39. Rules: ADR-009, ADR-016.
+// Owner: Offline Sync (Nikhil). Issue #39. Rules: ADR-009, ADR-016, ADR-020.
 //
-// One row per (entity, record_id). seq is the send order, so a parent captured
+// One row per (entity, record_id), owned by the user who last saved it, and
+// sent only while that user is signed in (#54). seq is the send order, so a parent captured
 // before its child is also sent before it. Only an `accepted` verdict makes a
 // row `synced`, which is the only state the app may call "submitted".
 
@@ -27,6 +28,11 @@ export interface OutboxEntry {
   entity: SyncEntity;
   recordId: string;
   payload: Payload;
+}
+
+/** A record to save, with the signed-in user who saved it. */
+export interface NewOutboxEntry extends OutboxEntry {
+  authorId: string;
 }
 
 export interface OutboxRecordStatus {
@@ -59,14 +65,18 @@ export function backoffMs(attempts: number): number {
  * Saves a record to send. A new (entity, record_id) is queued as pending. An
  * existing one takes the new payload and keeps its place in the order. If its
  * batch is in flight it is marked dirty, so the new payload goes out next; if
- * not, it is pending again with its retries reset.
+ * not, it is pending again with its retries reset. Either way the saver becomes
+ * its author, since they are responsible for the latest payload.
  */
-export async function enqueue(db: DeviceDb, entry: OutboxEntry, now: Date = new Date()): Promise<void> {
+export async function enqueue(db: DeviceDb, entry: NewOutboxEntry, now: Date = new Date()): Promise<void> {
   if (!isSyncEntity(entry.entity)) {
     throw new Error(`unknown sync entity: ${String(entry.entity)}`);
   }
   if (!UUID.test(entry.recordId)) {
     throw new Error(`record id is not a uuid: ${entry.recordId}`);
+  }
+  if (typeof entry.authorId !== 'string' || !UUID.test(entry.authorId)) {
+    throw new Error('author id is not a uuid');
   }
   if (typeof entry.payload !== 'object' || entry.payload === null || Array.isArray(entry.payload)) {
     throw new Error('payload must be a plain object');
@@ -76,26 +86,36 @@ export async function enqueue(db: DeviceDb, entry: OutboxEntry, now: Date = new 
   // In the update branch every column on the right reads the existing row, so
   // all the case expressions test the status as it was before this save.
   await db.run(
-    `insert into outbox (entity, record_id, payload, created_at, updated_at)
-     values (?, ?, ?, ?, ?)
+    `insert into outbox (entity, record_id, author_id, payload, created_at, updated_at)
+     values (?, ?, ?, ?, ?, ?)
      on conflict (entity, record_id) do update set
        payload         = excluded.payload,
+       author_id       = excluded.author_id,
        updated_at      = excluded.updated_at,
        dirty           = case when status = 'syncing' then 1 else 0 end,
        reason          = case when status = 'syncing' then reason else null end,
        attempts        = case when status = 'syncing' then attempts else 0 end,
        next_attempt_at = case when status = 'syncing' then next_attempt_at else null end,
        status          = case when status = 'syncing' then 'syncing' else 'pending' end`,
-    [entry.entity, entry.recordId.toLowerCase(), JSON.stringify(entry.payload), at, at],
+    [
+      entry.entity,
+      entry.recordId.toLowerCase(),
+      entry.authorId.toLowerCase(),
+      JSON.stringify(entry.payload),
+      at,
+      at,
+    ],
   );
 }
 
 /**
- * Takes the next batch to send, oldest first: every pending row, and failed rows
- * whose retry is due. They are marked syncing in the same transaction.
+ * Takes the next batch to send for one user, oldest first: their pending rows,
+ * and their failed rows whose retry is due. They are marked syncing in the same
+ * transaction. Other users' rows wait until those users sign in again.
  */
 export async function claimBatch(
   db: DeviceDb,
+  authorId: string,
   now: Date = new Date(),
   limit: number = MAX_BATCH,
 ): Promise<OutboxEntry[]> {
@@ -104,11 +124,12 @@ export async function claimBatch(
   await db.transaction(async () => {
     rows = await db.all<ClaimRow>(
       `select seq, entity, record_id, payload from outbox
-        where status = 'pending'
-           or (status = 'failed' and (next_attempt_at is null or next_attempt_at <= ?))
+        where author_id = ?
+          and (status = 'pending'
+               or (status = 'failed' and (next_attempt_at is null or next_attempt_at <= ?)))
         order by seq
         limit ?`,
-      [at, Math.min(Math.max(limit, 1), MAX_BATCH)],
+      [authorId.toLowerCase(), at, Math.min(Math.max(limit, 1), MAX_BATCH)],
     );
     for (const row of rows) {
       await db.run(`update outbox set status = 'syncing', updated_at = ? where seq = ?`, [at, row.seq]);
@@ -193,7 +214,8 @@ export async function releaseBatch(db: DeviceDb, reason: string, now: Date = new
 /**
  * Run on app start. A push the app was killed in the middle of left its rows
  * syncing; they are pending again. Sending them twice is safe, because the
- * server never duplicates a record (#33).
+ * server never duplicates a record (#33). The sender also uses it to hand back
+ * a claimed batch with no retry penalty when the signed-in user changes.
  */
 export async function recoverInterrupted(db: DeviceDb, now: Date = new Date()): Promise<number> {
   const { changes } = await db.run(
@@ -215,13 +237,35 @@ export async function getStatus(
   return row ?? null;
 }
 
-export async function countByStatus(db: DeviceDb): Promise<Record<OutboxStatus, number>> {
+/** Rows per status, for every user or, given an author, for that user only. */
+export async function countByStatus(
+  db: DeviceDb,
+  authorId?: string,
+): Promise<Record<OutboxStatus, number>> {
   const counts = Object.fromEntries(OUTBOX_STATUSES.map((s) => [s, 0])) as Record<OutboxStatus, number>;
-  const rows = await db.all<{ status: OutboxStatus; n: number }>(
-    `select status, count(*) as n from outbox group by status`,
-  );
+  const rows =
+    authorId === undefined
+      ? await db.all<{ status: OutboxStatus; n: number }>(
+          `select status, count(*) as n from outbox group by status`,
+        )
+      : await db.all<{ status: OutboxStatus; n: number }>(
+          `select status, count(*) as n from outbox where author_id = ? group by status`,
+          [authorId.toLowerCase()],
+        );
   for (const row of rows) counts[row.status] = row.n;
   return counts;
+}
+
+/**
+ * How many of this user's records the server has not accepted yet. Sign-out
+ * uses it to warn, not to block: the rows stay and go out when they return.
+ */
+export async function countUnsent(db: DeviceDb, authorId: string): Promise<number> {
+  const [row] = await db.all<{ n: number }>(
+    `select count(*) as n from outbox where author_id = ? and status <> 'synced'`,
+    [authorId.toLowerCase()],
+  );
+  return row?.n ?? 0;
 }
 
 async function requeue(db: DeviceDb, seq: number, at: string): Promise<void> {

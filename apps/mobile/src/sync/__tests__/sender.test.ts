@@ -7,6 +7,7 @@ import type { SyncResultRow } from '../entities';
 import { countByStatus, enqueue, getStatus } from '../outbox';
 import {
   runSync,
+  SESSION_CHANGED,
   singleFlight,
   SyncTransportError,
   type PushResponse,
@@ -24,11 +25,12 @@ jest.mock('expo-crypto', () => {
 });
 
 const T0 = new Date('2026-10-20T08:00:00.000Z');
+const USER_A = '11111111-0000-4000-8000-00000000000a';
 const ID = (n: number) => `00000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
 
 async function queue(db: DeviceDb, count: number, from = 1): Promise<void> {
   for (let n = from; n < from + count; n += 1) {
-    await enqueue(db, { entity: 'material_transactions', recordId: ID(n), payload: { qty: n } }, T0);
+    await enqueue(db, { entity: 'material_transactions', recordId: ID(n), authorId: USER_A, payload: { qty: n } }, T0);
   }
 }
 
@@ -44,7 +46,7 @@ function fakeTransport(
 ) {
   const pushes: SyncBatch[] = [];
   const transport: SyncTransport = {
-    hasSession: async () => signedIn,
+    currentUserId: async () => (signedIn ? USER_A : null),
     push: async (batch) => {
       pushes.push(batch);
       return respond(batch);
@@ -72,6 +74,100 @@ describe('runSync', () => {
 
     expect(pushes).toHaveLength(0);
     expect((await countByStatus(db)).pending).toBe(3);
+  });
+
+  describe('on a shared phone (#54)', () => {
+    const USER_B = '22222222-0000-4000-8000-00000000000b';
+
+    /** A transport whose signed-in user the test changes by hand. */
+    function switchableTransport(initial: string | null) {
+      const state = { user: initial, onCheck: (_checks: number) => undefined as void };
+      let checks = 0;
+      const pushes: SyncBatch[] = [];
+      const transport: SyncTransport = {
+        currentUserId: async () => {
+          const user = state.user;
+          checks += 1;
+          state.onCheck(checks); // runs after this check has answered
+          return user;
+        },
+        // Like the real transport: refuses to send under anyone but the author.
+        push: async (batch, userId) => {
+          if (state.user !== userId) throw new SyncTransportError(SESSION_CHANGED);
+          pushes.push(batch);
+          return acceptAll(batch);
+        },
+      };
+      return { transport, pushes, state };
+    }
+
+    it("sends only the signed-in user's records, and the others once their author is back", async () => {
+      await queue(db, 2); // saved by A
+      await enqueue(db, { entity: 'material_transactions', recordId: ID(3), authorId: USER_B, payload: {} }, T0);
+      const { transport, pushes, state } = switchableTransport(USER_B);
+
+      await runSync(db, transport, { now: () => T0 });
+      expect(pushes.flatMap((b) => b.records.map((r) => r.record_id))).toEqual([ID(3)]);
+      expect(await status(db, 1)).toBe('pending');
+      expect(await status(db, 2)).toBe('pending');
+
+      state.user = USER_A;
+      await runSync(db, transport, { now: () => T0 });
+      expect(pushes[1]?.records.map((r) => r.record_id)).toEqual([ID(1), ID(2)]);
+      expect(await countByStatus(db)).toMatchObject({ synced: 3, pending: 0 });
+    });
+
+    it('hands the batch back untouched when the user changes between claim and push', async () => {
+      await queue(db, 2);
+      const { transport, pushes, state } = switchableTransport(USER_A);
+      // The run starts as A; B signs in before the push.
+      state.onCheck = (checks) => {
+        if (checks === 1) state.user = USER_B;
+      };
+
+      expect(await runSync(db, transport, { now: () => T0 })).toEqual({
+        kind: 'failed',
+        reason: 'session_changed',
+        batches: 0,
+        records: 0,
+      });
+
+      expect(pushes).toHaveLength(0);
+      const left = await db.all<{ status: string; attempts: number; next_attempt_at: string | null }>(
+        'select status, attempts, next_attempt_at from outbox order by seq',
+      );
+      expect(left).toEqual([
+        { status: 'pending', attempts: 0, next_attempt_at: null },
+        { status: 'pending', attempts: 0, next_attempt_at: null },
+      ]);
+    });
+
+    it('gives a retried record in that batch no extra attempt', async () => {
+      await queue(db, 1);
+      await runSync(db, fakeTransport(() => ({ results: [] })).transport, { now: () => T0 });
+      // Record 1 is failed with one attempt, due again after 30 s.
+      const later = new Date(T0.getTime() + 60_000);
+      const { transport, state } = switchableTransport(USER_A);
+      state.onCheck = (checks) => {
+        if (checks === 1) state.user = USER_B;
+      };
+
+      await runSync(db, transport, { now: () => later });
+
+      const [left] = await db.all<{ status: string; attempts: number }>('select status, attempts from outbox');
+      expect(left).toEqual({ status: 'pending', attempts: 1 });
+    });
+
+    it('passes the claiming user to the transport', async () => {
+      await queue(db, 1);
+      const seen: string[] = [];
+      const transport: SyncTransport = {
+        currentUserId: async () => USER_A,
+        push: async (batch, userId) => (seen.push(userId), acceptAll(batch)),
+      };
+      await runSync(db, transport, { now: () => T0 });
+      expect(seen).toEqual([USER_A]);
+    });
   });
 
   it('sends the #33 envelope in capture order and applies the answers', async () => {
