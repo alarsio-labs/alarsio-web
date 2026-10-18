@@ -931,6 +931,33 @@ begin
     'the draft is still a draft');
 end $$;
 
+-- Nobody reviews their own report: bob, promoted to project manager, still
+-- cannot review R1, which he wrote, and gets the same error as an unknown id.
+do $$
+declare m_own text; m_unknown text;
+begin
+  update public.memberships set role = 'project_manager'
+   where org_id = 'aaaaaaaa-0000-0000-0000-000000000001' and user_id = 'b0000000-0000-0000-0000-00000000000b';
+
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  perform test_assert(public.can_review_site('51000000-0000-0000-0000-000000000001'),
+    'bob, now a project manager, can review site 1');
+  begin perform review_daily_report('d1000000-0000-0000-0000-000000000001', 'my own');
+  exception when insufficient_privilege then get stacked diagnostics m_own = message_text; end;
+  begin perform review_daily_report('d1000000-0000-0000-0000-0000000009ff');
+  exception when insufficient_privilege then get stacked diagnostics m_unknown = message_text; end;
+  reset role;
+
+  update public.memberships set role = 'supervisor'
+   where org_id = 'aaaaaaaa-0000-0000-0000-000000000001' and user_id = 'b0000000-0000-0000-0000-00000000000b';
+
+  perform test_assert(m_own is not null and m_own = m_unknown,
+    'an author cannot review their own report, and gets the same error as an unknown id');
+  perform test_assert((select status = 'submitted' and reviewed_by is null
+                         from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000001'),
+    'R1 is untouched by its author''s review');
+end $$;
+
 do $$
 declare n int;
 begin

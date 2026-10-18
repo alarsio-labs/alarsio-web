@@ -7,6 +7,8 @@
 -- D5: reviewed is final. The guard trigger refuses every later update.
 -- Reviewing a reviewed report does nothing and succeeds, so a retried call is
 -- harmless and the first reviewer and note are kept.
+-- Nobody reviews their own report, even after becoming a manager (build plan,
+-- "What finished means"; Nikhil's review of #35).
 
 create function public.review_daily_report(p_report_id uuid, p_note text default null)
 returns void
@@ -18,6 +20,7 @@ declare
   v_uid     uuid := auth.uid();
   v_site_id uuid;
   v_status  text;
+  v_author  uuid;
   v_note    text := nullif(btrim(p_note), '');
 begin
   if v_uid is null then
@@ -25,17 +28,18 @@ begin
   end if;
 
   -- Lock the report so a concurrent edit or review waits for us.
-  select r.site_id, r.status
-    into v_site_id, v_status
+  select r.site_id, r.status, r.author_id
+    into v_site_id, v_status, v_author
     from public.daily_reports r
    where r.id = p_report_id
      for update;
 
-  -- One error for "no such report", "not yours to review" and "still a draft",
-  -- so a caller cannot probe for report ids in other organisations or learn
-  -- that a supervisor has a draft.
+  -- One error for "no such report", "not yours to review", "your own report"
+  -- and "still a draft", so a caller cannot probe for report ids in other
+  -- organisations or learn that a supervisor has a draft.
   if not found
      or not public.can_review_site(v_site_id)
+     or v_author = v_uid
      or v_status = 'draft' then
     raise exception 'not permitted to review this report' using errcode = '42501';
   end if;
