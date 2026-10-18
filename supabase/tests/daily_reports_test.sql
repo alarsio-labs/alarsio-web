@@ -227,7 +227,9 @@ end $$;
 -- Still as superuser, with only the JWT claim set, so the triggers are tested
 -- on their own before any policy exists.
 do $$
-declare denied int := 0; v_today date := (now() at time zone 'Asia/Kolkata')::date;
+declare denied int := 0;
+  v_utc date := (now() at time zone 'utc')::date;
+  v_ist date := (now() at time zone 'Asia/Kolkata')::date;
 begin
   perform set_config('request.jwt.claim.sub', '90000000-0000-0000-0000-000000000009', true);   -- gina
 
@@ -250,17 +252,21 @@ begin
     (select submitted_at is null and submitted_by is null from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000022'),
     'a draft has no submit stamp');
 
-  -- the org's tomorrow is allowed (India is ahead of UTC), the day after is not.
+  -- The limit is UTC today + 2, so the local tomorrow is allowed in every time
+  -- zone and UTC today + 3 never is. Both checks hold at any time of day.
   insert into public.daily_reports (id, org_id, site_id, report_date, author_id)
   values ('d1000000-0000-0000-0000-000000000023', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000002',
-          v_today + 1, '90000000-0000-0000-0000-000000000009');
+          v_utc + 2, '90000000-0000-0000-0000-000000000009');
+  insert into public.daily_reports (id, org_id, site_id, report_date, author_id)
+  values ('d1000000-0000-0000-0000-000000000025', 'aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001',
+          v_ist + 1, '90000000-0000-0000-0000-000000000009');
   begin
     insert into public.daily_reports (org_id, site_id, report_date, author_id)
     values ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000002',
-            v_today + 2, '90000000-0000-0000-0000-000000000009');
+            v_utc + 3, '90000000-0000-0000-0000-000000000009');
   exception when invalid_parameter_value then denied := 1; end;
-  perform test_assert(denied = 1, 'a report dated two days after the org''s today is rejected');
-  delete from public.daily_reports where id = 'd1000000-0000-0000-0000-000000000023';
+  perform test_assert(denied = 1, 'a report dated UTC today + 3 is rejected, UTC today + 2 and the local tomorrow are not');
+  delete from public.daily_reports where id in ('d1000000-0000-0000-0000-000000000023', 'd1000000-0000-0000-0000-000000000025');
 
   perform set_config('request.jwt.claim.sub', '', true);
 end $$;
