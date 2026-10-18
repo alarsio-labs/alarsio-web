@@ -13,7 +13,7 @@
 --   22023  bad input (future date, missing edit reason)   -> rejected
 --   23514  over the photo limit                            -> rejected
 --   42501  not permitted (key change, revision mutation)   -> rejected
---   55000  wrong state (reviewed is final, no un-submit)   -> the handler answers conflict
+--   55000  invalid transition (reviewed is final, no un-submit) -> rejected (invalid_state, in sync_push)
 --   28000  no signed-in user for an edit that needs one
 --
 -- Content columns are what a supervisor reports: headcount, work_done,
