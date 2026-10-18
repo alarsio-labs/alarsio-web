@@ -66,9 +66,14 @@ export default async function DashboardPage({
                 <span>
                   {m.orgName} <span className="text-sm text-neutral-500">· {ROLE_LABEL[m.role]}</span>
                 </span>
-                {m.role === "owner" && (
-                  <Link href={`/team?org=${m.orgId}`} className="text-sm underline">Team</Link>
-                )}
+                <span className="flex gap-4 text-sm">
+                  {(m.role === "owner" || m.role === "project_manager") && (
+                    <Link href={`/workers?org=${m.orgId}`} className="underline">Workers</Link>
+                  )}
+                  {m.role === "owner" && (
+                    <Link href={`/team?org=${m.orgId}`} className="underline">Team</Link>
+                  )}
+                </span>
               </li>
             ))}
           </ul>
