@@ -74,6 +74,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Site status: planned, active, paused, completed, archived
 - [x] An archived site is read-only
 
+*Sites also publishes the read-only views other modules read it through: `site_geofence` (ADR-021)
+and `site_directory` (ADR-025), plus `site_details` (#49, ADR-028), which the phone's offline mirror
+will read once #71 stops reading `sites` directly. No row is ticked for it: it adds no user feature.*
+
 ### 3 · Workforce
 - [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
