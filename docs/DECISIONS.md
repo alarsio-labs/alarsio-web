@@ -800,6 +800,46 @@ is handled in code but not covered by a test, as the SQL suites run on one conne
 
 ---
 
+## ADR-025 · Web review of daily reports: site names through a Sites view, no author names, no new write
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #74; Sites view reviewed by Manish)
+
+**Context.** The database side of Daily Reporting was merged (#35, #64) but no app shows a
+report, so the in-app flag for a serious blocker or safety incident had nowhere to appear.
+The web pages need the site's name. Daily Reporting may read Sites only through a published
+view: `site_geofence` carries no name, and `site_timeline`, listed in `ARCHITECTURE.md`, does
+not exist. `profiles` can be read only by their own user, so a manager cannot see who filed.
+
+**Decision.**
+- W1. Sites publishes `site_directory (id, org_id, name, status)`, `security_invoker`,
+  select-only for `authenticated`. No address, pin or geofence. Archived sites stay listed so
+  an old report keeps its site name. It is its own migration and commit, for Manish to review.
+- W2. The pages write nothing except through `review_daily_report`. They add no table, policy
+  or grant for Daily Reporting.
+- W3. The list reads `daily_report_status`; the detail page reads `daily_reports`,
+  `daily_report_revisions` and `report_photos` under the viewer's RLS. A draft never appears
+  for anyone but its author, and the pages add no filter that could widen that.
+  Membership of the organisation in the URL is checked with Identity's `is_org_member`;
+  the pages read no Identity table, so the heading shows no organisation name.
+- W4. Search params are validated: a uuid, one of three statuses, `flagged=1`, and real
+  calendar dates. The default range is 7 days and the longest is 31; a longer range is cut to
+  the 31 days ending at `to`, and a reversed or malformed one falls back to the default. Days
+  are UTC dates, not the organisation's time zone. The list shows at most 200 rows.
+- W5. Photos are shown through signed URLs valid 5 minutes, made on each render under the
+  viewer's own session, so storage RLS applies. A photo whose file is not uploaded yet shows a
+  placeholder.
+- W6. The Mark reviewed button is drawn only when `can_review_site` is true, the report is
+  `submitted` and the viewer is not its author. This is presentation: `review_daily_report`
+  repeats every check and is the boundary.
+- W7. No author names. A report filed by the viewer says "filed by you"; others say nothing.
+  Showing member names needs an Identity view, which is Identity's decision.
+
+**Consequences.** A manager can see and review reports with the history and photos, and the
+flag finally has a surface. Costs: a second module's view had to be added in this PR; an
+accountant has no site access, so sees an empty list (the dashboard hides the link from them);
+managers cannot tell supervisors apart in the list until Identity publishes member names; the
+UTC day can differ from the site's calendar day near midnight in India (UTC+5:30); and the
+signed-URL and storage-read path is tested here only by the shim, so it needs one check against
+a real Supabase project.
 ## ADR-024 · Schema guards: the non-negotiables are checked in CI, test-only
 **Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #72)
 

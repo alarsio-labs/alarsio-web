@@ -10,6 +10,8 @@ const MESSAGES = {
   link_invalid: "That link is invalid or has expired. Request a new one.",
   org_name: "Enter an organisation name of 1 to 120 characters.",
   org_failed: "Could not create the organisation. Try again.",
+  review_forbidden: "You cannot review this report.",
+  review_note_long: "Keep the review note to 1000 characters or fewer.",
   export_rate_limited: "You can export 5 times an hour. Try again later.",
   export_failed: "The export could not be made, and nothing was downloaded. Try again.",
   generic: "Something went wrong. Try again."

@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
+const SIGNED_IN_ONLY = ["/dashboard", "/team", "/reports"];
 const SIGNED_IN_ONLY = ["/dashboard", "/team", "/workers"];
 
 // Refreshes the Supabase session cookie on every page request, and sends a
