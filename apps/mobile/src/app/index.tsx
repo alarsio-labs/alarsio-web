@@ -6,6 +6,7 @@ import { openAppDb } from '../lib/app-db';
 import { getSupabase } from '../lib/supabase';
 import { HomeScreen } from '../screens/HomeScreen';
 import { startSyncEngine } from '../sync/engine';
+import { supabaseMirrorSource } from '../sync/supabase-mirror-source';
 import { supabaseTransport } from '../sync/supabase-transport';
 
 const config = readPublicConfig();
@@ -13,7 +14,13 @@ const config = readPublicConfig();
 // Module-level, so the reference is stable and the screen's effect runs once
 // per mount. _layout.tsx remounts this screen when the signed-in user changes.
 const startSync = config.ok
-  ? (db: DeviceDb) => startSyncEngine(db, supabaseTransport(getSupabase(config.config)))
+  ? (db: DeviceDb, userId?: string) => {
+      const supabase = getSupabase(config.config);
+      return startSyncEngine(db, supabaseTransport(supabase), undefined, {
+        userId,
+        mirrorSource: supabaseMirrorSource(supabase),
+      });
+    }
   : undefined;
 
 export default function Index() {

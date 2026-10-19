@@ -1,12 +1,14 @@
 import type { SyncStatus } from '../engine';
 import { SYNC_ENTITIES } from '../entities';
-import { entityLabel, reasonText, syncLine } from '../status-text';
+import { entityLabel, pullLine, reasonText, syncLine } from '../status-text';
 
 const USER = '11111111-0000-4000-8000-00000000000a';
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  lastPull: null,
+  mirror: null,
   last: null,
   running: false,
   userId: USER,
@@ -67,6 +69,46 @@ describe('syncLine (#68)', () => {
           }
         }
       }
+    }
+  });
+});
+
+describe('pullLine (#49)', () => {
+  const NOW = new Date('2026-10-20T12:00:00.000Z');
+  const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+  const mirror = (refreshedAt: string) => ({ refreshedAt, sites: 1, materials: 14, roster: 1 });
+  const MIN = 60_000;
+
+  it('says nothing before the phone holds a copy or has tried one', () => {
+    expect(pullLine(null, null, NOW)).toBeNull();
+    expect(pullLine(null, { kind: 'signed_out' }, NOW)).toBeNull();
+  });
+
+  it('says what the phone holds and how old it is', () => {
+    expect(pullLine(mirror(ago(10_000)), { kind: 'done', sites: 1, materials: 14, roster: 1 }, NOW)).toBe(
+      'On this phone: 1 site, 14 materials, 1 worker · updated just now',
+    );
+    expect(pullLine(mirror(ago(5 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 5 min ago');
+    expect(pullLine(mirror(ago(2 * 60 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 2 h ago');
+    expect(pullLine(mirror(ago(3 * 24 * 60 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 3 days ago');
+    // A clock that moved back is not "in the future".
+    expect(pullLine(mirror(ago(-5 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated just now');
+  });
+
+  it('still shows the copy it holds when the last refresh failed, and says so', () => {
+    expect(pullLine(mirror(ago(2 * 60 * MIN)), { kind: 'failed', reason: 'network' }, NOW)).toBe(
+      'On this phone: 1 site, 14 materials, 1 worker · updated 2 h ago · refresh failed, will retry',
+    );
+  });
+
+  it('says there is no copy yet when the first refresh failed', () => {
+    expect(pullLine(null, { kind: 'failed', reason: 'network' }, NOW)).toBe('Offline copy not available yet. Will retry.');
+  });
+
+  it('never prints the failure reason, whatever it holds', () => {
+    const reason = 'UNIQUE constraint failed: /data/user/0/com.alarsio/databases/alarsio.db a@b.com';
+    for (const m of [null, mirror(ago(MIN))]) {
+      expect(pullLine(m, { kind: 'failed', reason }, NOW)).not.toMatch(/UNIQUE|\/|@/);
     }
   });
 });

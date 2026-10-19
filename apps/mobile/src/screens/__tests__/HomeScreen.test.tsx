@@ -19,6 +19,8 @@ const USER = '11111111-0000-4000-8000-00000000000a';
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  lastPull: null,
+  mirror: null,
   last: null,
   running: false,
   userId: USER,

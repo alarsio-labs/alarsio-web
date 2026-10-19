@@ -25,7 +25,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Daily Reporting** | `daily_reports`, `daily_report_revisions`, `report_photos` | Sites, Attendance |
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
 | **Wage Summaries** | `wage_periods`, `wage_lines` | Attendance, Workforce |
-| **Offline Sync** *(platform)* | device SQLite outbox | Attendance, Reporting, Materials |
+| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials and Workforce views for the mirrors |
 | **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters` | Identity |
 
 Dependencies point **downward** only. Identity → Sites → field capture → wages.
@@ -110,6 +110,9 @@ A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
 replay (`accepted`) against `conflict` for its own records. The module that owns
 the table publishes the handler and lists it in its row of the public surface above.
 
+The phone also **pulls** what the signed-in user may see (sites, material
+balances, today's roster) into read-only mirrors, through published views only,
+replaced whole on each pull and readable only by that user (ADR-023).
 ## Data export
 
 The one read that crosses every module (ADR-026). An owner downloads their
