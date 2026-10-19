@@ -2,9 +2,8 @@
 
 import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
+import { UUID } from "@/lib/uuid";
 import { MAX_IMPORT_ROWS, type ImportRow } from "@/lib/workers/roster-file";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export type ImportResultRow = {
   row: number;
@@ -17,17 +16,21 @@ export type ImportOutcome = { ok: true; results: ImportResultRow[] } | { ok: fal
 
 const RESULTS = new Set(["created", "updated", "skipped", "rejected"]);
 
+// Fields are passed as typed, never cut short: a shortened code would be a
+// different worker. The database rejects values over its limits per row.
+const MAX_FIELD = 500;
+
 function cleanRow(value: unknown): ImportRow | null {
   if (typeof value !== "object" || value === null) return null;
   const o = value as Record<string, unknown>;
-  const str = (k: string, max: number) => (typeof o[k] === "string" ? (o[k] as string).slice(0, max) : "");
-  const row: ImportRow = {
-    code: str("code", 60),
-    full_name: str("full_name", 200),
-    trade: str("trade", 100),
-    pay_type: str("pay_type", 20)
-  };
-  const phone = str("phone", 30);
+  const fields = ["code", "full_name", "trade", "pay_type", "phone"] as const;
+  for (const k of fields) {
+    const v = o[k];
+    if (v !== undefined && (typeof v !== "string" || v.length > MAX_FIELD)) return null;
+  }
+  const str = (k: (typeof fields)[number]) => (typeof o[k] === "string" ? (o[k] as string) : "");
+  const row: ImportRow = { code: str("code"), full_name: str("full_name"), trade: str("trade"), pay_type: str("pay_type") };
+  const phone = str("phone");
   if (phone) row.phone = phone;
   return row;
 }

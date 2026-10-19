@@ -1,68 +1,78 @@
 "use client";
 
-import { useState, useTransition } from "react";
+import { useRef, useState, useTransition } from "react";
 import { Notice, buttonClass } from "@/components/form";
-import { parseCsv } from "@/lib/workers/csv";
-import { readRosterTable, type ImportRow } from "@/lib/workers/roster-file";
+import { CsvError, parseCsv } from "@/lib/workers/csv";
+import { IMPORT_RULES, reasonText } from "@/lib/workers/import-result";
+import { checkFile, looksMisencoded, readRosterTable, type ImportRow } from "@/lib/workers/roster-file";
 import { importWorkers, type ImportResultRow } from "./actions";
 
-const MAX_FILE_BYTES = 5 * 1024 * 1024;
-
-const REASON: Record<string, string> = {
-  invalid_value: "a value is missing or not allowed (pay type must be daily or hourly)",
-  not_permitted: "not allowed",
-  anonymized: "this worker was removed and cannot be changed"
-};
-
-type Parsed = { name: string; rows: ImportRow[] };
+type Parsed = { name: string; rows: ImportRow[]; lines: number[]; warnings: string[] };
+type Result = ImportResultRow & { line: number };
 
 async function readFile(file: File): Promise<unknown[][]> {
-  const name = file.name.toLowerCase();
-  if (name.endsWith(".csv")) return parseCsv(await file.text());
-  if (name.endsWith(".xlsx")) {
-    // Loaded only when someone picks an Excel file. Read in the browser: the
-    // file itself is never uploaded, only the rows.
-    const { readSheet } = await import("read-excel-file/browser");
-    return (await readSheet(file)) as unknown[][];
+  if (file.name.toLowerCase().endsWith(".csv")) {
+    const text = await file.text();
+    if (looksMisencoded(text)) {
+      throw new CsvError("Some letters could not be read. Save the file as \"CSV UTF-8\", or as .xlsx, and pick it again.");
+    }
+    return parseCsv(text);
   }
-  throw new Error("Choose a .csv or .xlsx file. For an older .xls file, save it as .xlsx first.");
+  // Loaded only when someone picks an Excel file. Read in the browser: the
+  // file itself is never uploaded, only the rows. Only the first sheet is read.
+  const { readSheet } = await import("read-excel-file/browser");
+  return (await readSheet(file)) as unknown[][];
 }
 
 export function ImportPanel({ orgId }: { orgId: string }) {
   const [parsed, setParsed] = useState<Parsed | null>(null);
   const [problems, setProblems] = useState<string[]>([]);
-  const [results, setResults] = useState<ImportResultRow[] | null>(null);
+  const [results, setResults] = useState<Result[] | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+  // A slower read of an earlier file must not replace a newer one.
+  const readId = useRef(0);
 
-  const onFile = async (file: File | undefined) => {
+  const onFile = async (input: HTMLInputElement) => {
+    const file = input.files?.[0];
+    // Clear the input so picking the same, corrected file fires again.
+    input.value = "";
+    const id = ++readId.current;
     setParsed(null);
     setProblems([]);
     setResults(null);
     setError(null);
     if (!file) return;
-    if (file.size > MAX_FILE_BYTES) {
-      setProblems(["The file is larger than 5 MB. Split it into smaller files."]);
+    const fileProblem = checkFile(file.name, file.size);
+    if (fileProblem) {
+      setProblems([fileProblem]);
       return;
     }
     try {
       const roster = readRosterTable(await readFile(file));
+      if (id !== readId.current) return;
       if (roster.problems.length > 0) setProblems(roster.problems);
-      else setParsed({ name: file.name, rows: roster.rows });
+      else setParsed({ name: file.name, rows: roster.rows, lines: roster.lines, warnings: roster.warnings });
     } catch (e) {
-      setProblems([e instanceof Error && e.message.startsWith("Choose") ? e.message : "The file could not be read."]);
+      if (id !== readId.current) return;
+      setProblems([e instanceof CsvError ? e.message : "The file could not be read. Check it is a real .csv or .xlsx file."]);
     }
   };
 
   const onImport = () => {
     if (!parsed) return;
+    const { rows, lines } = parsed;
     startTransition(async () => {
-      const outcome = await importWorkers(orgId, parsed.rows);
-      if (outcome.ok) {
-        setResults(outcome.results);
-        setParsed(null);
-      } else {
-        setError(outcome.message);
+      try {
+        const outcome = await importWorkers(orgId, rows);
+        if (outcome.ok) {
+          setResults(outcome.results.map((r) => ({ ...r, line: lines[r.row - 1] ?? r.row + 1 })));
+          setParsed(null);
+        } else {
+          setError(outcome.message);
+        }
+      } catch {
+        setError("The import could not be sent. Check your connection and try again. Nothing was saved.");
       }
     });
   };
@@ -73,14 +83,15 @@ export function ImportPanel({ orgId }: { orgId: string }) {
   return (
     <div className="space-y-4">
       <p className="text-sm text-neutral-600">
-        A .csv or .xlsx file with the columns Worker code, Name, Trade, Pay type (daily or hourly) and,
-        optionally, Phone. An existing worker code updates that worker. Wage rates are set separately.{" "}
+        A .csv or .xlsx file (only the first sheet is read) with the columns Worker code, Name, Trade, Pay type
+        (daily or hourly) and, optionally, Phone. An existing worker code updates that worker; a blank phone keeps
+        the phone already saved. Wage rates are set on each worker&apos;s page.{" "}
         <a href="/workers-template.csv" download className="underline">Download a template</a>
       </p>
       <input
         type="file"
         accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
-        onChange={(e) => void onFile(e.target.files?.[0])}
+        onChange={(e) => void onFile(e.currentTarget)}
         className="block w-full text-sm"
         aria-label="Worker file"
       />
@@ -99,6 +110,9 @@ export function ImportPanel({ orgId }: { orgId: string }) {
           <Notice kind="info">
             {parsed.name}: {parsed.rows.length} {parsed.rows.length === 1 ? "worker" : "workers"} ready to import.
           </Notice>
+          {parsed.warnings.map((w) => (
+            <Notice key={w} kind="error">{w}</Notice>
+          ))}
           <button type="button" onClick={onImport} disabled={pending} className={buttonClass}>
             {pending ? "Importing…" : `Import ${parsed.rows.length}`}
           </button>
@@ -111,13 +125,16 @@ export function ImportPanel({ orgId }: { orgId: string }) {
             {count("created")} added · {count("updated")} updated · {count("rejected")} rejected · {count("skipped")} skipped
           </Notice>
           {failed.length > 0 && (
-            <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
-              {failed.map((r) => (
-                <li key={r.row} className="px-3 py-2">
-                  Row {r.row + 1}{r.code ? ` (${r.code})` : ""}: {REASON[r.reason ?? ""] ?? "could not be saved"}
-                </li>
-              ))}
-            </ul>
+            <>
+              <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
+                {failed.map((r) => (
+                  <li key={r.row} className="px-3 py-2">
+                    Line {r.line}{r.code ? ` (${r.code})` : ""}: {reasonText(r.reason)}
+                  </li>
+                ))}
+              </ul>
+              <p className="text-xs text-neutral-500">{IMPORT_RULES}</p>
+            </>
           )}
         </div>
       )}

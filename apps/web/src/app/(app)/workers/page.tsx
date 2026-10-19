@@ -1,9 +1,10 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
+import { UUID } from "@/lib/uuid";
 import { ImportPanel } from "./import-panel";
 
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+const PAGE = 200;
 
 type WorkerRow = { id: string; code: string; full_name: string; trade: string; pay_type: string; status: string };
 
@@ -18,8 +19,11 @@ export default async function WorkersPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const org = (await searchParams).org;
+  const params = await searchParams;
+  const org = params.org;
   if (typeof org !== "string" || !UUID.test(org)) redirect("/dashboard");
+  const pageNo = Math.max(1, Math.min(1000, Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1));
+  const from = (pageNo - 1) * PAGE;
 
   const supabase = await supabaseServer();
   const {
@@ -29,19 +33,21 @@ export default async function WorkersPage({
 
   // Managing workers is can_manage_sites (owner, project manager), the same
   // predicate the workers policies use. RLS filters the list either way.
-  const [{ data: orgRow }, { data: canManage }, { data: workers }] = await Promise.all([
+  const [{ data: orgRow }, { data: canManage }, { data: workers, count }] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", org).maybeSingle(),
     supabase.rpc("can_manage_sites", { p_org_id: org }),
     supabase
       .from("workers")
-      .select("id, code, full_name, trade, pay_type, status")
+      .select("id, code, full_name, trade, pay_type, status", { count: "exact" })
       .eq("org_id", org)
       .order("code")
-      .limit(500)
+      .range(from, from + PAGE - 1)
   ]);
   if (!orgRow || canManage !== true) redirect("/dashboard");
 
   const rows = Array.isArray(workers) ? workers.filter(isWorkerRow) : [];
+  const total = typeof count === "number" ? count : rows.length;
+  const pages = Math.max(1, Math.ceil(total / PAGE));
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
@@ -54,7 +60,7 @@ export default async function WorkersPage({
       </section>
 
       <section className="mt-10">
-        <h2 className="text-lg font-medium">Workers ({rows.length}{rows.length === 500 ? "+" : ""})</h2>
+        <h2 className="text-lg font-medium">Workers ({total})</h2>
         {rows.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-600">No workers yet.</p>
         ) : (
@@ -82,6 +88,13 @@ export default async function WorkersPage({
               </tbody>
             </table>
           </div>
+        )}
+        {pages > 1 && (
+          <nav className="mt-3 flex items-center gap-4 text-sm" aria-label="Pages">
+            {pageNo > 1 && <Link href={`/workers?org=${org}&page=${pageNo - 1}`} className="underline">← Previous</Link>}
+            <span className="text-neutral-600">Page {pageNo} of {pages}</span>
+            {pageNo < pages && <Link href={`/workers?org=${org}&page=${pageNo + 1}`} className="underline">Next →</Link>}
+          </nav>
         )}
       </section>
     </main>
