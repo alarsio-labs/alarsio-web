@@ -1,9 +1,9 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { PublicConfigResult } from '../../config/public-config';
 import type { DeviceDb } from '../../db/device-db';
 import type { SyncHandle, SyncStatus } from '../../sync/engine';
-import { HomeScreen, syncLine } from '../HomeScreen';
+import { HomeScreen } from '../HomeScreen';
 
 const goodConfig: PublicConfigResult = {
   ok: true,
@@ -15,7 +15,27 @@ const fakeDb = {} as DeviceDb;
 const openFakeDb = () => Promise.resolve(fakeDb);
 
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
-const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({ counts: zero, last: null, running: false, ...over });
+const USER = '11111111-0000-4000-8000-00000000000a';
+const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
+  counts: zero,
+  attention: [],
+  last: null,
+  running: false,
+  userId: USER,
+  ...over,
+});
+
+function fakeHandle(over: Partial<SyncHandle> = {}): SyncHandle {
+  return {
+    requestSync: jest.fn(),
+    syncNow: jest.fn(),
+    retryNow: jest.fn(),
+    getStatus: () => status({ counts: { ...zero, pending: 3 } }),
+    subscribe: () => () => undefined,
+    stop: jest.fn(),
+    ...over,
+  };
+}
 
 describe('HomeScreen', () => {
   it('shows the database as ready once it opens', async () => {
@@ -24,7 +44,7 @@ describe('HomeScreen', () => {
     expect(await screen.findByText('Device database ready')).toBeTruthy();
     expect(screen.getByText('Version 0.1.0')).toBeTruthy();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
-    expect(screen.queryByText(/^Sync:/)).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });
 
   it('shows why the database failed instead of crashing', async () => {
@@ -54,46 +74,33 @@ describe('HomeScreen', () => {
     expect(await screen.findByText('Device database ready')).toBeTruthy();
   });
 
-  it('starts sync with the opened database and shows its status', async () => {
-    const startSync = jest.fn(
-      (db: DeviceDb): SyncHandle => {
-        expect(db).toBe(fakeDb);
-        return {
-          requestSync: jest.fn(),
-          syncNow: jest.fn(),
-          getStatus: () => status({ counts: { ...zero, pending: 3 } }),
-          subscribe: () => () => undefined,
-          stop: jest.fn(),
-        };
-      },
-    );
+  it('starts sync for the signed-in user with the opened database and shows its status', async () => {
+    const startSync = jest.fn((db: DeviceDb, userId?: string): SyncHandle => {
+      expect(db).toBe(fakeDb);
+      expect(userId).toBe(USER);
+      return fakeHandle();
+    });
 
     await render(
-      <HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} appVersion="0.1.0" />,
+      <HomeScreen openDb={openFakeDb} startSync={startSync} userId={USER} config={goodConfig} appVersion="0.1.0" />,
     );
 
-    expect(await screen.findByText('Sync: 3 waiting')).toBeTruthy();
+    expect(await screen.findByText('3 waiting to send')).toBeTruthy();
     expect(startSync).toHaveBeenCalledTimes(1);
   });
-});
 
-describe('syncLine', () => {
-  it('counts pending, syncing and failed as waiting', () => {
-    expect(syncLine(status({ counts: { ...zero, pending: 1, syncing: 2, failed: 3, synced: 9 } }))).toBe(
-      'Sync: 6 waiting',
+  it('Sync now retries through the handle', async () => {
+    const retryNow = jest.fn();
+    await render(
+      <HomeScreen
+        openDb={openFakeDb}
+        startSync={() => fakeHandle({ retryNow })}
+        config={goodConfig}
+        appVersion="0.1.0"
+      />,
     );
-  });
 
-  it('says when records need attention, and when sending', () => {
-    expect(syncLine(status({ running: true, counts: { ...zero, conflict: 1, rejected: 1 } }))).toBe(
-      'Sync: sending… 0 waiting · 2 need attention',
-    );
-  });
-
-  it('asks the user to sign in, or names why the last try failed', () => {
-    expect(syncLine(status({ last: { kind: 'signed_out' } }))).toBe('Sync: 0 waiting · sign in to sync');
-    expect(
-      syncLine(status({ last: { kind: 'failed', reason: 'network', batches: 0, records: 0 } })),
-    ).toBe('Sync: 0 waiting · last try failed (network)');
+    await fireEvent.press(await screen.findByRole('button', { name: 'Sync now' }));
+    expect(retryNow).toHaveBeenCalledTimes(1);
   });
 });
