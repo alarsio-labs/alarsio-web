@@ -27,6 +27,8 @@
 --   recurse into RLS), and EXECUTE granted to authenticated.
 -- Section 9 (issue #17, #28) asserts the accountant rule: an accountant passes
 -- has_site_access only through an open assignment, and loses it when it closes.
+-- Section 10 (issue #49) asserts the published view site_details: shape,
+-- who sees which rows, that it is read-only, and what archiving does to it.
 -- Not asserted here: whether a closed assignment still lets a supervisor read
 -- the site.
 begin;
@@ -858,6 +860,259 @@ begin
   select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000d1';
   perform test_assert(n = 0, '[9.10] and the site is unreadable again, saw ' || n);
   reset role;
+end $$;
+
+-- ================================================== 10. site_details view
+-- Issue #49, decisions in ADR-028. Offline Sync mirrors sites onto the phone and
+-- may read another module's data only through a published view, so Sites
+-- publishes site_details: id, org_id, name, address, status, latitude,
+-- longitude, geofence_radius_m. security_invoker, so it returns exactly the rows
+-- sites_select (has_site_access) lets the caller read, and no more.
+--
+-- Fresh fixtures, so the cases do not depend on what sections 1-9 left behind:
+-- e1 is held by sup-a (a03), e2 by nobody. Counts are compared with the sites
+-- table under the same role rather than written as absolute numbers.
+
+insert into public.sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status, created_by) values
+  ('20000000-0000-0000-0000-0000000000e1', '10000000-0000-0000-0000-00000000000a', 'Directory One', 'Ring Road, Surat', 21.170200, 72.831100, 120, 'active', '00000000-0000-0000-0000-000000000a01'),
+  ('20000000-0000-0000-0000-0000000000e2', '10000000-0000-0000-0000-00000000000a', 'Directory Two', 'Station Road, Vapi', 20.371500, 72.904000, 300, 'planned', '00000000-0000-0000-0000-000000000a01');
+insert into public.site_assignments (org_id, site_id, user_id, assigned_by) values
+  ('10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-0000000000e1',
+   '00000000-0000-0000-0000-000000000a03', '00000000-0000-0000-0000-000000000a01');
+
+-- 10.1 shape
+do $$
+declare cols text[];
+begin
+  perform test_assert(
+    (select reloptions @> array['security_invoker=true'] from pg_class where oid = 'public.site_details'::regclass),
+    '[10.01] site_details is security_invoker');
+
+  select array_agg(attname::text order by attnum) into cols from pg_attribute
+   where attrelid = 'public.site_details'::regclass and attnum > 0 and not attisdropped;
+  perform test_assert(
+    cols = array['id', 'org_id', 'name', 'address', 'status', 'latitude', 'longitude', 'geofence_radius_m'],
+    '[10.02] site_details has exactly the agreed columns in order, got ' || coalesce(cols::text, 'none'));
+
+  perform test_assert(not has_table_privilege('anon', 'public.site_details', 'select'),
+    '[10.03] anon holds no privilege on site_details');
+  perform test_assert(has_table_privilege('authenticated', 'public.site_details', 'select'),
+    '[10.04] authenticated can select from site_details');
+  perform test_assert(not has_table_privilege('authenticated', 'public.site_details', 'insert')
+                      and not has_table_privilege('authenticated', 'public.site_details', 'update')
+                      and not has_table_privilege('authenticated', 'public.site_details', 'delete')
+                      and not has_table_privilege('authenticated', 'public.site_details', 'truncate'),
+    '[10.05] authenticated cannot write through site_details');
+
+  -- The two views other modules already read are not touched: Attendance pins
+  -- site_geofence's five columns, and ADR-025 W1 keeps site_directory to the name
+  -- and status Daily Reporting needs.
+  select array_agg(attname::text order by attnum) into cols from pg_attribute
+   where attrelid = 'public.site_geofence'::regclass and attnum > 0 and not attisdropped;
+  perform test_assert(cols = array['id', 'org_id', 'latitude', 'longitude', 'geofence_radius_m'],
+    '[10.06] site_geofence is unchanged, got ' || coalesce(cols::text, 'none'));
+
+  select array_agg(attname::text order by attnum) into cols from pg_attribute
+   where attrelid = 'public.site_directory'::regclass and attnum > 0 and not attisdropped;
+  perform test_assert(cols = array['id', 'org_id', 'name', 'status'],
+    '[10.30] site_directory is unchanged (id, org_id, name, status), got ' || coalesce(cols::text, 'none'));
+end $$;
+
+-- 10.2 a supervisor sees only their open assignment
+do $$
+declare ids uuid[]; n int;
+begin
+  perform test_as('00000000-0000-0000-0000-000000000a03');          -- sup-a holds e1 only
+
+  -- Every site the supervisor sees is one they hold open, and the fixture site is there.
+  select array_agg(id order by id) into ids from public.site_details;
+  perform test_assert(ids @> array['20000000-0000-0000-0000-0000000000e1']::uuid[]
+                      and not exists (
+                        select 1 from public.site_details d
+                         where not exists (
+                           select 1 from public.site_assignments a
+                            where a.site_id = d.id and a.unassigned_at is null
+                              and a.user_id = '00000000-0000-0000-0000-000000000a03')),
+    '[10.07] a supervisor sees the site they hold and only sites they hold, saw ' || coalesce(ids::text, 'nothing'));
+
+  select count(*) into n from public.site_details where id = '20000000-0000-0000-0000-0000000000e2';
+  perform test_assert(n = 0, '[10.08] a supervisor cannot read an unassigned site of their org by id, saw ' || n);
+
+  select count(*) into n from public.site_details where id = '20000000-0000-0000-0000-0000000000b1';
+  perform test_assert(n = 0, '[10.09] a supervisor cannot read another org''s site by id, saw ' || n);
+  reset role;
+end $$;
+
+-- 10.3 owner and project manager read the whole organisation, and only that
+do $$
+declare u text; n int; n_table int;
+begin
+  foreach u in array array['00000000-0000-0000-0000-000000000a01', '00000000-0000-0000-0000-000000000a02'] loop
+    perform test_as(u::uuid);
+    select count(*) into n from public.site_details;
+    select count(*) into n_table from public.sites;
+    perform test_assert(n = n_table and n > 0,
+      '[10.10] ' || u || ' sees as many sites in site_details as in sites, saw ' || n || ' and ' || n_table);
+
+    select count(*) into n from public.site_details
+     where id in ('20000000-0000-0000-0000-0000000000e1', '20000000-0000-0000-0000-0000000000e2');
+    perform test_assert(n = 2, '[10.11] ' || u || ' sees both fixture sites, saw ' || n);
+
+    select count(*) into n from public.site_details where org_id <> '10000000-0000-0000-0000-00000000000a';
+    perform test_assert(n = 0, '[10.12] ' || u || ' sees no site of another org, saw ' || n);
+    reset role;
+  end loop;
+
+  -- org B: their own sites only.
+  perform test_as('00000000-0000-0000-0000-000000000b01');
+  select count(*) into n from public.site_details where org_id <> '10000000-0000-0000-0000-00000000000b';
+  perform test_assert(n = 0, '[10.13] the other org''s owner sees no org A site, saw ' || n);
+  select count(*) into n from public.site_details where org_id = '10000000-0000-0000-0000-00000000000b';
+  perform test_assert(n >= 1, '[10.14] the other org''s owner sees their own sites, saw ' || n);
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000b03');
+  select count(*) into n from public.site_details where org_id = '10000000-0000-0000-0000-00000000000a';
+  perform test_assert(n = 0, '[10.15] the other org''s supervisor sees no org A site, saw ' || n);
+  reset role;
+end $$;
+
+-- 10.4 an accountant reaches a site only through an open assignment (#17)
+do $$
+declare n int; ids uuid[];
+begin
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  select count(*) into n from public.site_details
+   where id in ('20000000-0000-0000-0000-0000000000e1', '20000000-0000-0000-0000-0000000000e2');
+  perform test_assert(n = 0, '[10.16] an accountant with no open assignment sees neither fixture site, saw ' || n);
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a02');
+  insert into public.site_assignments (org_id, site_id, user_id)
+  values ('10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-0000000000e2',
+          '00000000-0000-0000-0000-000000000a05');
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  select array_agg(id order by id) into ids from public.site_details
+   where id in ('20000000-0000-0000-0000-0000000000e1', '20000000-0000-0000-0000-0000000000e2');
+  perform test_assert(ids = array['20000000-0000-0000-0000-0000000000e2']::uuid[],
+    '[10.17] an assigned accountant sees the site they hold, and not the other fixture site, saw ' || coalesce(ids::text, 'nothing'));
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a02');
+  update public.site_assignments set unassigned_at = now()
+   where site_id = '20000000-0000-0000-0000-0000000000e2' and user_id = '00000000-0000-0000-0000-000000000a05';
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  select count(*) into n from public.site_details
+   where id in ('20000000-0000-0000-0000-0000000000e1', '20000000-0000-0000-0000-0000000000e2');
+  perform test_assert(n = 0, '[10.18] closing the assignment takes the site away again, saw ' || n);
+  reset role;
+end $$;
+
+-- 10.5 the view shows the table's values, live
+do $$
+declare n int; n_match int; nm text;
+begin
+  perform test_as('00000000-0000-0000-0000-000000000a03');
+  select count(*) into n from public.site_details
+   where id = '20000000-0000-0000-0000-0000000000e1';
+  select count(*) into n_match
+    from public.site_details d
+    join public.sites s on s.id = d.id
+   where d.id = '20000000-0000-0000-0000-0000000000e1'
+     and d.org_id = s.org_id and d.name = s.name and d.address = s.address and d.status = s.status
+     and d.latitude = s.latitude and d.longitude = s.longitude
+     and d.geofence_radius_m = s.geofence_radius_m;
+  perform test_assert(n = 1 and n_match = 1,
+    '[10.19] every column equals the sites row, matched ' || n_match || ' of ' || n);
+  perform test_assert(
+    (select name = 'Directory One' and address = 'Ring Road, Surat' and status = 'active'
+            and latitude = 21.170200 and longitude = 72.831100 and geofence_radius_m = 120
+       from public.site_details where id = '20000000-0000-0000-0000-0000000000e1'),
+    '[10.20] the fixture values come through unchanged');
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a01');
+  update public.sites set name = 'Directory One Renamed', geofence_radius_m = 150
+   where id = '20000000-0000-0000-0000-0000000000e1';
+  get diagnostics n = row_count;
+  perform test_assert(n = 1, '[10.21] fixture rename, touched ' || n);
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a03');
+  select name into nm from public.site_details where id = '20000000-0000-0000-0000-0000000000e1';
+  perform test_assert(nm = 'Directory One Renamed'
+                      and (select geofence_radius_m = 150 from public.site_details
+                            where id = '20000000-0000-0000-0000-0000000000e1'),
+    '[10.22] an edit shows in the view at once (it is not materialised), saw ' || coalesce(nm, 'nothing'));
+  reset role;
+end $$;
+
+-- 10.6 nothing can be written through the view, and anon cannot read it
+do $$
+declare s text;
+begin
+  perform test_as('00000000-0000-0000-0000-000000000a01');          -- owner
+  s := null;
+  begin
+    insert into public.site_details (id, org_id, name, address, status, latitude, longitude, geofence_radius_m)
+    values (gen_random_uuid(), '10000000-0000-0000-0000-00000000000a', 'Via view', 'x', 'planned', 0, 0, 200);
+  exception when others then s := sqlstate; end;
+  perform test_assert(s = '42501', '[10.23] an owner cannot insert through the view, got ' || coalesce(s, 'no error'));
+
+  s := null;
+  begin
+    update public.site_details set name = 'Via view' where id = '20000000-0000-0000-0000-0000000000e1';
+  exception when others then s := sqlstate; end;
+  perform test_assert(s = '42501', '[10.24] an owner cannot update through the view, got ' || coalesce(s, 'no error'));
+
+  s := null;
+  begin
+    delete from public.site_details where id = '20000000-0000-0000-0000-0000000000e1';
+  exception when others then s := sqlstate; end;
+  perform test_assert(s = '42501', '[10.25] an owner cannot delete through the view, got ' || coalesce(s, 'no error'));
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a03');          -- supervisor
+  s := null;
+  begin
+    update public.site_details set name = 'Via view' where id = '20000000-0000-0000-0000-0000000000e1';
+  exception when others then s := sqlstate; end;
+  perform test_assert(s = '42501', '[10.26] a supervisor cannot update through the view, got ' || coalesce(s, 'no error'));
+  reset role;
+
+  perform test_as_anon();
+  s := null;
+  begin
+    perform id from public.site_details;
+  exception when others then s := sqlstate; end;
+  perform test_assert(s = '42501', '[10.27] anon cannot read site_details, got ' || coalesce(s, 'no error'));
+  reset role;
+end $$;
+
+-- 10.7 archiving: the supervisor's site disappears, the managers keep it as archived
+do $$
+declare n int; st text;
+begin
+  perform test_as('00000000-0000-0000-0000-000000000a01');
+  perform public.archive_site('20000000-0000-0000-0000-0000000000e1');
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a03');
+  select count(*) into n from public.site_details where id = '20000000-0000-0000-0000-0000000000e1';
+  perform test_assert(n = 0, '[10.28] an archived site disappears for the supervisor who held it, saw ' || n);
+  reset role;
+
+  foreach st in array array['00000000-0000-0000-0000-000000000a01', '00000000-0000-0000-0000-000000000a02'] loop
+    perform test_as(st::uuid);
+    select count(*) into n from public.site_details
+     where id = '20000000-0000-0000-0000-0000000000e1' and status = 'archived';
+    perform test_assert(n = 1, '[10.29] ' || st || ' still sees the archived site, with status archived, saw ' || n);
+    reset role;
+  end loop;
 end $$;
 
 rollback;

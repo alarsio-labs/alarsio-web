@@ -15,8 +15,6 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
 | 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | 🟡 | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
-| 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
-| 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | 🟡 | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
@@ -36,7 +34,7 @@ Everything depends on these. Nothing else starts cleanly until they exist.
 - [ ] Monorepo + Turborepo running, CI green on an empty app — *all four*
 - [ ] **Identity & Access** — org, membership, 4 roles, RLS predicates — *Ishant*
 - [ ] **Sites** — sites, geofence, supervisor assignment — *Manish*
-- [ ] **Audit, Retention & Guards** — the generic audit trigger — *Anuradha*
+- [x] **Audit, Retention & Guards** — the generic audit trigger — *Anuradha*
 - [x] Mobile app shell + test harness — *Nikhil*
 
 ### Weeks 3–6 · Field capture
@@ -76,6 +74,10 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Site status: planned, active, paused, completed, archived
 - [x] An archived site is read-only
 
+*Sites also publishes the read-only views other modules read it through: `site_geofence` (ADR-021)
+and `site_directory` (ADR-025), plus `site_details` (#49, ADR-028), which the phone's offline mirror
+will read once #71 stops reading `sites` directly. No row is ticked for it: it adds no user feature.*
+
 ### 3 · Workforce
 - [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
@@ -109,6 +111,12 @@ are the next PR.*
 - [x] A submitted report cannot be changed quietly — edits keep history
 - [x] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
+*Managers read, filter and review reports on the web (#74, ADR-025): `/reports` lists
+`daily_report_status` with flagged reports first, and `/reports/<id>` shows the report, its
+edit history and photos, and calls `review_daily_report`. This is the surface for the
+"flagged to managers" row above; no row changes because the database rules were already
+tested. The pages need a run against a real project.*
+
 *Server side of offline filing is in place (#63, ADR-022): `sync_daily_reports` and
 `sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
 as an offline draft" is ticked when the phone's report screen ships.*
@@ -130,12 +138,18 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [ ] A repeated push creates no duplicate
-- [ ] One bad record does not block the rest of its batch
+- [x] A repeated push creates no duplicate
+- [x] One bad record does not block the rest of its batch
 
-*Server router `sync_push` is in place (#33): envelope, per-record verdicts and the
-rate limit, tested with stand-in handlers. The rows above get ticked when the real
-entity handlers are wired in week 5.*
+*The last two rows are proven through `sync_push` with the real Materials and Daily
+Reporting handlers, not stand-ins. A batch pushed twice writes nothing the second
+time and gets the same answer (`materials_ledger_test`, `sync_daily_reports_test`).
+A mixed batch stores its good records and refuses only the bad ones
+(`sync_daily_reports_test`, `sync_push_test`). On the phone, the outbox keeps one row
+per (entity, record_id) and applies each verdict to its own record. Attendance has
+no handler yet (its PR 2, #28), so attendance records cannot sync until then, and
+those handlers need the same two tests. Not yet run against the team Supabase
+project (#58).*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their
@@ -143,13 +157,17 @@ reason, and Sync now. "Status shown" and "Never shows submitted" stay unticked u
 the capture screens show each record's own status.*
 
 ### 9 · Audit, Retention & Guards
-- [ ] One generic trigger writing `audit_log` across every privileged table
+- [x] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
 - [x] Removing a user or worker never deletes history
 - [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
 - [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
+*Audit coverage is proven, not assumed (#72, ADR-024): `audit_coverage_test.sql` fails
+CI if any table except the three logs lacks `write_audit()` after every row change, and
+`schema_guards_test.sql` does the same for RLS, invoker views, pinned definer functions,
+client delete grants and anon grants.*
 *The owner export is in place (#76, ADR-026): `/export` downloads one ZIP of a CSV per
 table, read under the owner's RLS and rate-limited to 5 an hour (`export_org_data`).
 `tables.test.ts` and `data_export_test.sql` prove every table is listed and readable.

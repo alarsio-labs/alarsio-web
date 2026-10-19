@@ -82,3 +82,26 @@ In CI the same line also appears as an annotation on the run.
 `YYYYMMDDHHMMSS_short_description.sql`, and no two files may share the 14-digit
 version: `supabase db push` tracks a migration by that version alone (#44). Pick a
 timestamp later than every file on `main` when you rebase, not when you branch.
+
+**Schema guards check every migration (ADR-024).** Two suites read the catalog
+after every migration is applied, so they cover your new table without you adding
+it anywhere:
+
+- `audit_coverage_test.sql`: every table has `write_audit()` attached `AFTER INSERT
+  OR UPDATE OR DELETE FOR EACH ROW`, and a `uuid` `id`.
+- `schema_guards_test.sql`: RLS on every table, views `security_invoker`, `SECURITY
+  DEFINER` functions with `search_path = public` and revoked from `public, anon`, no
+  client DELETE or TRUNCATE, and no table, view or column privilege for `anon`.
+
+Like a hosted project, the shim grants everything in `public` to `anon` and
+`authenticated` by default, so a migration that forgets its `revoke all … from
+public, anon, authenticated` fails here.
+
+If one fails, the message names the object and the rule it breaks, for example:
+
+```
+ASSERT FAILED: audit coverage: table public.wage_lines has no write_audit trigger AFTER INSERT OR UPDATE OR DELETE FOR EACH ROW
+```
+
+Fix the migration rather than the guard. A real exception needs a line in the suite
+and an ADR.

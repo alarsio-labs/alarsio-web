@@ -840,6 +840,96 @@ never half-written. Costs: every refresh re-downloads everything, which is fine 
 pilot scale and an ADR to revisit if data grows; the mirror is at most about 5
 minutes old while online, and as old as the last pull while offline; and the sites
 mirror depends on Sites publishing a view.
+
+---
+
+## ADR-025 · Web review of daily reports: site names through a Sites view, no author names, no new write
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #74; Sites view reviewed by Manish)
+
+**Context.** The database side of Daily Reporting was merged (#35, #64) but no app shows a
+report, so the in-app flag for a serious blocker or safety incident had nowhere to appear.
+The web pages need the site's name. Daily Reporting may read Sites only through a published
+view: `site_geofence` carries no name, and `site_timeline`, listed in `ARCHITECTURE.md`, does
+not exist. `profiles` can be read only by their own user, so a manager cannot see who filed.
+
+**Decision.**
+- W1. Sites publishes `site_directory (id, org_id, name, status)`, `security_invoker`,
+  select-only for `authenticated`. No address, pin or geofence. Archived sites stay listed so
+  an old report keeps its site name. It is its own migration and commit, for Manish to review.
+- W2. The pages write nothing except through `review_daily_report`. They add no table, policy
+  or grant for Daily Reporting.
+- W3. The list reads `daily_report_status`; the detail page reads `daily_reports`,
+  `daily_report_revisions` and `report_photos` under the viewer's RLS. A draft never appears
+  for anyone but its author, and the pages add no filter that could widen that.
+  Membership of the organisation in the URL is checked with Identity's `is_org_member`;
+  the pages read no Identity table, so the heading shows no organisation name.
+- W4. Search params are validated: a uuid, one of three statuses, `flagged=1`, and real
+  calendar dates. The default range is 7 days and the longest is 31; a longer range is cut to
+  the 31 days ending at `to`, and a reversed or malformed one falls back to the default. Days
+  are UTC dates, not the organisation's time zone. The list shows at most 200 rows.
+- W5. Photos are shown through signed URLs valid 5 minutes, made on each render under the
+  viewer's own session, so storage RLS applies. A photo whose file is not uploaded yet shows a
+  placeholder.
+- W6. The Mark reviewed button is drawn only when `can_review_site` is true, the report is
+  `submitted` and the viewer is not its author. This is presentation: `review_daily_report`
+  repeats every check and is the boundary.
+- W7. No author names. A report filed by the viewer says "filed by you"; others say nothing.
+  Showing member names needs an Identity view, which is Identity's decision.
+
+**Consequences.** A manager can see and review reports with the history and photos, and the
+flag finally has a surface. Costs: a second module's view had to be added in this PR; an
+accountant has no site access, so sees an empty list (the dashboard hides the link from them);
+managers cannot tell supervisors apart in the list until Identity publishes member names; the
+UTC day can differ from the site's calendar day near midnight in India (UTC+5:30); and the
+signed-URL and storage-read path is tested here only by the shim, so it needs one check against
+a real Supabase project.
+## ADR-024 · Schema guards: the non-negotiables are checked in CI, test-only
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #72)
+
+**Context.** `write_audit()` (ADR-008) has been attached to every business table, and
+every table, view and definer function on `main` follows `CLAUDE.md`'s rules. But only a
+reviewer reading each migration checked that. `attendance_corrections`, `wage_periods` and
+`wage_lines` are next, and one forgotten line in any of them would leave a table unaudited
+or open, with nothing failing.
+
+**Decision.**
+- G1. Two SQL suites read `pg_catalog` after every migration has been applied:
+  `audit_coverage_test.sql` and `schema_guards_test.sql`. They cover every table, view,
+  materialized view and `SECURITY DEFINER` function in `public`, so a new one is checked
+  without anyone adding it to a list.
+- G2. **Audit.** Every table that is not exempt has a `write_audit()` trigger `AFTER INSERT
+  OR UPDATE OR DELETE FOR EACH ROW`, and a `uuid` `id`. The trigger must fire on every
+  ordinary write: enabled or `ALWAYS`, never disabled or replica-only, with no `WHEN (…)`
+  clause and no `UPDATE OF` column list. The exemptions are
+  exactly three, and the suite asserts all three exist:
+  - `audit_log` (ADR-008), which is the log itself;
+  - `purge_log`, which is itself a log (ADR-012);
+  - `rate_limit_counters`, which counts requests and records no change. It has RLS, no
+    policies and no grants (ADR-012).
+- G3. **Schema.** Every table has RLS on. Every view is `security_invoker`. There are no
+  materialized views, since they cannot be invoker, and no foreign tables, since Postgres
+  cannot enforce RLS on them. Every `SECURITY DEFINER` function sets
+  `search_path = public`, and neither `PUBLIC` nor `anon` may execute it. Neither `anon` nor
+  `authenticated` may DELETE or TRUNCATE a table, and `anon` has no table or column privilege.
+- G4. A failure names the object and the rule it breaks. Each suite also breaks every
+  rule on a probe object, and the main rules on real objects, and asserts the guard names
+  exactly those. That proves the guard can fail.
+- G4a. The test shim now grants everything in `public` to `anon` and `authenticated` by
+  default, as a hosted project does. So a migration that forgets its `revoke all … from
+  public, anon, authenticated` fails the guard here, instead of shipping open. Every
+  existing suite passes with this default.
+- G5. Test-only. A published `schema_guard_violations()` function, which an operator could
+  run on the real project, was considered and declined: it adds public surface for a check
+  CI already makes. Revisit when the team project exists (#58).
+- G6. A new exemption is a line in the suite **and** an ADR saying why.
+
+**Consequences.** The rules in `CLAUDE.md` that a migration can break are now enforced on
+every PR, for every module, and the two week-1 audit rows can be ticked on evidence.
+Costs: a module that truly needs a client DELETE, or a table with no audit, must argue it
+in an ADR first. The guards run only against the test shim. It copies the hosted default
+grants, but objects that exist only on the hosted project (extensions, Supabase's own)
+are not checked until #58. And the checks are structural: a policy that is present but
+too wide still needs a reviewer and the module's own role tests.
 ## ADR-027 · Worker import: the file is read in the browser, with read-excel-file
 **Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha; #57)
 
@@ -942,6 +1032,41 @@ worker's earlier name and phone are still in `audit_log` until the 3-year floor
 (ADR-012's retention exception), so the export carries them too; the `'` prefix
 changes how a cell such as `-5 bags` reads back; and the route has been tested only with a
 fake reader and the SQL suite, not against a hosted project (#58).
+
+---
+
+## ADR-028 · Sites publishes site_details, the full site record for the offline mirror
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Manish (issue #49; asked for by Nikhil for PR #71)
+
+**Context.** Offline Sync mirrors each user's sites onto the phone so a supervisor can pick a
+site with no signal. It may read another module's data only through a published view
+(`ARCHITECTURE.md` rule 4). Sites already publishes two views, both narrow on purpose:
+`site_geofence` (`id, org_id, latitude, longitude, geofence_radius_m`, ADR-021 D9, pinned by
+Attendance's tests) and `site_directory` (`id, org_id, name, status`, ADR-025 W1, "no address,
+pin or geofence", pinned by `sites_directory_test.sql`). Neither has the address, and `site_timeline`,
+listed in `ARCHITECTURE.md`, does not exist. Until now the mirror in #71 read the `sites` table.
+
+**Decision.**
+- S1. Sites publishes a third view, `site_details (id, org_id, name, address, status, latitude,
+  longitude, geofence_radius_m)`, `security_invoker`, select-only for `authenticated`.
+- S2. It is separate from the other two. Widening `site_directory` would reverse ADR-025 W1 and
+  break `sites_directory_test.sql`'s column test; widening `site_geofence` would break D9 and
+  Attendance's.
+  Each view stays the least a consumer needs.
+- S3. No row filter. It returns what `sites_select` (`has_site_access`) lets the caller read: an
+  owner or project manager sees every site of their organisation, archived ones included with
+  `status = 'archived'`, so the consumer decides. A supervisor's or accountant's archived sites
+  disappear because `archive_site` closes their assignments.
+- S4. No `updated_at` on the view. `sites` has one, but `site_assignments` has none, and a site
+  leaves a user's list when an assignment closes, which `sites.updated_at` cannot show. So an
+  incremental pull is not possible and the mirror stays a full refresh (issue #49).
+- S5. `ARCHITECTURE.md` lists it in the Sites row, and marks `site_timeline` as not built yet.
+
+**Consequences.** The phone mirror no longer reads a table another module owns, and the three
+views never drift into each other. Costs: three overlapping Sites views to keep in step if a site
+column is renamed; the address and pin of every site a user can read are copied onto the phone,
+so the device encryption and wipe-on-sign-out questions on #71 matter (not decided here); and a
+later merge of the views into one would need Attendance's and Daily Reporting's agreement.
 
 ---
 
