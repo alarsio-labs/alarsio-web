@@ -130,12 +130,18 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [ ] A repeated push creates no duplicate
-- [ ] One bad record does not block the rest of its batch
+- [x] A repeated push creates no duplicate
+- [x] One bad record does not block the rest of its batch
 
-*Server router `sync_push` is in place (#33): envelope, per-record verdicts and the
-rate limit, tested with stand-in handlers. The rows above get ticked when the real
-entity handlers are wired in week 5.*
+*The last two rows are proven through `sync_push` with the real Materials and Daily
+Reporting handlers, not stand-ins. A batch pushed twice writes nothing the second
+time and gets the same answer (`materials_ledger_test`, `sync_daily_reports_test`).
+A mixed batch stores its good records and refuses only the bad ones
+(`sync_daily_reports_test`, `sync_push_test`). On the phone, the outbox keeps one row
+per (entity, record_id) and applies each verdict to its own record. Attendance has
+no handler yet (its PR 2, #28), so attendance records cannot sync until then, and
+those handlers need the same two tests. Not yet run against the team Supabase
+project (#58).*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their
