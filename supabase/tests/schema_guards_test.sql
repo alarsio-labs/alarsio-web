@@ -4,7 +4,8 @@
 -- Reads the catalog after every migration, so every module is covered:
 --   * every table has row level security on;
 --   * every view is security_invoker, and there are no materialized views
---     (they cannot be invoker, so they would bypass RLS);
+--     (they cannot be invoker, so they would bypass RLS) and no foreign tables
+--     (Postgres cannot enforce RLS on them);
 --   * every SECURITY DEFINER function pins search_path = public, and neither
 --     anon nor PUBLIC may execute it;
 --   * no client (anon, authenticated) may DELETE or TRUNCATE a table;
@@ -22,7 +23,7 @@ as $$
       from pg_class c
       join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public'
-       and c.relkind in ('r', 'p', 'v', 'm')
+       and c.relkind in ('r', 'p', 'v', 'm', 'f')
   ),
   definers as (
     select p.oid, p.proname, p.proconfig, p.proacl,
@@ -46,6 +47,10 @@ as $$
   select format('materialized view public.%I bypasses RLS; use a security_invoker view', relname)
     from rels
    where relkind = 'm'
+  union all
+  select format('foreign table public.%I cannot have RLS; keep it out of public', relname)
+    from rels
+   where relkind = 'f'
   union all
   select format('security definer function public.%I(%s) does not set search_path = public', proname, args)
     from definers
@@ -148,6 +153,13 @@ grant select on public.guard_probe_ok_view to authenticated;
 create materialized view public.guard_probe_matview as select id from public.guard_probe_ok;
 revoke all on public.guard_probe_matview from public, anon, authenticated;
 
+-- A foreign table, with its grants revoked, so only the relkind rule fires.
+-- The wrapper has no handler: the table is never read, only seen in the catalog.
+create foreign data wrapper guard_probe_fdw;
+create server guard_probe_server foreign data wrapper guard_probe_fdw;
+create foreign table public.guard_probe_foreign (id uuid) server guard_probe_server;
+revoke all on public.guard_probe_foreign from public, anon, authenticated;
+
 -- A definer function never revoked from PUBLIC, one with no search_path, one
 -- granted to anon, and a correct one.
 create function public.guard_probe_open() returns int language sql
@@ -171,6 +183,7 @@ do $$
 declare
   v_got  text;
   v_want text := string_agg(x, '; ' order by x) from unnest(array[
+    'foreign table public.guard_probe_foreign cannot have RLS; keep it out of public',
     'materialized view public.guard_probe_matview bypasses RLS; use a security_invoker view',
     'security definer function public.guard_probe_anon(p integer) is executable by anon',
     'security definer function public.guard_probe_no_path() does not set search_path = public',

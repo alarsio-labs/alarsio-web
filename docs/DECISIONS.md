@@ -801,15 +801,18 @@ or open, with nothing failing.
   `audit_coverage_test.sql` and `schema_guards_test.sql`. They cover every table, view,
   materialized view and `SECURITY DEFINER` function in `public`, so a new one is checked
   without anyone adding it to a list.
-- G2. **Audit.** Every table that is not exempt has an enabled `write_audit()` trigger
-  `AFTER INSERT OR UPDATE OR DELETE FOR EACH ROW`, and a `uuid` `id`. The exemptions are
+- G2. **Audit.** Every table that is not exempt has a `write_audit()` trigger `AFTER INSERT
+  OR UPDATE OR DELETE FOR EACH ROW`, and a `uuid` `id`. The trigger must fire on every
+  ordinary write: enabled or `ALWAYS`, never disabled or replica-only, with no `WHEN (…)`
+  clause and no `UPDATE OF` column list. The exemptions are
   exactly three, and the suite asserts all three exist:
   - `audit_log` (ADR-008), which is the log itself;
   - `purge_log`, which is itself a log (ADR-012);
   - `rate_limit_counters`, which counts requests and records no change. It has RLS, no
     policies and no grants (ADR-012).
-- G3. **Schema.** Every table has RLS on. Every view is `security_invoker`, and there are no
-  materialized views, since they cannot be invoker. Every `SECURITY DEFINER` function sets
+- G3. **Schema.** Every table has RLS on. Every view is `security_invoker`. There are no
+  materialized views, since they cannot be invoker, and no foreign tables, since Postgres
+  cannot enforce RLS on them. Every `SECURITY DEFINER` function sets
   `search_path = public`, and neither `PUBLIC` nor `anon` may execute it. Neither `anon` nor
   `authenticated` may DELETE or TRUNCATE a table, and `anon` has no table or column privilege.
 - G4. A failure names the object and the rule it breaks. Each suite also breaks every
