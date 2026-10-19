@@ -155,6 +155,8 @@ export async function applyVerdicts(
   const at = now.toISOString();
   await db.transaction(async () => {
     for (const result of results) {
+      // A malformed row answers nothing; its record stays unanswered (#67).
+      if (!isResultRow(result)) continue;
       const [row] = await db.all<{ seq: number; dirty: number; attempts: number }>(
         `select seq, dirty, attempts from outbox
           where entity = ? and record_id = ? and status = 'syncing'`,
@@ -339,6 +341,20 @@ export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date 
     [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
   );
   return changes;
+}
+
+function isResultRow(result: unknown): result is SyncResultRow {
+  if (typeof result !== 'object' || result === null) return false;
+  const r = result as Record<string, unknown>;
+  return typeof r.entity === 'string' && typeof r.record_id === 'string' && typeof r.verdict === 'string';
+}
+
+/** The keys of `batch` that `results` has no well-formed answer for. */
+export function unanswered(batch: readonly OutboxKey[], results: readonly unknown[]): OutboxKey[] {
+  const answered = new Set(
+    results.filter(isResultRow).map((r) => `${r.entity}:${r.record_id.toLowerCase()}`),
+  );
+  return batch.filter((key) => !answered.has(`${key.entity}:${key.recordId.toLowerCase()}`));
 }
 
 async function syncingRows(

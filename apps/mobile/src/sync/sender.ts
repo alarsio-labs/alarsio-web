@@ -8,7 +8,16 @@
 import type { DeviceDb } from '../db/device-db';
 import { getDeviceId } from './device-id';
 import type { SyncEntity, SyncResultRow } from './entities';
-import { applyVerdicts, claimBatch, releaseBatch, returnBatch, type Payload } from './outbox';
+import {
+  applyVerdicts,
+  claimBatch,
+  releaseBatch,
+  returnBatch,
+  unanswered,
+  type OutboxEntry,
+  type OutboxKey,
+  type Payload,
+} from './outbox';
 
 export const MAX_BATCHES_PER_RUN = 5;
 
@@ -78,6 +87,33 @@ export async function runSync(
     const claimed = await claimBatch(db, userId, now());
     if (claimed.length === 0) break;
 
+    const failure = await sendClaimed(db, transport, userId, deviceId, claimed, now);
+    if (failure) return { kind: 'failed', reason: failure, batches, records };
+
+    batches += 1;
+    records += claimed.length;
+  }
+
+  return { kind: 'done', batches, records };
+}
+
+/**
+ * Sends one claimed batch and settles every row this run still owns. Returns
+ * a failure reason that stops the run, or null. A local failure (the database,
+ * a bug) fails the rows still owned with a backoff, rather than leaving them
+ * syncing until the next app start (#67).
+ */
+async function sendClaimed(
+  db: DeviceDb,
+  transport: SyncTransport,
+  userId: string,
+  deviceId: string,
+  claimed: readonly OutboxEntry[],
+  now: () => Date,
+): Promise<string | null> {
+  // The rows this run still owns: the batch, until the server answers some.
+  let outstanding: readonly OutboxKey[] = claimed;
+  try {
     const batch: SyncBatch = {
       version: 1,
       device_id: deviceId,
@@ -92,32 +128,33 @@ export async function runSync(
       if (reason === SESSION_CHANGED) {
         // Nothing was sent. Hand the batch back untouched for its author's next session.
         await returnBatch(db, claimed, now());
-        return { kind: 'failed', reason, batches, records };
+      } else {
+        await releaseBatch(db, claimed, reason, now());
       }
-      await releaseBatch(db, claimed, reason, now());
-      return { kind: 'failed', reason, batches, records };
+      outstanding = [];
+      return reason;
     }
 
-    if ('error' in response) {
-      // The server refused the envelope, which is a bug in this app, not in a record.
-      const reason = `invalid_envelope:${response.reason}`;
+    if ('error' in response || !Array.isArray(response.results)) {
+      // A refused envelope is a bug in this app, not in a record.
+      const reason = 'error' in response ? `invalid_envelope:${response.reason}` : 'bad_response';
       await releaseBatch(db, claimed, reason, now());
-      return { kind: 'failed', reason, batches, records };
-    }
-    if (!Array.isArray(response.results)) {
-      await releaseBatch(db, claimed, 'bad_response', now());
-      return { kind: 'failed', reason: 'bad_response', batches, records };
+      outstanding = [];
+      return reason;
     }
 
     await applyVerdicts(db, response.results, now());
-    // Anything in this batch the server did not answer is still syncing.
-    await releaseBatch(db, claimed, 'no_result', now());
-
-    batches += 1;
-    records += claimed.length;
+    // Release only what the server did not answer. An answered row may already
+    // be pending again (re-saved during the push) and claimed by another run;
+    // matching it by key and status here would fail that run's row (#67).
+    outstanding = unanswered(claimed, response.results);
+    await releaseBatch(db, outstanding, 'no_result', now());
+    outstanding = [];
+    return null;
+  } catch {
+    await releaseBatch(db, outstanding, 'local_error', now()).catch(() => undefined);
+    return 'local_error';
   }
-
-  return { kind: 'done', batches, records };
 }
 
 /**

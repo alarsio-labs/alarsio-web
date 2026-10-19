@@ -79,8 +79,9 @@ export interface SyncEngineOptions {
 
 /**
  * Starts syncing for this app session: once now, then on foreground, on
- * reconnect, every minute, and shortly after requestSync(). Runs never
- * overlap. Errors inside a run are kept in `last`, never thrown at a trigger.
+ * reconnect, every minute, and shortly after requestSync(). Runs of this
+ * engine never overlap; another engine's may (ADR-016, ADR-018 amendments).
+ * Errors inside a run are kept in `last`, never thrown at a trigger.
  */
 export function startSyncEngine(
   db: DeviceDb,
