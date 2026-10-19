@@ -3,7 +3,8 @@
 -- auth_shim.sql, psql. One transaction, rolled back, so the database is left as
 -- it was. Sections 1-7 carry the 57 cases of the first version, tagged [S.NN],
 -- plus [4.09]-[4.12] (editing pin and radius, moving between free statuses);
--- section 8 adds the audit cases.
+-- section 8 adds the audit cases; section 9 adds [9.01]-[9.10] (accountant access,
+-- issue #17).
 --
 -- Conventions, as in identity_test.sql:
 --   * test_as(uuid) / test_as_anon() switch role; every block ends with reset role.
@@ -24,8 +25,10 @@
 --   Both SECURITY DEFINER with search_path = public (has_site_access reads
 --   sites and site_assignments under policies that call it, so it must not
 --   recurse into RLS), and EXECUTE granted to authenticated.
--- Not asserted here: whether an accountant passes has_site_access, and whether
--- a closed assignment still lets a supervisor read the site.
+-- Section 9 (issue #17, #28) asserts the accountant rule: an accountant passes
+-- has_site_access only through an open assignment, and loses it when it closes.
+-- Not asserted here: whether a closed assignment still lets a supervisor read
+-- the site.
 begin;
 
 -- ---------------------------------------------------------------- fixtures
@@ -796,6 +799,65 @@ begin
   perform test_assert(a.org_id = '10000000-0000-0000-0000-00000000000a'
                       and a.actor_id = '00000000-0000-0000-0000-000000000a01',
     '[8.42] DELETE records the org from the old row and the actor from auth.uid()');
+end $$;
+
+-- ================================================ 9. accountant site access
+-- Issue #17, relied on by Attendance (#28): an accountant reaches a site only
+-- through an open assignment. Fixture: a site nobody holds. a05 is the accountant
+-- of org A, a02 the project manager who assigns and unassigns.
+
+insert into public.sites (id, org_id, name, address, latitude, longitude, status, created_by) values
+  ('20000000-0000-0000-0000-0000000000d1', '10000000-0000-0000-0000-00000000000a', 'Accountant access', 'Surat', 21.170200, 72.831100, 'active', '00000000-0000-0000-0000-000000000a01');
+
+do $$
+declare n int; ok boolean;
+begin
+  -- No assignment: no access, and the site is invisible.
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  ok := public.has_site_access('20000000-0000-0000-0000-0000000000d1');
+  perform test_assert(ok is false, '[9.01] an accountant with no assignment has no access to the site, got ' || coalesce(ok::text, 'null'));
+  select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000d1';
+  perform test_assert(n = 0, '[9.02] and cannot read it by id, saw ' || n);
+  reset role;
+
+  -- The project manager assigns the accountant to the site.
+  perform test_as('00000000-0000-0000-0000-000000000a02');
+  insert into public.site_assignments (org_id, site_id, user_id)
+  values ('10000000-0000-0000-0000-00000000000a', '20000000-0000-0000-0000-0000000000d1', '00000000-0000-0000-0000-000000000a05');
+  reset role;
+
+  -- An open assignment gives access to that site only, and read access only.
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  ok := public.has_site_access('20000000-0000-0000-0000-0000000000d1');
+  perform test_assert(ok is true, '[9.03] an accountant with an open assignment has access, got ' || coalesce(ok::text, 'null'));
+  select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000d1';
+  perform test_assert(n = 1, '[9.04] and can read the site, saw ' || n);
+
+  ok := public.has_site_access('20000000-0000-0000-0000-0000000000a2');
+  perform test_assert(ok is false, '[9.05] the assignment does not open another site of the org, got ' || coalesce(ok::text, 'null'));
+  select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000a2';
+  perform test_assert(n = 0, '[9.06] another site stays unreadable by id, saw ' || n);
+
+  update public.sites set name = 'Accountant edit' where id = '20000000-0000-0000-0000-0000000000d1';
+  get diagnostics n = row_count;
+  perform test_assert(n = 0, '[9.07] an assigned accountant still cannot edit the site (0 rows), touched ' || n);
+  reset role;
+
+  -- Closing the assignment takes the access away.
+  perform test_as('00000000-0000-0000-0000-000000000a02');
+  update public.site_assignments set unassigned_at = now()
+   where site_id = '20000000-0000-0000-0000-0000000000d1'
+     and user_id = '00000000-0000-0000-0000-000000000a05';
+  get diagnostics n = row_count;
+  perform test_assert(n = 1, '[9.08] the project manager can close the accountant''s assignment, touched ' || n);
+  reset role;
+
+  perform test_as('00000000-0000-0000-0000-000000000a05');
+  ok := public.has_site_access('20000000-0000-0000-0000-0000000000d1');
+  perform test_assert(ok is false, '[9.09] after the assignment is closed the access is gone, got ' || coalesce(ok::text, 'null'));
+  select count(*) into n from public.sites where id = '20000000-0000-0000-0000-0000000000d1';
+  perform test_assert(n = 0, '[9.10] and the site is unreadable again, saw ' || n);
+  reset role;
 end $$;
 
 rollback;
