@@ -20,6 +20,7 @@ jest.mock('../config/public-config', () => ({
 jest.mock('../lib/app-db', () => ({ openAppDb: () => Promise.resolve(mockDb) }));
 jest.mock('../lib/supabase', () => ({ getSupabase: () => ({}) }));
 jest.mock('../sync/supabase-transport', () => ({ supabaseTransport: () => 'transport' }));
+jest.mock('../sync/supabase-mirror-source', () => ({ supabaseMirrorSource: () => 'mirror-source' }));
 jest.mock('../sync/engine', () => ({ startSyncEngine: jest.fn() }));
 
 const USER = { id: '11111111-0000-4000-8000-00000000000a', email: 'a@example.com' };
@@ -35,6 +36,8 @@ function handle(): SyncHandle {
       attention: [],
       loaded: true,
       readFailed: false,
+      lastPull: null,
+      mirror: null,
       userId: USER.id,
       last: null,
       running: false,
@@ -58,7 +61,7 @@ describe('home route wiring', () => {
 
     expect(await screen.findByText('All your records are on the server')).toBeTruthy();
     expect(startSyncEngine).toHaveBeenCalledTimes(1);
-    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', { userId: USER.id });
+    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', { userId: USER.id, mirrorSource: 'mirror-source' });
   });
 
   it('starts no engine when no user is signed in', async () => {
