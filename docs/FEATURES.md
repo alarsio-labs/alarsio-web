@@ -185,6 +185,11 @@ sync line that never says "submitted", the conflict and rejected records with th
 reason, and Sync now. "Status shown" and "Never shows submitted" stay unticked until
 the capture screens show each record's own status.*
 
+*A write to a record a manager has already approved is answered `conflict` / `locked` by
+`sync_push` (SQLSTATE `PS409`, from Attendance's approved-day lock, #96), so a stale phone
+shows it for review instead of retrying for ever. No Attendance handler exists yet (#28,
+PR 3b), so no row above changes.*
+
 ### 9 · Audit, Retention & Guards
 - [x] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
