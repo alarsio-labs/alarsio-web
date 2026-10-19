@@ -85,6 +85,15 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
       "recorded_by", "created_at", "updated_at"
     ]
   },
+  {
+    table: "attendance_corrections",
+    orgColumn: "org_id",
+    columns: [
+      "id", "org_id", "site_id", "attendance_date", "worker_id",
+      "old_status", "old_overtime_hours", "old_note", "new_status", "new_overtime_hours", "new_note",
+      "reason", "proposed_by", "created_at", "review_status", "reviewed_by", "reviewed_at", "review_reason"
+    ]
+  },
   // Daily Reporting
   {
     table: "daily_reports",

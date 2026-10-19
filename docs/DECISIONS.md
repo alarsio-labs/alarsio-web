@@ -1162,6 +1162,76 @@ wait up to 30 minutes (ADR-016), which a later change can show as "next try in �
 
 ---
 
+## ADR-030 · Attendance corrections, day review and the approved-day lock
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28, PR 2 of 3; PS409 agreed on #13; review: Anuradha)
+
+**Context.** ADR-021 built capture and left three things for the next PR: how an approved day
+changes, who approves it, and what stops a phone from overwriting it ("a stale device cannot
+overwrite an approved day", `ARCHITECTURE.md`; ADR-009 makes it a `conflict`). `attendance_corrections` is in `ARCHITECTURE.md` with no
+columns, and `review_attendance_day` / `review_attendance_correction` are listed without
+signatures. A correction ledger that is append-only still has to record who reviewed it.
+
+**Decision.**
+- **D1 · The review is a stamp on the correction row.** `review_status` (`pending`, `approved`,
+  `rejected`), `reviewed_by`, `reviewed_at`, `review_reason`, written once by
+  `review_attendance_correction()`. Clients hold no UPDATE or DELETE grant. A guard trigger allows
+  exactly one pending-to-decided move and freezes every other column, for the table owner too;
+  `audit_log` keeps both versions. Rejected: a separate reviews table (strictly insert-only, but a
+  table not in `ARCHITECTURE.md`, with its own RLS, audit and policies).
+- **D2 · One correction is one change to one entry**, with `old_*` and `new_*` for `status`,
+  `overtime_hours` and `note` together, because status and overtime are tied by a constraint and
+  cannot move one at a time. The entry is named by its natural key (site, date, worker), as entries
+  name their day (ADR-021 D5), so a second phone's entry id cannot strand a correction. The old
+  value is stamped by a trigger from the entry, never sent by the phone.
+- **D3 · A correction is for an approved day only.** On an open or rejected day the supervisor edits
+  the entry; a correction there would be a second way to do the same thing. A correction on any
+  other day is `55000`. So a day with pending corrections can never be awaiting approval.
+- **D4 · Rejected means "sent back".** Only an approved day is locked. The supervisor edits a
+  rejected day and a reviewer decides again; there is no reopen function and no "resubmitted"
+  flag. The entries' update policy therefore requires the day to be `status <> 'approved'`.
+- **D5 · Owner and project_manager review only.** They cannot edit entries, un-approve a day or
+  propose a correction (as agreed on #13). `review_attendance_day(day, approve, reason)` and
+  `review_attendance_correction(correction, approve, reason)` are `SECURITY DEFINER`, check
+  `can_review_site` themselves on a locked row, return `void`, and answer `42501` for both "no such
+  id" and "not yours". A rejection needs a reason (`22023`); an approval may carry a note. An approved
+  day is final: approving it again is a no-op that keeps the first reviewer, rejecting it is `55000`.
+- **D6 · One pending correction per entry** (partial unique index, `23505`, which the router answers
+  `conflict` / `duplicate`).
+- **D7 · A stale correction is not applied.** Approving it when the entry no longer equals the old
+  values is `55000`; the reviewer rejects it. Only an administrator's write can make one stale,
+  because only an approved correction can change an approved entry.
+- **D8 · The lock admits exactly one write.** A trigger lets an UPDATE of an approved day's entry
+  through only when an approved correction exists whose old values equal the row's and whose new
+  values equal what is written. There is no settable flag and no check of the role name, so a plain UPDATE, even
+  the table owner's, raises unless it repeats a write an approved correction already made. Putting
+  an applied correction back is a new correction. Known limit: after a revert cycle (A to B approved,
+  then B to A approved) the first correction matches again, so a writer that bypasses RLS could repeat
+  A to B; it writes only values a reviewer already approved, and no client reaches the trigger. The
+  entry triggers are `SECURITY DEFINER` so RLS cannot hide the day or the correction from them.
+  The day row is frozen once approved, and never goes back to open.
+- **D9 · SQLSTATEs.** `PS409` a write the lock refuses (a late entry on an approved day, an
+  UPDATE that reaches the table, a write to an approved day row); a plain supervisor UPDATE never
+  gets there, because the policy matches 0 rows. `42501` no permission; `23514` a value rule,
+  including a blank or over-long proposed reason; `23503` the entry is not there yet (the phone
+  retries); `23505` duplicate; `22023` a blank or over-long review reason; `55000` a transition the state does not allow; `28000` not signed in. The late-entry lock is
+  an AFTER INSERT trigger, so an unassigned caller gets `42501` first and is not told a day is
+  approved.
+
+**Consequences.** An approved day can only change through a reviewed, audited, reversible-by-new-row
+correction, and every writer is bound, not only the phone. The approved-days view in PR 3 can read
+entries as they stand, with corrections already applied, and the old value is in
+`attendance_corrections`. Costs: "append-only" for corrections means immutable except one review
+stamp; the lock needs `PS409` mapped in `sync_push` (not on main yet: until Nikhil adds
+`when sqlstate 'PS409' then ('conflict', 'locked')`, a stale phone would be `retryable_error` and
+retry forever, harmless only while no attendance handler exists); a worker with no entry on an
+approved day cannot be added in this release; a manager cannot approve half a correction; an
+offline correction that reaches the server before its day is approved is `rejected` /
+`invalid_state`, and the supervisor edits the entry instead; there is no signal that a rejected day was fixed, so the
+exceptions view must compare `attendance_entries.updated_at` with `reviewed_at`; and if #61 adds an
+entry column for hourly pay, corrections must carry it too.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
