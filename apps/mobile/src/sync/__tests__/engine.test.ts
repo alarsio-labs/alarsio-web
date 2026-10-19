@@ -2,7 +2,15 @@ import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
-import { REQUEST_DEBOUNCE_MS, startSyncEngine, SYNC_INTERVAL_MS, type SyncEnv, type SyncStatus } from '../engine';
+import {
+  PULL_INTERVAL_MS,
+  REQUEST_DEBOUNCE_MS,
+  startSyncEngine,
+  SYNC_INTERVAL_MS,
+  type SyncEnv,
+  type SyncStatus,
+} from '../engine';
+import { mirrorInfo, type MirrorSource } from '../pull';
 import { applyVerdicts, claimBatch, enqueue } from '../outbox';
 import type { PushResponse, SyncBatch, SyncTransport } from '../sender';
 
@@ -336,6 +344,142 @@ describe('startSyncEngine', () => {
       expect(pushes).toHaveLength(1);
       expect(handle.getStatus().counts.synced).toBe(1);
       handle.stop();
+    });
+  });
+
+  describe('pull after sync (#49)', () => {
+    const SITE = {
+      id: '51000000-0000-4000-8000-000000000001',
+      name: 'Kothrud',
+      address: 'Pune',
+      status: 'active',
+      latitude: 18.5,
+      longitude: 73.8,
+      geofence_radius_m: 200,
+    };
+
+    /** A server with one site for USER_A; counts how many pulls ran. */
+    function mirrorSource(fail = false) {
+      let pulls = 0;
+      const source: MirrorSource = {
+        currentUserId: async () => USER_A,
+        fetchPage: async (kind, _userId, after) => {
+          if (kind === 'sites' && after === null) pulls += 1;
+          if (fail) throw new Error('boom: /data/user/0/app/alarsio.db');
+          return kind === 'sites' && after === null ? [SITE] : [];
+        },
+      };
+      return { source, pulls: () => pulls };
+    }
+
+    it('pulls once at start, then at most every 5 minutes, and Sync now forces one', async () => {
+      let clock = 1_000_000;
+      const f = fakeEnv();
+      const { transport } = countingTransport();
+      const m = mirrorSource();
+      const handle = startSyncEngine(db, transport, f.env, {
+        userId: USER_A,
+        mirrorSource: m.source,
+        now: () => clock,
+      });
+
+      await handle.syncNow();
+      expect(m.pulls()).toBe(1);
+      expect(handle.getStatus().lastPull).toEqual({ kind: 'done', sites: 1, materials: 0, roster: 0 });
+      expect((await mirrorInfo(db))?.userId).toBe(USER_A);
+
+      clock += PULL_INTERVAL_MS - 1;
+      f.tick();
+      await handle.syncNow();
+      expect(m.pulls()).toBe(1);
+
+      clock += 1;
+      f.tick();
+      await handle.syncNow();
+      expect(m.pulls()).toBe(2);
+
+      await handle.retryNow();
+      expect(m.pulls()).toBe(3);
+      handle.stop();
+    });
+
+    it('publishes what the phone holds after a pull', async () => {
+      const f = fakeEnv();
+      const m = mirrorSource();
+      const handle = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A, mirrorSource: m.source });
+
+      await handle.syncNow();
+
+      expect(handle.getStatus().mirror).toMatchObject({ sites: 1, materials: 0, roster: 0 });
+      handle.stop();
+    });
+
+    it('shows the copy it already holds at start, with no network and a failing pull', async () => {
+      const f = fakeEnv();
+      const first = startSyncEngine(db, countingTransport().transport, f.env, {
+        userId: USER_A,
+        mirrorSource: mirrorSource().source,
+      });
+      await first.syncNow();
+      first.stop();
+
+      // Next app start: offline, so the pull fails. The old copy is still there to show.
+      const next = startSyncEngine(db, countingTransport().transport, f.env, {
+        userId: USER_A,
+        mirrorSource: mirrorSource(true).source,
+      });
+      await next.syncNow();
+
+      expect(next.getStatus().mirror).toMatchObject({ sites: 1 });
+      expect(next.getStatus().lastPull).toEqual({ kind: 'failed', reason: 'local_error' });
+      next.stop();
+    });
+
+    it("never shows another user's copy", async () => {
+      const f = fakeEnv();
+      const a = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A, mirrorSource: mirrorSource().source });
+      await a.syncNow();
+      a.stop();
+
+      const b = startSyncEngine(db, countingTransport(false).transport, f.env, { userId: '22222222-0000-4000-8000-00000000000b' });
+      await b.syncNow();
+
+      expect(b.getStatus().mirror).toBeNull();
+      b.stop();
+    });
+
+    it('keeps the sync result when the pull fails, never shows the raw error, and tries the pull again', async () => {
+      const f = fakeEnv();
+      const { transport } = countingTransport();
+      const m = mirrorSource(true);
+      const handle = startSyncEngine(db, transport, f.env, { userId: USER_A, mirrorSource: m.source });
+
+      const result = await handle.syncNow();
+
+      expect(result).toEqual({ kind: 'done', batches: 0, records: 0 });
+      expect(handle.getStatus()).toMatchObject({ last: result, lastPull: { kind: 'failed', reason: 'local_error' } });
+      f.tick();
+      await handle.syncNow();
+      expect(m.pulls()).toBe(2);
+      handle.stop();
+    });
+
+    it('does not pull while signed out, or without a mirror source', async () => {
+      const f = fakeEnv();
+      const m = mirrorSource();
+      const signedOut = startSyncEngine(db, countingTransport(false).transport, f.env, {
+        userId: USER_A,
+        mirrorSource: m.source,
+      });
+      await signedOut.syncNow();
+      expect(m.pulls()).toBe(0);
+      expect(signedOut.getStatus().lastPull).toBeNull();
+      signedOut.stop();
+
+      const noSource = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A });
+      await noSource.syncNow();
+      expect(noSource.getStatus().lastPull).toBeNull();
+      noSource.stop();
     });
   });
 });

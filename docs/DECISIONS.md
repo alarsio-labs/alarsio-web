@@ -809,6 +809,75 @@ is handled in code but not covered by a test, as the SQL suites run on one conne
 
 ---
 
+## ADR-023 · Pull: full refresh into mirrors owned by one user, through published views only
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Nikhil (issue #49, review of #71)
+
+**Context.** Capture screens need sites, materials and the roster with no signal.
+ADR-018 left the download direction unplanned. Phones are shared (ADR-020), the
+PostgREST row cap fails silently, and the server decides who sees what through RLS.
+
+**Decision.**
+- **Full refresh, not incremental.** When a supervisor is taken off a site, RLS
+  simply stops returning it, and only a full refresh notices that. The assignment
+  tables have no `updated_at` to page on. The data is small.
+- **Three mirrors, in device migration 4,** all through published views, never a
+  table of another module (ARCHITECTURE rule 4): sites from Sites' `site_details`
+  (ADR-028), materials from Materials' `material_balances`, and the roster from
+  Workforce's `worker_roster` (no phone number, no rate). Every column is named,
+  never `*`, so a column added on the server reaches phones only by decision.
+- **Sites:** `archived` ones are left out, since `can_record_on_site` refuses them.
+  `completed` and `paused` stay, because a supervisor can still record on them. The
+  materials and roster of a site the phone does not hold are dropped too.
+- **The roster follows Attendance's D10 (ADR-021),** since the server is the
+  authority. The mirror keeps each assignment's assigned and unassigned day in
+  Asia/Kolkata, and `readRosterOn(date)` applies the same rule as
+  `mark_all_present`: assigned on or before the date, and open or unassigned on or
+  after it, both ends inclusive, active workers only, one row per worker. Open-only
+  would drop a worker who left at 11:00 although the server still accepts them for
+  that day, and would make an offline back-fill of yesterday impossible. It holds
+  open assignments and ones closed in the **last 7 days** (a product choice, asked
+  on #49), so an ex-worker's name does not stay on the phone for good.
+- **One transaction, all or nothing.** Every page of every source must arrive and
+  parse, or the old mirror stays whole. A failed write is a fixed `local_error`.
+- **Paging by key, not by offset.** A page is the rows after the last key seen, in
+  key order, so a row added or removed between pages cannot skip one or repeat one.
+  The only end is an empty page, because a server may cap a page below the 1000
+  asked for. A cursor that does not advance fails the pull instead of looping.
+- **Owned by one user.** `mirror_state` records whose mirror it is. Reads for anyone
+  else return nothing, so B never sees A's sites offline on a shared phone. Sign-out
+  clears the mirrors once it has worked (`signOutAndClearMirrors`), and a failure
+  to clear never fails the sign-out. The outbox is never touched.
+- **One session per page.** Each page reads the session once, refuses if it belongs
+  to someone else, and sends that session's token (as the push does, ADR-020). The
+  user is checked again just before the write, so a sign-out that landed during the
+  pull is not undone by it. That narrows the window rather than closing it, and
+  clearing on sign-out covers the rest.
+- **A save never joins a pull.** `enqueue` runs in a transaction, so a record saved
+  while a pull is writing waits for it. A plain write would have joined the pull's
+  open transaction, and been rolled back with it if the pull failed, or lost with it
+  if the app was killed before it committed.
+- **When:** after a sync run, at start and then at most every 5 minutes. Sync now
+  forces one. Only a finished pull resets the clock.
+- **What the screen says.** What the phone holds and how old it is stays on screen
+  after a failed refresh, which is every refresh made offline, with a note that the
+  refresh failed. The failure reason is never printed.
+- **Quantities are integer thousandths,** which is exact for `numeric(…, 3)`, so the
+  Materials screen's estimated balance (server balance plus outbox) adds up without
+  float drift. A null or non-numeric value fails the pull rather than becoming 0.
+
+**Consequences.** Capture screens get a consistent, per-user offline copy that is
+never half-written, and the server's own roster rule decides who can be marked.
+Costs: every refresh re-downloads everything, which is fine at pilot scale and an
+ADR to revisit if data grows; an empty last page adds one request per source; the
+mirror is at most about 5 minutes old while online, and as old as the last pull
+while offline; a back-fill older than 7 days sees only who is still assigned; an
+owner or project manager on a phone gets their whole organisation's roster, because
+the mirror holds what RLS lets the user see although only supervisors can record;
+and a copy that cannot be cleared on sign-out stays on disk, unreadable to the next
+user, until the next pull replaces it.
+
+---
+
 ## ADR-025 · Web review of daily reports: site names through a Sites view, no author names, no new write
 **Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #74; Sites view reviewed by Manish)
 

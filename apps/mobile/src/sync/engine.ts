@@ -9,6 +9,7 @@ import NetInfo from '@react-native-community/netinfo';
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from './entities';
 import { countByStatus, listAttention, retryFailedNow, type AttentionRow } from './outbox';
+import { mirrorSummary, runPull, type MirrorSource, type MirrorSummary, type PullResult } from './pull';
 import { runSync, singleFlight, type SyncRunResult, type SyncTransport } from './sender';
 
 export const SYNC_INTERVAL_MS = 60_000;
@@ -27,6 +28,10 @@ export interface SyncStatus {
   readFailed: boolean;
   /** The user this engine belongs to. */
   userId: string | null;
+  /** The last pull of the mirrors, or null before the first one (#49). */
+  lastPull: PullResult | null;
+  /** What the phone holds for this user, from an earlier session too; null if nothing. */
+  mirror: MirrorSummary | null;
   /** The last finished run, or null before the first one. */
   last: SyncRunResult | null;
   running: boolean;
@@ -126,6 +131,8 @@ export function startSyncEngine(
   };
   let stopped = false;
   let cancelPending: (() => void) | null = null;
+  let lastPullAt: number | null = null;
+  let forcePull = false;
 
   const publish = (next: Partial<SyncStatus>) => {
     status = { ...status, ...next };
@@ -160,6 +167,8 @@ export function startSyncEngine(
     publish({ running: false, last: result });
     return result;
   });
+
+  const pullDue = () => forcePull || lastPullAt === null || now() - lastPullAt >= PULL_INTERVAL_MS;
 
   const trigger = () => {
     if (!stopped) void run();

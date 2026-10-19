@@ -38,6 +38,12 @@ describe('SyncPanel (#68)', () => {
     expect(screen.getByText('Refused (brand_new)')).toBeTruthy();
   });
 
+  it('says what the phone holds after a pull', async () => {
+    const mirror = { refreshedAt: new Date().toISOString(), sites: 2, materials: 3, roster: 4 };
+    await render(<SyncPanel status={status({ mirror })} onSyncNow={jest.fn()} />);
+    expect(screen.getByText('On this phone: 2 sites, 3 materials, 4 workers · updated just now')).toBeTruthy();
+  });
+
   it('shows no list when nothing needs attention', async () => {
     await render(<SyncPanel status={status()} onSyncNow={jest.fn()} />);
 

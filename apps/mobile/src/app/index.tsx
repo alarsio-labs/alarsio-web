@@ -7,6 +7,7 @@ import { openAppDb } from '../lib/app-db';
 import { getSupabase } from '../lib/supabase';
 import { HomeScreen } from '../screens/HomeScreen';
 import { startSyncEngine } from '../sync/engine';
+import { supabaseMirrorSource } from '../sync/supabase-mirror-source';
 import { supabaseTransport } from '../sync/supabase-transport';
 
 const config = readPublicConfig();
@@ -16,6 +17,13 @@ const config = readPublicConfig();
 const startSync = config.ok
   ? (db: DeviceDb, userId: string) =>
       startSyncEngine(db, supabaseTransport(getSupabase(config.config)), { userId })
+  ? (db: DeviceDb, userId?: string) => {
+      const supabase = getSupabase(config.config);
+      return startSyncEngine(db, supabaseTransport(supabase), undefined, {
+        userId,
+        mirrorSource: supabaseMirrorSource(supabase),
+      });
+    }
   : undefined;
 
 export default function Index() {

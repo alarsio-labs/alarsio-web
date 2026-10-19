@@ -83,29 +83,34 @@ export async function enqueue(db: DeviceDb, entry: NewOutboxEntry, now: Date = n
   }
 
   const at = now.toISOString();
+  // In a transaction, so a save made while a pull is writing waits for it. A
+  // plain write would join the pull's open transaction and be rolled back with
+  // it if the pull fails, or lost with it if the app is killed before it commits.
   // In the update branch every column on the right reads the existing row, so
   // all the case expressions test the status as it was before this save.
-  await db.run(
-    `insert into outbox (entity, record_id, author_id, payload, created_at, updated_at)
-     values (?, ?, ?, ?, ?, ?)
-     on conflict (entity, record_id) do update set
-       payload         = excluded.payload,
-       author_id       = excluded.author_id,
-       updated_at      = excluded.updated_at,
-       dirty           = case when status = 'syncing' then 1 else 0 end,
-       reason          = case when status = 'syncing' then reason else null end,
-       attempts        = case when status = 'syncing' then attempts else 0 end,
-       next_attempt_at = case when status = 'syncing' then next_attempt_at else null end,
-       status          = case when status = 'syncing' then 'syncing' else 'pending' end`,
-    [
-      entry.entity,
-      entry.recordId.toLowerCase(),
-      entry.authorId.toLowerCase(),
-      JSON.stringify(entry.payload),
-      at,
-      at,
-    ],
-  );
+  await db.transaction(async () => {
+    await db.run(
+      `insert into outbox (entity, record_id, author_id, payload, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?)
+       on conflict (entity, record_id) do update set
+         payload         = excluded.payload,
+         author_id       = excluded.author_id,
+         updated_at      = excluded.updated_at,
+         dirty           = case when status = 'syncing' then 1 else 0 end,
+         reason          = case when status = 'syncing' then reason else null end,
+         attempts        = case when status = 'syncing' then attempts else 0 end,
+         next_attempt_at = case when status = 'syncing' then next_attempt_at else null end,
+         status          = case when status = 'syncing' then 'syncing' else 'pending' end`,
+      [
+        entry.entity,
+        entry.recordId.toLowerCase(),
+        entry.authorId.toLowerCase(),
+        JSON.stringify(entry.payload),
+        at,
+        at,
+      ],
+    );
+  });
 }
 
 /**

@@ -127,6 +127,11 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Running balance computed server-side
 - [x] Warn on low or negative stock; a reason is mandatory on adjustment
 
+*These rows are the database side (ADR-015, ADR-017), which `sync_push` and the web already use.
+The manager's page, `/materials` (#82), defines and edits materials and shows balances and
+alerts; the unit is fixed once a material exists. The phone's record screen is still to come
+(#82, after the pull in #71), so a supervisor cannot record stock from the phone yet.*
+
 ### 7 · Wage Summaries
 - [ ] Weekly or monthly period, using **approved attendance only**
 - [ ] Shows rate, payable days, overtime, adjustments, total — nothing hidden

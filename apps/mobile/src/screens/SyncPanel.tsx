@@ -8,7 +8,7 @@
 import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { SyncStatus } from '../sync/engine';
-import { entityLabel, reasonText, syncLine } from '../sync/status-text';
+import { entityLabel, pullLine, reasonText, syncLine } from '../sync/status-text';
 
 export interface SyncPanelProps {
   status: SyncStatus;
