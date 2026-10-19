@@ -141,6 +141,11 @@ entity handlers are wired in week 5.*
 - [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
+*The owner export is in place (#76, ADR-026): `/export` downloads one ZIP of a CSV per
+table, read under the owner's RLS and rate-limited to 5 an hour (`export_org_data`).
+`tables.test.ts` and `data_export_test.sql` prove every table is listed and readable.
+Unticked until a download runs end to end against the team project (#58), as with invites.*
+
 ---
 
 ## Explicitly NOT in the MVP
