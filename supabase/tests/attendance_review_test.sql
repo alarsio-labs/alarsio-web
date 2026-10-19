@@ -1,5 +1,5 @@
 -- Attendance & Site Presence, PR 2: attendance_corrections, review_attendance_day,
--- review_attendance_correction and the approved-day lock. Issue #28, ADR-029
+-- review_attendance_correction and the approved-day lock. Issue #28, ADR-030
 -- (D1-D9 in the spec comment on #28).
 --
 -- Conventions as in attendance_entries_test.sql: test_as / test_as_anon /

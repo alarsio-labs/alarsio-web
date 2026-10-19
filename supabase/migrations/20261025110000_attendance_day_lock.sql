@@ -1,5 +1,5 @@
 -- Attendance & Site Presence: the approved-day lock. Owner: Manish. Issue #28, PR 2.
--- Decisions D4, D8, D9 in ADR-029; PS409 agreed on #13.
+-- Decisions D4, D8, D9 in ADR-030; PS409 agreed on #13.
 --
 -- Once a manager approves a day, nothing a phone sends may change it. Three layers,
 -- because the rule has to hold for every writer:

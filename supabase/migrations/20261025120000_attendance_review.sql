@@ -1,6 +1,6 @@
 -- Attendance & Site Presence: review_attendance_day() and
 -- review_attendance_correction(). Owner: Manish. Issue #28, PR 2. Published in
--- docs/ARCHITECTURE.md (Attendance). Decisions D1, D4, D5, D7 in ADR-029.
+-- docs/ARCHITECTURE.md (Attendance). Decisions D1, D4, D5, D7 in ADR-030.
 --
 -- Requires Identity's can_review_site(uuid): owner and project_manager of the site's
 -- organisation. Archived sites stay reviewable.

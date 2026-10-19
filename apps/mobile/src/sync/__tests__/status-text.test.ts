@@ -1,12 +1,14 @@
 import type { SyncStatus } from '../engine';
 import { SYNC_ENTITIES } from '../entities';
-import { entityLabel, reasonText, syncLine } from '../status-text';
+import { entityLabel, pullLine, reasonText, syncLine } from '../status-text';
 
 const USER = '11111111-0000-4000-8000-00000000000a';
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  loaded: true,
+  readFailed: false,
   last: null,
   running: false,
   userId: USER,
@@ -39,9 +41,19 @@ describe('syncLine (#68)', () => {
     );
   });
 
-  it('says waiting for connection when signed in on the phone but the session cannot refresh offline', () => {
-    expect(syncLine(status({ last: { kind: 'signed_out' } }))).toBe(
-      'All your records are on the server · Waiting for connection',
+  it('says waiting for connection only when something is waiting and the session cannot refresh offline', () => {
+    expect(syncLine(status({ counts: { ...zero, pending: 2 }, last: { kind: 'signed_out' } }))).toBe(
+      '2 waiting to send · Waiting for connection',
+    );
+    expect(syncLine(status({ last: { kind: 'signed_out' } }))).toBe('All your records are on the server');
+  });
+
+  it('claims nothing about the server until the counts have been read', () => {
+    expect(syncLine(status({ loaded: false }))).toBe('Checking…');
+    expect(syncLine(status({ loaded: false, readFailed: true }))).toBe('Could not read your records on this phone.');
+    // A later failed read: the old counts may be stale, so no claim either.
+    expect(syncLine(status({ loaded: true, readFailed: true, counts: { ...zero, synced: 3 } }))).toBe(
+      'Could not read your records on this phone.',
     );
   });
 
@@ -57,6 +69,28 @@ describe('syncLine (#68)', () => {
     );
   });
 
+  it('never prints raw error text: internal failures get one fixed sentence each', () => {
+    const waiting = { counts: { ...zero, pending: 1 } };
+    const line = (reason: string) => syncLine(status({ ...waiting, last: failed(reason) }));
+    expect(line('local_error')).toBe('1 waiting to send · Something went wrong on this phone. Will retry.');
+    expect(line('invalid_envelope:version must be 1')).toBe(
+      '1 waiting to send · The app and the server disagree. Please update the app.',
+    );
+    expect(line('bad_response')).toBe("1 waiting to send · The server's answer wasn't understood. Will retry.");
+
+    const leaks = [
+      `local:SQLITE_FULL: ${'x'.repeat(300)} /data/user/0/com.alarsio/databases/alarsio.db`,
+      'server:' + 'y'.repeat(200),
+      'server:PGRST 301 jwt expired for user a@b.com',
+      '/data/user/0/com.alarsio/files',
+    ];
+    for (const reason of leaks) {
+      const text = line(reason);
+      expect(text).toBe('1 waiting to send · Last try failed. Will retry.');
+      expect(text).not.toMatch(/\/|SQLITE|@|xxxx|yyyy/);
+    }
+  });
+
   it('never says submitted, whatever the state', () => {
     const lasts = [null, { kind: 'signed_out' as const }, failed('network'), { kind: 'done' as const, batches: 1, records: 3 }];
     for (const last of lasts) {
@@ -67,6 +101,46 @@ describe('syncLine (#68)', () => {
           }
         }
       }
+    }
+  });
+});
+
+describe('pullLine (#49)', () => {
+  const NOW = new Date('2026-10-20T12:00:00.000Z');
+  const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
+  const mirror = (refreshedAt: string) => ({ refreshedAt, sites: 1, materials: 14, roster: 1 });
+  const MIN = 60_000;
+
+  it('says nothing before the phone holds a copy or has tried one', () => {
+    expect(pullLine(null, null, NOW)).toBeNull();
+    expect(pullLine(null, { kind: 'signed_out' }, NOW)).toBeNull();
+  });
+
+  it('says what the phone holds and how old it is', () => {
+    expect(pullLine(mirror(ago(10_000)), { kind: 'done', sites: 1, materials: 14, roster: 1 }, NOW)).toBe(
+      'On this phone: 1 site, 14 materials, 1 worker · updated just now',
+    );
+    expect(pullLine(mirror(ago(5 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 5 min ago');
+    expect(pullLine(mirror(ago(2 * 60 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 2 h ago');
+    expect(pullLine(mirror(ago(3 * 24 * 60 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 3 days ago');
+    // A clock that moved back is not "in the future".
+    expect(pullLine(mirror(ago(-5 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated just now');
+  });
+
+  it('still shows the copy it holds when the last refresh failed, and says so', () => {
+    expect(pullLine(mirror(ago(2 * 60 * MIN)), { kind: 'failed', reason: 'network' }, NOW)).toBe(
+      'On this phone: 1 site, 14 materials, 1 worker · updated 2 h ago · refresh failed, will retry',
+    );
+  });
+
+  it('says there is no copy yet when the first refresh failed', () => {
+    expect(pullLine(null, { kind: 'failed', reason: 'network' }, NOW)).toBe('Offline copy not available yet. Will retry.');
+  });
+
+  it('never prints the failure reason, whatever it holds', () => {
+    const reason = 'UNIQUE constraint failed: /data/user/0/com.alarsio/databases/alarsio.db a@b.com';
+    for (const m of [null, mirror(ago(MIN))]) {
+      expect(pullLine(m, { kind: 'failed', reason }, NOW)).not.toMatch(/UNIQUE|\/|@/);
     }
   });
 });

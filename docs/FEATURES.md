@@ -103,7 +103,7 @@ bad case and stores the values (tested). "Check in and check out" stays unticked
 captured only on that tap is device behaviour, and "mark everyone present in one tap" because the
 tap is a screen and offline mark-all is phone code.*
 
-*Corrections, review and the approved-day lock are in #28 PR 2 (ADR-029). "A correction keeps the
+*Corrections, review and the approved-day lock are in #28 PR 2 (ADR-030). "A correction keeps the
 old value, the new value and the reason" is ticked: `attendance_review_test.sql` proves the database
 stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited, except the one review move, or
 deleted. "Manager approves or rejects a day" stays unticked: `review_attendance_day` and the lock
@@ -133,6 +133,11 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Record opening balance, receipt, usage, adjustment
 - [x] Running balance computed server-side
 - [x] Warn on low or negative stock; a reason is mandatory on adjustment
+
+*These rows are the database side (ADR-015, ADR-017), which `sync_push` and the web already use.
+The manager's page, `/materials` (#82), defines and edits materials and shows balances and
+alerts; the unit is fixed once a material exists. The phone's record screen is still to come
+(#82, after the pull in #71), so a supervisor cannot record stock from the phone yet.*
 
 ### 7 · Wage Summaries
 - [ ] Weekly or monthly period, using **approved attendance only**

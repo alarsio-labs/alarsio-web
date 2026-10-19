@@ -513,6 +513,15 @@ record waiting on a 30-minute backoff waits even if the network returns sooner
 (the sender may later offer a manual retry); and `synced` rows stay in the table
 until a cleanup rule is decided.
 
+**Amended (#66, #67, 2026-10-19).** "One in-flight batch at a time" holds per
+sync engine, not per phone: across a user switch, two engines can each have a
+batch in flight. That is safe because no step settles another run's rows.
+- `releaseBatch` and `returnBatch` act only on the keys of their own batch.
+- After a push, only the keys the server left unanswered are released.
+- A local failure after a claim fails the rows still owned, with a backoff.
+- `recoverInterrupted` resets every `syncing` row, so it runs once per app
+  session, when the database opens.
+
 ---
 
 ## ADR-017 · The stock ledger: one writer, replay before permission, warn-only alerts
@@ -590,6 +599,11 @@ next user's session. That must be closed before sign-in ships (#14): tag each ro
 with its author and send only the signed-in user's rows, or block sign-out until
 the outbox is empty.
 
+**Amended (#66, #67, 2026-10-19).** "Runs never overlap" holds within one engine
+(`singleFlight`). Two engines, for example the old and new user's across a
+sign-in, can overlap. Each run releases only the rows it still owns (ADR-016
+amendment), so overlapping runs cannot settle each other's batches.
+
 ---
 
 ## ADR-019 · Invites: link grants access, 72-hour expiry, owners may invite owners
@@ -662,6 +676,10 @@ new user's records wait for the next trigger (at most 60 s). The transport depen
 on supabase-js not overwriting an `Authorization` header we set, which a library
 upgrade must not break; a test covers our side of it. The home screen still counts
 every user's rows until the sync status screen shows per-user counts.
+
+**Amended (#69 review, 2026-10-19).** The home screen no longer counts every
+user's rows: the sync status is scoped to the signed-in user, and with no user
+there is none (ADR-029).
 
 ---
 
@@ -797,6 +815,75 @@ the caller cannot see retries with backoff instead of being refused, since under
 it looks the same as a report still on its way (the phone only sends photos of its
 own reports); and the race in H4, a review landing between the read and the update,
 is handled in code but not covered by a test, as the SQL suites run on one connection.
+
+---
+
+## ADR-023 · Pull: full refresh into mirrors owned by one user, through published views only
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Nikhil (issue #49, review of #71)
+
+**Context.** Capture screens need sites, materials and the roster with no signal.
+ADR-018 left the download direction unplanned. Phones are shared (ADR-020), the
+PostgREST row cap fails silently, and the server decides who sees what through RLS.
+
+**Decision.**
+- **Full refresh, not incremental.** When a supervisor is taken off a site, RLS
+  simply stops returning it, and only a full refresh notices that. The assignment
+  tables have no `updated_at` to page on. The data is small.
+- **Three mirrors, in device migration 4,** all through published views, never a
+  table of another module (ARCHITECTURE rule 4): sites from Sites' `site_details`
+  (ADR-028), materials from Materials' `material_balances`, and the roster from
+  Workforce's `worker_roster` (no phone number, no rate). Every column is named,
+  never `*`, so a column added on the server reaches phones only by decision.
+- **Sites:** `archived` ones are left out, since `can_record_on_site` refuses them.
+  `completed` and `paused` stay, because a supervisor can still record on them. The
+  materials and roster of a site the phone does not hold are dropped too.
+- **The roster follows Attendance's D10 (ADR-021),** since the server is the
+  authority. The mirror keeps each assignment's assigned and unassigned day in
+  Asia/Kolkata, and `readRosterOn(date)` applies the same rule as
+  `mark_all_present`: assigned on or before the date, and open or unassigned on or
+  after it, both ends inclusive, active workers only, one row per worker. Open-only
+  would drop a worker who left at 11:00 although the server still accepts them for
+  that day, and would make an offline back-fill of yesterday impossible. It holds
+  open assignments and ones closed in the **last 7 days** (a product choice, asked
+  on #49), so an ex-worker's name does not stay on the phone for good.
+- **One transaction, all or nothing.** Every page of every source must arrive and
+  parse, or the old mirror stays whole. A failed write is a fixed `local_error`.
+- **Paging by key, not by offset.** A page is the rows after the last key seen, in
+  key order, so a row added or removed between pages cannot skip one or repeat one.
+  The only end is an empty page, because a server may cap a page below the 1000
+  asked for. A cursor that does not advance fails the pull instead of looping.
+- **Owned by one user.** `mirror_state` records whose mirror it is. Reads for anyone
+  else return nothing, so B never sees A's sites offline on a shared phone. Sign-out
+  clears the mirrors once it has worked (`signOutAndClearMirrors`), and a failure
+  to clear never fails the sign-out. The outbox is never touched.
+- **One session per page.** Each page reads the session once, refuses if it belongs
+  to someone else, and sends that session's token (as the push does, ADR-020). The
+  user is checked again just before the write, so a sign-out that landed during the
+  pull is not undone by it. That narrows the window rather than closing it, and
+  clearing on sign-out covers the rest.
+- **A save never joins a pull.** `enqueue` runs in a transaction, so a record saved
+  while a pull is writing waits for it. A plain write would have joined the pull's
+  open transaction, and been rolled back with it if the pull failed, or lost with it
+  if the app was killed before it committed.
+- **When:** after a sync run, at start and then at most every 5 minutes. Sync now
+  forces one. Only a finished pull resets the clock.
+- **What the screen says.** What the phone holds and how old it is stays on screen
+  after a failed refresh, which is every refresh made offline, with a note that the
+  refresh failed. The failure reason is never printed.
+- **Quantities are integer thousandths,** which is exact for `numeric(…, 3)`, so the
+  Materials screen's estimated balance (server balance plus outbox) adds up without
+  float drift. A null or non-numeric value fails the pull rather than becoming 0.
+
+**Consequences.** Capture screens get a consistent, per-user offline copy that is
+never half-written, and the server's own roster rule decides who can be marked.
+Costs: every refresh re-downloads everything, which is fine at pilot scale and an
+ADR to revisit if data grows; an empty last page adds one request per source; the
+mirror is at most about 5 minutes old while online, and as old as the last pull
+while offline; a back-fill older than 7 days sees only who is still assigned; an
+owner or project manager on a phone gets their whole organisation's roster, because
+the mirror holds what RLS lets the user see although only supervisors can record;
+and a copy that cannot be cleared on sign-out stays on disk, unreadable to the next
+user, until the next pull replaces it.
 
 ---
 
@@ -1027,7 +1114,55 @@ later merge of the views into one would need Attendance's and Daily Reporting's 
 
 ---
 
-## ADR-029 · Attendance corrections, day review and the approved-day lock
+## ADR-029 · Sync status belongs to one user, and never says more than it has read
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Nikhil (issue #68, review of #69)
+
+**Context.** #69 added the sync status on the phone: counts, the refused records
+with their reasons, and Sync now. It scoped them to the signed-in user only when
+a user was passed in, and with none it covered every user. The app passed none.
+Once sign-in (#56) merged, on a shared phone user B's screen would have listed
+A's refused records, and B's Sync now would have reset A's backoff. That is the
+leak ADR-020 closes, in a new place. The review also found the screen claiming
+"all on the server" about counts it had failed to read, printing raw error text
+(file paths, database messages), and a long list pushing Sync now off the screen.
+
+**Decision.**
+- **No user, no engine, no panel.** `startSyncEngine` requires a `userId`, and
+  `HomeScreen` starts sync only when it has one. `listAttention` and
+  `retryFailedNow` require an author and do nothing without one: no code path
+  falls back to every user's records.
+- **The engine belongs to its user.** Its transport counts anyone else's session
+  as no session, so it claims and sends only that user's rows, and what the screen
+  shows is what is sent. The user comes from the stored session (it works
+  offline, even when the token has expired and the transport reports no session)
+  through a context set by the sign-in gate in `_layout.tsx`. In that offline
+  case the line says "Waiting for connection".
+- **The line claims only what it has read.** "All your records are on the server"
+  appears only after a successful read of the counts. A failed read says
+  "Could not read your records on this phone", and a failed read is a state in the
+  status (`loaded`, `readFailed`), not a swallowed error.
+- **No raw error text on screen.** Internal failures map to one fixed sentence
+  each (`local_error`, `invalid_envelope:*`, `bad_response`). Only a short server
+  code (`server:` and up to 8 letters or digits) is echoed. A session change is not
+  shown, since it is not this user's problem.
+- **A long list scrolls.** The refused records scroll inside a bounded box, at most
+  50 are kept, and the rest are counted as "and N more". Sync now stays on screen.
+  A failed Sync now is a result, not a rejected promise.
+- **Sync now clears the wait, not `attempts`** (ADR-016 amendment).
+- **Accessibility.** The button's name follows its text ("Sending…" while it runs),
+  its disabled colour keeps 4.5:1 contrast, and the line is a polite live region.
+
+**Consequences.** A shared phone shows each person their own records only, and the
+screen can no longer say something it has not checked. Costs: the screen shows
+nothing at all, instead of everything, when the app has no user (which only
+happens outside the sign-in gate); the user reaches the engine through a context,
+which `_layout.tsx` (Identity's) must keep providing, and a test covers the screen
+side of that; and a `failed` record still looks like a waiting one although it can
+wait up to 30 minutes (ADR-016), which a later change can show as "next try in …".
+
+---
+
+## ADR-030 · Attendance corrections, day review and the approved-day lock
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28, PR 2 of 3; PS409 agreed on #13; review: Anuradha)
 
 **Context.** ADR-021 built capture and left three things for the next PR: how an approved day

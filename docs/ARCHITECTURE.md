@@ -25,7 +25,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Daily Reporting** | `daily_reports`, `daily_report_revisions`, `report_photos` | Sites, Attendance |
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
 | **Wage Summaries** | `wage_periods`, `wage_lines` | Attendance, Workforce |
-| **Offline Sync** *(platform)* | device SQLite outbox | Attendance, Reporting, Materials |
+| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials and Workforce views for the mirrors |
 | **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters` | Identity |
 
 Dependencies point **downward** only. Identity → Sites → field capture → wages.
@@ -41,7 +41,7 @@ list, publish it deliberately and add it here in the same PR.
 | Identity & Access | `is_org_member` · `is_org_owner` · `has_site_access` · `can_manage_sites` · `can_record_on_site` · `can_review_site` · `can_view_wages` · `create_organization` · `create_invite` · `accept_invite` · `revoke_invite` | — |
 | Sites | `archive_site` | `site_timeline` (not built yet) · `site_geofence` · `site_directory` (name and status only; ADR-025) · `site_details` (the full site record, for the offline mirror; ADR-028) |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` |
-| Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`; ADR-029) | approved `attendance_days` · `site_exceptions` (not built yet) |
+| Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`; ADR-030) | approved `attendance_days` · `site_exceptions` (not built yet) |
 | Daily Reporting | `review_daily_report(report_id, note)` · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
@@ -110,6 +110,9 @@ A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
 replay (`accepted`) against `conflict` for its own records. The module that owns
 the table publishes the handler and lists it in its row of the public surface above.
 
+The phone also **pulls** what the signed-in user may see (sites, material
+balances, today's roster) into read-only mirrors, through published views only,
+replaced whole on each pull and readable only by that user (ADR-023).
 ## Data export
 
 The one read that crosses every module (ADR-026). An owner downloads their

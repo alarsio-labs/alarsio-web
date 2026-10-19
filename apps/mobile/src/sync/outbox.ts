@@ -83,29 +83,34 @@ export async function enqueue(db: DeviceDb, entry: NewOutboxEntry, now: Date = n
   }
 
   const at = now.toISOString();
+  // In a transaction, so a save made while a pull is writing waits for it. A
+  // plain write would join the pull's open transaction and be rolled back with
+  // it if the pull fails, or lost with it if the app is killed before it commits.
   // In the update branch every column on the right reads the existing row, so
   // all the case expressions test the status as it was before this save.
-  await db.run(
-    `insert into outbox (entity, record_id, author_id, payload, created_at, updated_at)
-     values (?, ?, ?, ?, ?, ?)
-     on conflict (entity, record_id) do update set
-       payload         = excluded.payload,
-       author_id       = excluded.author_id,
-       updated_at      = excluded.updated_at,
-       dirty           = case when status = 'syncing' then 1 else 0 end,
-       reason          = case when status = 'syncing' then reason else null end,
-       attempts        = case when status = 'syncing' then attempts else 0 end,
-       next_attempt_at = case when status = 'syncing' then next_attempt_at else null end,
-       status          = case when status = 'syncing' then 'syncing' else 'pending' end`,
-    [
-      entry.entity,
-      entry.recordId.toLowerCase(),
-      entry.authorId.toLowerCase(),
-      JSON.stringify(entry.payload),
-      at,
-      at,
-    ],
-  );
+  await db.transaction(async () => {
+    await db.run(
+      `insert into outbox (entity, record_id, author_id, payload, created_at, updated_at)
+       values (?, ?, ?, ?, ?, ?)
+       on conflict (entity, record_id) do update set
+         payload         = excluded.payload,
+         author_id       = excluded.author_id,
+         updated_at      = excluded.updated_at,
+         dirty           = case when status = 'syncing' then 1 else 0 end,
+         reason          = case when status = 'syncing' then reason else null end,
+         attempts        = case when status = 'syncing' then attempts else 0 end,
+         next_attempt_at = case when status = 'syncing' then next_attempt_at else null end,
+         status          = case when status = 'syncing' then 'syncing' else 'pending' end`,
+      [
+        entry.entity,
+        entry.recordId.toLowerCase(),
+        entry.authorId.toLowerCase(),
+        JSON.stringify(entry.payload),
+        at,
+        at,
+      ],
+    );
+  });
 }
 
 /**
@@ -155,6 +160,8 @@ export async function applyVerdicts(
   const at = now.toISOString();
   await db.transaction(async () => {
     for (const result of results) {
+      // A malformed row answers nothing; its record stays unanswered (#67).
+      if (!isResultRow(result)) continue;
       const [row] = await db.all<{ seq: number; dirty: number; attempts: number }>(
         `select seq, dirty, attempts from outbox
           where entity = ? and record_id = ? and status = 'syncing'`,
@@ -300,10 +307,12 @@ export interface AttentionRow {
 }
 
 /**
- * Conflict and rejected records, newest first: this user's, or every user's
- * when no author is given. They are never retried by themselves (ADR-016).
+ * This user's conflict and rejected records, newest first. They are never
+ * retried by themselves (ADR-016). Without an author there is no list: this
+ * never falls back to every user's records (ADR-020).
  */
-export async function listAttention(db: DeviceDb, authorId?: string, limit = 50): Promise<AttentionRow[]> {
+export async function listAttention(db: DeviceDb, authorId: string, limit = 50): Promise<AttentionRow[]> {
+  if (!authorId) return [];
   const rows = await db.all<{
     entity: SyncEntity;
     record_id: string;
@@ -312,11 +321,10 @@ export async function listAttention(db: DeviceDb, authorId?: string, limit = 50)
     updated_at: string;
   }>(
     `select entity, record_id, status, reason, updated_at from outbox
-      where status in ('conflict', 'rejected')
-        and (? is null or author_id = ?)
+      where status in ('conflict', 'rejected') and author_id = ?
       order by updated_at desc, seq desc
       limit ?`,
-    [authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null, Math.max(1, limit)],
+    [authorId.toLowerCase(), Math.max(1, limit)],
   );
   return rows.map((r) => ({
     entity: r.entity,
@@ -331,14 +339,30 @@ export async function listAttention(db: DeviceDb, authorId?: string, limit = 50)
  * "Sync now": makes this user's failed records due at once instead of waiting
  * out their backoff (ADR-016's manual retry). Conflict and rejected records stay
  * as they are; only saving them again re-queues them. Returns how many changed.
+ * Without an author it changes nothing, never every user's records (ADR-020).
  */
-export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date = new Date()): Promise<number> {
+export async function retryFailedNow(db: DeviceDb, authorId: string, now: Date = new Date()): Promise<number> {
+  if (!authorId) return 0;
   const { changes } = await db.run(
     `update outbox set next_attempt_at = null, updated_at = ?
-      where status = 'failed' and (? is null or author_id = ?)`,
-    [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
+      where status = 'failed' and author_id = ?`,
+    [now.toISOString(), authorId.toLowerCase()],
   );
   return changes;
+}
+
+function isResultRow(result: unknown): result is SyncResultRow {
+  if (typeof result !== 'object' || result === null) return false;
+  const r = result as Record<string, unknown>;
+  return typeof r.entity === 'string' && typeof r.record_id === 'string' && typeof r.verdict === 'string';
+}
+
+/** The keys of `batch` that `results` has no well-formed answer for. */
+export function unanswered(batch: readonly OutboxKey[], results: readonly unknown[]): OutboxKey[] {
+  const answered = new Set(
+    results.filter(isResultRow).map((r) => `${r.entity}:${r.record_id.toLowerCase()}`),
+  );
+  return batch.filter((key) => !answered.has(`${key.entity}:${key.recordId.toLowerCase()}`));
 }
 
 async function syncingRows(

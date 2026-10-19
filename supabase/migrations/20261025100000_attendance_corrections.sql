@@ -1,5 +1,5 @@
 -- Attendance & Site Presence: attendance_corrections, with RLS and audit.
--- Owner: Manish. Issue #28, PR 2. Decisions D1, D2, D3, D6 in ADR-029.
+-- Owner: Manish. Issue #28, PR 2. Decisions D1, D2, D3, D6 in ADR-030.
 --
 -- A correction is how an approved day changes (D3): the day's entries are locked
 -- (next migration), so a supervisor proposes a change and a reviewer approves or
