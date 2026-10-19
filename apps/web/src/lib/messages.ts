@@ -14,6 +14,12 @@ const MESSAGES = {
   review_note_long: "Keep the review note to 1000 characters or fewer.",
   export_rate_limited: "You can export 5 times an hour. Try again later.",
   export_failed: "The export could not be made, and nothing was downloaded. Try again.",
+  material_name: "Enter a material name of 1 to 120 characters.",
+  material_unit: "Choose a unit from the list.",
+  material_threshold: "Enter the low-stock level as a number of 0 or more, with up to 3 decimals, or leave it blank for no alert.",
+  material_exists: "This site already has a material with that name.",
+  material_forbidden: "Only an owner or project manager can change materials.",
+  material_not_found: "That material was not found, or you cannot change it.",
   generic: "Something went wrong. Try again."
 } as const;
 

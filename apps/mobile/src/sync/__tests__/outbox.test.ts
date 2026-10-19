@@ -504,7 +504,22 @@ describe('outbox', () => {
         { entity: 'material_transactions', recordId: ID(1), status: 'rejected', reason: 'invalid_input', updatedAt: at(1).toISOString() },
       ]);
       expect(await listAttention(db, USER_A, 1)).toHaveLength(1);
-      expect((await listAttention(db)).map((r) => r.recordId)).toEqual([ID(5), ID(3), ID(1)]);
+    });
+
+    it('lists nothing and changes nothing without an author, rather than covering every user', async () => {
+      await enqueue(db, entry(1), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [verdict(1, 'rejected', 'invalid_input')], T0);
+      await enqueue(db, entry(2), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [verdict(2, 'retryable_error', 'busy')], T0);
+
+      // @ts-expect-error: the author is required, so a caller cannot forget it
+      expect(await listAttention(db)).toEqual([]);
+      // @ts-expect-error: the author is required, so a caller cannot forget it
+      expect(await retryFailedNow(db, undefined, at(1))).toBe(0);
+      expect(await row(db, 2)).toMatchObject({ status: 'failed', attempts: 1 });
+      expect((await row(db, 2))?.next_attempt_at).not.toBeNull();
     });
 
     it("makes only this user's failed records due now, and leaves the rest alone", async () => {

@@ -1,5 +1,7 @@
 // When to sync, and what the app shows about it. Owner: Offline Sync (Nikhil).
 // Issues #47, #68. The events come through SyncEnv, so tests drive them by hand.
+// An engine belongs to one user (ADR-029): it counts, lists, retries and sends
+// for that user only.
 
 import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
@@ -7,18 +9,29 @@ import NetInfo from '@react-native-community/netinfo';
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from './entities';
 import { countByStatus, listAttention, retryFailedNow, type AttentionRow } from './outbox';
+import { mirrorSummary, runPull, type MirrorSource, type MirrorSummary, type PullResult } from './pull';
 import { runSync, singleFlight, type SyncRunResult, type SyncTransport } from './sender';
 
 export const SYNC_INTERVAL_MS = 60_000;
 export const REQUEST_DEBOUNCE_MS = 2_000;
+/** How many refused records the status keeps; the rest are counted, not listed. */
+export const ATTENTION_LIMIT = 50;
 
 export interface SyncStatus {
-  /** This user's records per status, or every user's when no user was given. */
+  /** This user's records per status. Zeros until `loaded`. */
   counts: Record<OutboxStatus, number>;
-  /** Conflict and rejected records, newest first, for the same user. */
+  /** This user's conflict and rejected records, newest first, at most ATTENTION_LIMIT. */
   attention: AttentionRow[];
-  /** The user signed in on the phone, as the app knows it, or null. */
+  /** The counts have been read from the phone at least once. */
+  loaded: boolean;
+  /** The latest read of the counts failed, so they may be stale or still zero. */
+  readFailed: boolean;
+  /** The user this engine belongs to. */
   userId: string | null;
+  /** The last pull of the mirrors, or null before the first one (#49). */
+  lastPull: PullResult | null;
+  /** What the phone holds for this user, from an earlier session too; null if nothing. */
+  mirror: MirrorSummary | null;
   /** The last finished run, or null before the first one. */
   last: SyncRunResult | null;
   running: boolean;
@@ -71,57 +84,76 @@ export const realSyncEnv: SyncEnv = {
 
 export interface SyncEngineOptions {
   /**
-   * The user signed in on the phone. Counts and the attention list are theirs
-   * only (ADR-020). The app knows this even offline, from the stored session.
+   * The user this engine belongs to. Required, so there is no engine that
+   * covers every user (ADR-020, ADR-029). The app knows this even offline, from
+   * the stored session, which the transport may not.
    */
-  userId?: string;
+  userId: string;
 }
 
 /**
  * Starts syncing for this app session: once now, then on foreground, on
- * reconnect, every minute, and shortly after requestSync(). Runs never
- * overlap. Errors inside a run are kept in `last`, never thrown at a trigger.
+ * reconnect, every minute, and shortly after requestSync(). Runs of this
+ * engine never overlap; another engine's may (ADR-016, ADR-018 amendments).
+ * Errors inside a run are kept in `last`, never thrown at a trigger.
  */
 export function startSyncEngine(
   db: DeviceDb,
-  transport: SyncTransport,
+  rawTransport: SyncTransport,
+  { userId }: SyncEngineOptions,
   env: SyncEnv = realSyncEnv,
-  { userId }: SyncEngineOptions = {},
 ): SyncHandle {
+  const transport = boundTo(rawTransport, userId);
   const listeners = new Set<(status: SyncStatus) => void>();
   let status: SyncStatus = {
     counts: { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 },
     attention: [],
-    userId: userId ?? null,
+    loaded: false,
+    readFailed: false,
+    userId,
     last: null,
     running: false,
   };
   let stopped = false;
   let cancelPending: (() => void) | null = null;
+  let lastPullAt: number | null = null;
+  let forcePull = false;
 
   const publish = (next: Partial<SyncStatus>) => {
     status = { ...status, ...next };
     for (const listener of listeners) listener(status);
   };
 
+  // A failed read is kept as a state, not hidden: the screen must not claim
+  // "all on the server" about counts it could not read.
   const refreshCounts = async () => {
-    publish({ counts: await countByStatus(db, userId), attention: await listAttention(db, userId) });
+    try {
+      const counts = await countByStatus(db, userId);
+      const attention = await listAttention(db, userId, ATTENTION_LIMIT);
+      publish({ counts, attention, loaded: true, readFailed: false });
+    } catch {
+      publish({ readFailed: true });
+    }
   };
+
+  const localFailure = (): SyncRunResult => ({ kind: 'failed', reason: 'local_error', batches: 0, records: 0 });
 
   const run = singleFlight(async (): Promise<SyncRunResult> => {
     publish({ running: true });
     let result: SyncRunResult;
     try {
       result = await runSync(db, transport);
-    } catch (error) {
+    } catch {
       // A local failure (database, a bug): keep it visible, and keep the app alive.
-      const reason = error instanceof Error ? error.message : String(error);
-      result = { kind: 'failed', reason: `local:${reason}`, batches: 0, records: 0 };
+      // The message stays out of the status: it can name files and data.
+      result = localFailure();
     }
-    await refreshCounts().catch(() => undefined);
+    await refreshCounts();
     publish({ running: false, last: result });
     return result;
   });
+
+  const pullDue = () => forcePull || lastPullAt === null || now() - lastPullAt >= PULL_INTERVAL_MS;
 
   const trigger = () => {
     if (!stopped) void run();
@@ -133,7 +165,7 @@ export function startSyncEngine(
     env.every(SYNC_INTERVAL_MS, trigger),
   ];
 
-  void refreshCounts().catch(() => undefined);
+  void refreshCounts();
   trigger();
 
   return {
@@ -147,7 +179,14 @@ export function startSyncEngine(
     },
     syncNow: () => run(),
     async retryNow() {
-      await retryFailedNow(db, userId);
+      try {
+        await retryFailedNow(db, userId);
+      } catch {
+        // Surface it like a failed run, instead of rejecting into a button handler.
+        const result = localFailure();
+        publish({ last: result });
+        return result;
+      }
       return run();
     },
     getStatus: () => status,
