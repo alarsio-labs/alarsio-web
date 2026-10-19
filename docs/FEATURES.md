@@ -105,6 +105,12 @@ are the next PR.*
 - [x] A submitted report cannot be changed quietly — edits keep history
 - [x] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
 
+*Managers read, filter and review reports on the web (#74, ADR-025): `/reports` lists
+`daily_report_status` with flagged reports first, and `/reports/<id>` shows the report, its
+edit history and photos, and calls `review_daily_report`. This is the surface for the
+"flagged to managers" row above; no row changes because the database rules were already
+tested. The pages need a run against a real project.*
+
 *Server side of offline filing is in place (#63, ADR-022): `sync_daily_reports` and
 `sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
 as an offline draft" is ticked when the phone's report screen ships.*
