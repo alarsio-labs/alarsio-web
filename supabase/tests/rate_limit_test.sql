@@ -228,4 +228,59 @@ begin
     'an aborted transaction leaves no count');
 end $$;
 
+-- ------------------------------------------- export_org_data (issue #76)
+
+-- The data export: at most 5 per user per hour, never looser.
+do $$
+declare i int; raised boolean := false; v_state text; refused int := 0;
+begin
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  for i in 1..5 loop
+    perform enforce_rate_limit('export_org_data', 5, interval '1 hour');
+  end loop;
+  begin
+    perform enforce_rate_limit('export_org_data', 5, interval '1 hour');
+  exception when others then
+    get stacked diagnostics v_state = returned_sqlstate;
+    raised := (v_state = 'PT429');
+  end;
+  perform test_assert(raised, 'the 6th export in an hour raises PT429, got ' || coalesce(v_state, 'null'));
+
+  begin perform enforce_rate_limit('export_org_data', 6, interval '1 hour');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  begin perform enforce_rate_limit('export_org_data', 5, interval '59 minutes');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  perform test_assert(refused = 2, 'a looser export limit or a shorter window is refused, got ' || refused);
+  reset role;
+
+  perform test_assert(
+    (select hits from rate_limit_counters
+      where user_id = 'e0000000-0000-0000-0000-00000000000e' and key = 'export_org_data') = 5,
+    'refused export calls did not count');
+
+  -- A stricter caller is still allowed.
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  perform enforce_rate_limit('export_org_data', 1, interval '1 day');
+  reset role;
+end $$;
+
+-- Adding the key left the other ceilings where they were.
+do $$
+declare refused int := 0;
+begin
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  begin perform enforce_rate_limit('create_invite', 31, interval '1 hour');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  begin perform enforce_rate_limit('create_invite', 30, interval '59 minutes');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  begin perform enforce_rate_limit('accept_invite', 11, interval '1 hour');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  begin perform enforce_rate_limit('accept_invite', 10, interval '59 minutes');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  begin perform enforce_rate_limit('sync_push', 121, interval '1 minute');
+  exception when invalid_parameter_value then refused := refused + 1; end;
+  reset role;
+  perform test_assert(refused = 5, 'the existing ceilings and windows are unchanged, got ' || refused);
+end $$;
+
 rollback;
