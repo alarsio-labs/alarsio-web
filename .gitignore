@@ -42,3 +42,6 @@ coverage/
 
 # next
 next-env.d.ts
+
+# Written by `supabase link` and `supabase login`; never committed.
+supabase/.temp/

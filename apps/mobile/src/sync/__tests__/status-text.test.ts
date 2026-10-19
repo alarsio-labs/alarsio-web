@@ -164,6 +164,8 @@ describe('labels', () => {
     expect(reasonText('duplicate')).toBe('The server already has a different version.');
     expect(reasonText('different_report')).toBe('The server already has a different version.');
     expect(reasonText('reviewed')).toBe('A manager already reviewed it.');
+    // PS409: a lock refused a stale write to an approved record (sync_push, #28).
+    expect(reasonText('locked')).toBe('A manager already approved this day, so it was not changed.');
   });
 
   it('shows an unknown code as it is, and a missing one as refused', () => {

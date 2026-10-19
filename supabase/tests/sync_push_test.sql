@@ -55,6 +55,14 @@ begin
     when 'deadlock'       then raise exception 'dl'  using errcode = '40P01';
     when 'locked'         then raise exception 'lk'  using errcode = '55P03';
     when 'boom'           then raise exception 'secret internal detail';
+    -- PS409: a lock trigger refused a write to an approved record (agreed on #13).
+    when 'stale_approved' then raise exception 'attendance day 2026-10-20 at site 51000000 is approved'
+                                 using errcode = 'PS409';
+    when 'insert_then_stale' then
+      insert into public.sync_test_rows values (p_record_id, p_payload);
+      raise exception 'approved' using errcode = 'PS409';
+    -- Another code in the same private class: only PS409 is mapped, not the class.
+    when 'other_ps'       then raise exception 'ps' using errcode = 'PS410';
     when 'null'           then return null;
     else null;
   end case;
@@ -354,6 +362,33 @@ begin
   perform test_assert(
     not exists (select 1 from public.sync_test_rows where id::text like '55555555-%'),
     'none of the failing records left a row');
+end $$;
+
+-- ------------------------------------------- a lock refuses a stale write (PS409)
+
+do $$
+declare v_response jsonb;
+begin
+  v_response := public.sync_test_push(public.sync_test_batch(
+    '[{"entity": "material_transactions", "record_id": "56565656-0000-0000-0000-000000000001", "payload": {"mode": "stale_approved"}},
+      {"entity": "material_transactions", "record_id": "56565656-0000-0000-0000-000000000002", "payload": {"mode": "insert_then_stale"}},
+      {"entity": "material_transactions", "record_id": "56565656-0000-0000-0000-000000000003", "payload": {"mode": "other_ps"}},
+      {"entity": "material_transactions", "record_id": "56565656-0000-0000-0000-000000000004", "payload": {"mode": "ok"}}]'));
+
+  perform test_assert(
+    public.sync_test_verdicts(v_response)
+      = 'conflict:locked,conflict:locked,retryable_error:server_error,accepted:-',
+    format('PS409 is a conflict, never a retry, got %s', public.sync_test_verdicts(v_response)));
+  perform test_assert(
+    not exists (select 1 from public.sync_test_rows where id = '56565656-0000-0000-0000-000000000002'),
+    'a handler that wrote a row and then hit the lock leaves no row');
+  perform test_assert(
+    exists (select 1 from public.sync_test_rows where id = '56565656-0000-0000-0000-000000000004'),
+    'a record after the locked ones is still accepted and kept');
+  perform test_assert(position('is approved' in v_response::text) = 0 and position('51000000' in v_response::text) = 0,
+    'the lock''s error message, which names the site and day, never reaches the phone');
+  perform test_assert(position('PS409' in v_response::text) = 0,
+    'the SQLSTATE itself is not sent either, only the reason code');
 end $$;
 
 rollback;
