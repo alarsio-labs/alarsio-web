@@ -50,8 +50,31 @@ const MESSAGES = {
   assign_archived: "This site is archived, so nobody can be assigned to it.",
   assign_member: "That person is not a member of this organisation.",
   assign_not_allowed: "That assignment could not be changed. It may already be removed, or the site may be archived.",
+  worker_invalid: "Check the worker: code (up to 40 characters), name (up to 120) and trade (up to 60) are required, pay type is daily or hourly, and the phone looks like 98765 43210.",
+  worker_code_taken: "Another worker in this organisation already has that code.",
+  not_permitted: "You are not allowed to do that.",
+  rate_invalid: "Enter a rate above ₹0 and at most ₹1,00,000, with up to two decimals.",
+  rate_date: "The start date must be within the last 60 days or the next 12 months.",
+  pay_type_locked: "This worker already has a wage rate, so the pay type cannot change. Add them under a new code to change it.",
+  rate_same_day: "This worker already has a rate starting that day. Pick another date.",
+  assign_duplicate: "This worker is already on that site.",
+  assign_blocked: "That site is archived, or the worker is inactive.",
   generic: "Something went wrong. Try again."
 } as const;
+
+const NOTICES = {
+  worker_added: "Worker added.",
+  worker_saved: "Changes saved.",
+  rate_added: "Rate added. Earlier rates are kept.",
+  assigned: "Assigned to the site.",
+  unassigned: "Removed from the site. The history is kept.",
+  anonymized: "Personal details removed. Attendance and wage history are kept."
+} as const;
+
+export function noticeFor(code: unknown): string | null {
+  if (typeof code !== "string" || !Object.hasOwn(NOTICES, code)) return null;
+  return NOTICES[code as keyof typeof NOTICES];
+}
 
 export type MessageCode = keyof typeof MESSAGES;
 

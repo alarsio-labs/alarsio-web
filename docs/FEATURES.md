@@ -95,6 +95,8 @@ will read once #71 stops reading `sites` directly. No row is ticked for it: it a
 
 *An accountant reads the organisation's workers, so rates have names (ADR-011 W10).*
 
+*Worker screens (#60, restored in this PR): `/workers` adds a worker, `/workers/<id>` edits one, adds an effective-dated wage rate, assigns and unassigns sites, and removes personal details. #60 was merged into #57's branch after #57 had already merged, so it never reached `main` until now. No row changes: the screens have not run against the team project (#58).*
+
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
 ### 4 · Attendance & Site Presence
