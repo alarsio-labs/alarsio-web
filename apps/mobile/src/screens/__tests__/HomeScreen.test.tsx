@@ -20,6 +20,7 @@ const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
   lastPull: null,
+  mirror: null,
   last: null,
   running: false,
   userId: USER,

@@ -4,7 +4,7 @@
 
 import type { SyncStatus } from './engine';
 import type { SyncEntity } from './entities';
-import type { PullResult } from './pull';
+import type { MirrorSummary, PullResult } from './pull';
 
 const ENTITY_LABELS: Record<SyncEntity, string> = {
   site_visits: 'Site visit',
@@ -59,12 +59,33 @@ export function syncLine(status: SyncStatus): string {
   return parts.join(' · ');
 }
 
-/** What the phone holds for offline use, after the last pull (#49). Null before one. */
-export function pullLine(lastPull: PullResult | null): string | null {
-  if (lastPull === null || lastPull.kind === 'signed_out') return null;
-  if (lastPull.kind === 'failed') return `Offline copy not refreshed (${lastPull.reason})`;
+/** How old a timestamp is, in plain words. A clock that moved back reads as just now. */
+function ageText(timestamp: string, now: Date): string {
+  const minutes = Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000);
+  if (!(minutes >= 1)) return 'just now';
+  if (minutes < 60) return `${minutes} min ago`;
+  const hours = Math.floor(minutes / 60);
+  if (hours < 24) return `${hours} h ago`;
+  const days = Math.floor(hours / 24);
+  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+}
+
+/**
+ * What the phone holds for offline use, how old it is, and whether the last
+ * refresh failed (#49). The copy stays on screen after a failed refresh, which
+ * is every refresh made offline. The failure reason is never printed: it can name
+ * files or data.
+ */
+export function pullLine(mirror: MirrorSummary | null, lastPull: PullResult | null, now: Date): string | null {
+  const failed = lastPull?.kind === 'failed';
+  if (mirror === null) return failed ? 'Offline copy not available yet. Will retry.' : null;
   const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
-  return `On this phone: ${n(lastPull.sites, 'site', 'sites')}, ${n(lastPull.materials, 'material', 'materials')}, ${n(lastPull.roster, 'worker', 'workers')}`;
+  const parts = [
+    `On this phone: ${n(mirror.sites, 'site', 'sites')}, ${n(mirror.materials, 'material', 'materials')}, ${n(mirror.roster, 'worker', 'workers')}`,
+    `updated ${ageText(mirror.refreshedAt, now)}`,
+  ];
+  if (failed) parts.push('refresh failed, will retry');
+  return parts.join(' · ');
 }
 
 function lastRunNote(last: SyncStatus['last'], userId: string | null): string | null {

@@ -8,6 +8,7 @@ import { ActivityIndicator, View } from 'react-native';
 import { supabaseAuthClient } from '../auth/auth-client';
 import { useSession } from '../auth/use-session';
 import { readPublicConfig } from '../config/public-config';
+import { signOutAndClearMirrors } from '../auth/sign-out';
 import { openAppDb } from '../lib/app-db';
 import { AUTH_STORAGE_KEY, authStorage, getSupabase } from '../lib/supabase';
 import { AccountMenu } from '../screens/AccountMenu';
@@ -21,6 +22,9 @@ async function unsentCounts(userId: string) {
   const c = await countByStatus(await openAppDb(), userId);
   return { waiting: c.pending + c.syncing + c.failed, needFix: c.conflict + c.rejected };
 }
+
+// Sign-out also clears the offline copy of sites, materials and roster.
+const signOutKeepingNothingBehind = () => (auth ? signOutAndClearMirrors(auth.signOut, openAppDb) : Promise.resolve());
 
 export default function RootLayout() {
   const session = useSession(auth);
@@ -60,7 +64,9 @@ export default function RootLayout() {
         key={session.user.id}
         screenOptions={{
           title: 'Alarsio',
-          headerRight: () => <AccountMenu user={session.user} unsentCounts={unsentCounts} signOut={auth.signOut} />,
+          headerRight: () => (
+            <AccountMenu user={session.user} unsentCounts={unsentCounts} signOut={signOutKeepingNothingBehind} />
+          ),
         }}
       />
       <StatusBar style="auto" />

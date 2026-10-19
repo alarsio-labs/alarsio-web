@@ -59,7 +59,9 @@ export const deviceMigrations: readonly DeviceMigration[] = [
     // Issue #49. Read-only copies of what the signed-in user may see, replaced
     // whole by each pull. mirror_state says whose copy it is (ADR-020): reads
     // for anyone else return nothing. Quantities are integer thousandths,
-    // exact for the server's numeric(…, 3).
+    // exact for the server's numeric(…, 3). The roster keeps each assignment's
+    // assigned and unassigned day (Asia/Kolkata), so the phone can answer
+    // "rostered on this date" as the server does (ADR-021 D10).
     version: 4,
     name: 'mirrors',
     sql: `
@@ -87,9 +89,11 @@ export const deviceMigrations: readonly DeviceMigration[] = [
         site_id       text not null check (length(site_id) = 36),
         code          text not null,
         name          text not null,
-        trade         text not null
+        trade         text not null,
+        assigned_on   text not null check (length(assigned_on) = 10),
+        unassigned_on text check (unassigned_on is null or length(unassigned_on) = 10)
       );
-      create index mirror_roster_site on mirror_roster (site_id, name);
+      create index mirror_roster_site on mirror_roster (site_id, assigned_on);
       create table mirror_state (
         id           integer primary key check (id = 1),
         user_id      text not null check (length(user_id) = 36),

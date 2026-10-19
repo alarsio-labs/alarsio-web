@@ -7,7 +7,7 @@ import NetInfo from '@react-native-community/netinfo';
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from './entities';
 import { countByStatus, listAttention, retryFailedNow, type AttentionRow } from './outbox';
-import { runPull, type MirrorSource, type PullResult } from './pull';
+import { mirrorSummary, runPull, type MirrorSource, type MirrorSummary, type PullResult } from './pull';
 import { runSync, singleFlight, type SyncRunResult, type SyncTransport } from './sender';
 
 export const SYNC_INTERVAL_MS = 60_000;
@@ -24,6 +24,8 @@ export interface SyncStatus {
   userId: string | null;
   /** The last pull of the mirrors, or null before the first one (#49). */
   lastPull: PullResult | null;
+  /** What the phone holds for this user, from an earlier session too; null if nothing. */
+  mirror: MirrorSummary | null;
   /** The last finished run, or null before the first one. */
   last: SyncRunResult | null;
   running: boolean;
@@ -103,6 +105,7 @@ export function startSyncEngine(
     attention: [],
     userId: userId ?? null,
     lastPull: null,
+    mirror: null,
     last: null,
     running: false,
   };
@@ -120,6 +123,16 @@ export function startSyncEngine(
     publish({ counts: await countByStatus(db, userId), attention: await listAttention(db, userId) });
   };
 
+  // What the phone holds, so the screen can show it with no network and after a
+  // failed pull. Only this user's: another user's copy reads as nothing.
+  const refreshMirror = async () => {
+    try {
+      publish({ mirror: userId ? await mirrorSummary(db, userId) : null });
+    } catch {
+      publish({ mirror: null });
+    }
+  };
+
   const run = singleFlight(async (): Promise<SyncRunResult> => {
     publish({ running: true });
     let result: SyncRunResult;
@@ -134,15 +147,12 @@ export function startSyncEngine(
     // Pull after the push, so the server balance already includes what was sent.
     if (mirrorSource && result.kind !== 'signed_out' && pullDue()) {
       forcePull = false;
-      const pulled = await runPull(db, mirrorSource).catch(
-        (error: unknown): PullResult => ({
-          kind: 'failed',
-          reason: `local:${error instanceof Error ? error.message : String(error)}`,
-        }),
-      );
+      // runPull reports its own failures; the message of anything else can name files.
+      const pulled = await runPull(db, mirrorSource).catch((): PullResult => ({ kind: 'failed', reason: 'local_error' }));
       // Only a finished pull resets the clock, so a failed one is tried next run.
       if (pulled.kind === 'done') lastPullAt = now();
       publish({ lastPull: pulled });
+      await refreshMirror();
     }
     publish({ running: false, last: result });
     return result;
@@ -161,6 +171,7 @@ export function startSyncEngine(
   ];
 
   void refreshCounts().catch(() => undefined);
+  void refreshMirror();
   trigger();
 
   return {

@@ -8,6 +8,7 @@ const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
   lastPull: null,
+  mirror: null,
   last: null,
   running: false,
   userId: '11111111-0000-4000-8000-00000000000a',
@@ -38,10 +39,9 @@ describe('SyncPanel (#68)', () => {
   });
 
   it('says what the phone holds after a pull', async () => {
-    await render(
-      <SyncPanel status={status({ lastPull: { kind: 'done', sites: 2, materials: 3, roster: 4 } })} onSyncNow={jest.fn()} />,
-    );
-    expect(screen.getByText('On this phone: 2 sites, 3 materials, 4 workers')).toBeTruthy();
+    const mirror = { refreshedAt: new Date().toISOString(), sites: 2, materials: 3, roster: 4 };
+    await render(<SyncPanel status={status({ mirror })} onSyncNow={jest.fn()} />);
+    expect(screen.getByText('On this phone: 2 sites, 3 materials, 4 workers · updated just now')).toBeTruthy();
   });
 
   it('shows no list when nothing needs attention', async () => {

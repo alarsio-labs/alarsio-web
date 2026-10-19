@@ -15,7 +15,7 @@ export interface SyncPanelProps {
 }
 
 export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
-  const offline = pullLine(status.lastPull);
+  const offline = pullLine(status.mirror, status.lastPull, new Date());
   return (
     <View style={styles.panel}>
       <Text style={styles.line}>{syncLine(status)}</Text>

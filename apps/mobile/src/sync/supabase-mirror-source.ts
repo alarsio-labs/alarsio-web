@@ -1,6 +1,9 @@
 // The real MirrorSource: reads the three sources over PostgREST, as the
 // signed-in user, under RLS. Owner: Offline Sync (Nikhil). Issue #49.
 //
+// Pages go by key (`gt` + `order` + `limit`), not by offset, so a row added or
+// removed between pages cannot make the next page skip a row or repeat one.
+//
 // Each page reads the session once, refuses if it belongs to anyone else, and
 // sends that session's own token, so a user switch cannot slip between the
 // check and the query (ADR-020). supabase-js keeps an Authorization header
@@ -8,19 +11,24 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js';
 
-import type { MirrorKind, MirrorSource } from './pull';
+import { istDate, type MirrorKind, type MirrorSource } from './pull';
 import { SESSION_CHANGED, SyncTransportError } from './sender';
+
+/**
+ * How far back the roster mirror reaches for assignments that have ended. It is
+ * what lets a supervisor back-fill a recent day offline and mark a worker who left
+ * today (ADR-021 D10), without an ex-worker's name staying on the phone for good.
+ * A product choice, not one from the docs: it is asked about on #49.
+ */
+export const ROSTER_LOOKBACK_DAYS = 7;
 
 // Columns are named, never '*': a column added to a source later is not copied
 // onto phones until someone decides it should be.
 const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string }> = {
-  // BLOCKED: this reads the `sites` table, which ARCHITECTURE rule 4 does not
-  // allow from another module. Sites publishes no view with name and status yet
-  // (site_geofence has neither). Switch to the view asked for on #49 before this
-  // merges; the PR stays a draft until then.
+  // Sites' published view (ADR-028), never the `sites` table: ARCHITECTURE rule 4.
   sites: {
-    table: 'sites',
-    columns: 'id, name, address, latitude, longitude, geofence_radius_m, status',
+    table: 'site_details',
+    columns: 'id, name, address, status, latitude, longitude, geofence_radius_m',
     key: 'id',
   },
   materials: {
@@ -31,19 +39,36 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
   // Workforce's published view: no phone number, no rate (ADR-011).
   roster: {
     table: 'worker_roster',
-    columns: 'assignment_id, worker_id, site_id, worker_code, name, trade',
+    columns: 'assignment_id, worker_id, site_id, worker_code, name, trade, assigned_at, unassigned_at',
     key: 'assignment_id',
   },
 };
 
-export function supabaseMirrorSource(supabase: SupabaseClient): MirrorSource {
+export interface MirrorSourceOptions {
+  /** The clock, for the roster window. Tests pass their own. */
+  now?: () => Date;
+}
+
+/** The instant the roster window opens: the start of the Asia/Kolkata day, ROSTER_LOOKBACK_DAYS ago. */
+function rosterWindowStart(now: Date): string {
+  const today = istDate(now.toISOString());
+  const first = new Date(Date.parse(`${today}T00:00:00Z`) - ROSTER_LOOKBACK_DAYS * 86_400_000)
+    .toISOString()
+    .slice(0, 10);
+  return new Date(`${first}T00:00:00+05:30`).toISOString();
+}
+
+export function supabaseMirrorSource(
+  supabase: SupabaseClient,
+  { now = () => new Date() }: MirrorSourceOptions = {},
+): MirrorSource {
   return {
     async currentUserId() {
       const { data } = await supabase.auth.getSession();
       return data.session?.user.id ?? null;
     },
 
-    async fetchPage(kind, userId, from, to) {
+    async fetchPage(kind, userId, after, limit) {
       const { data: auth } = await supabase.auth.getSession();
       const session = auth.session;
       if (!session || session.user.id.toLowerCase() !== userId.toLowerCase()) {
@@ -52,11 +77,18 @@ export function supabaseMirrorSource(supabase: SupabaseClient): MirrorSource {
 
       const { table, columns, key } = SOURCES[kind];
       let query = supabase.from(table).select(columns);
-      // Today's roster only: open assignments of active workers (#49, Ishant).
-      if (kind === 'roster') query = query.is('unassigned_at', null).eq('status', 'active');
+      // An archived site takes no records (can_record_on_site refuses it).
+      if (kind === 'sites') query = query.neq('status', 'archived');
+      // Active workers, on an open assignment or one closed within the window (ADR-021 D10).
+      if (kind === 'roster') {
+        query = query
+          .eq('status', 'active')
+          .or(`unassigned_at.is.null,unassigned_at.gte.${rosterWindowStart(now())}`);
+      }
+      if (after !== null) query = query.gt(key, after);
       const { data, error } = await query
         .order(key)
-        .range(from, to)
+        .limit(limit)
         .setHeader('Authorization', `Bearer ${session.access_token}`);
 
       if (error) {
