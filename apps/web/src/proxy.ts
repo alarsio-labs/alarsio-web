@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const SIGNED_IN_ONLY = ["/dashboard", "/team", "/export"];
+const SIGNED_IN_ONLY = ["/dashboard", "/team", "/workers"];
 
 // Refreshes the Supabase session cookie on every page request, and sends a
 // signed-out visitor on a signed-in-only page to sign in. This is a

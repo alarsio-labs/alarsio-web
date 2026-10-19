@@ -286,7 +286,12 @@ the same supervisor needs the roster to mark attendance.
   trade and status, and no rates. So a closed row keeps its name,
   `has_worker_access` also counts a closed assignment at a site the caller can
   access: a supervisor sees everyone ever rostered at their site, no one else.
-
+- W11. A worker's pay type cannot change once they have a wage rate. A rate row has
+  no basis column, so switching daily and hourly would reread every past rate. A
+  trigger enforces it for every writer; to change the basis, add a new worker code.
+  (W10 is the accountant's read access, #59.)
+- W12. A re-import with a blank or missing phone keeps the stored phone. Clearing a
+  phone is done on the worker's page.
 **Consequences.** A supervisor can run attendance without ever seeing pay. Rate
 history is complete, so a wage summary can be reproduced for any past date. Costs:
 `audit_log` records the old row on an update, so an anonymized worker's earlier name
@@ -787,6 +792,29 @@ is handled in code but not covered by a test, as the SQL suites run on one conne
 
 ---
 
+## ADR-027 · Worker import: the file is read in the browser, with read-excel-file
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha; #57)
+
+**Context.** Contractors keep their worker register in Excel or CSV. The import needs
+to read both, and the rows go to `import_workers()` (ADR-011 W8).
+
+**Decision.**
+- The file is parsed in the browser. Only the rows reach the server action, so the
+  file is never uploaded or stored, and the server's job stays one RPC as the user.
+- CSV uses our own small RFC 4180 reader. `.xlsx` uses `read-excel-file` (MIT),
+  loaded only when someone picks an Excel file. Only the first sheet is read; `.xls`
+  is not supported.
+- The file is checked before sending: required columns, duplicate column names, an
+  unclosed quote, a CSV not saved as UTF-8, date or TRUE/FALSE cells, more than 1000
+  rows or 5 MB, and duplicate codes. Each message names the real file line. Values
+  are checked by the database, row by row.
+- Codes Excel stored as numbers are imported as text, with a warning about lost
+  leading zeros, rather than refused.
+
+**Consequences.** No file storage or server-side parser to secure. Costs:
+`read-excel-file` has a single maintainer, which is a supply-chain risk (pinned in the
+lockfile, reviewed on upgrade); old `.xls` files must be re-saved; and a leading zero
+already lost by Excel cannot be recovered, only warned about.
 ## ADR-026 · Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone
 **Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha, Nikhil; #56)
 

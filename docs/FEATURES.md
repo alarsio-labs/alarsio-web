@@ -79,6 +79,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 3 · Workforce
 - [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
+  *Import page in #57 (ADR-027). Pay type is locked once a rate exists and a blank phone keeps the stored one (ADR-011 W11, W12). Unticked until it runs against the team project (#58).*
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
 
