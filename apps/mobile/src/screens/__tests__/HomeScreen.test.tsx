@@ -21,6 +21,8 @@ const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   attention: [],
   loaded: true,
   readFailed: false,
+  lastPull: null,
+  mirror: null,
   last: null,
   running: false,
   userId: USER,
