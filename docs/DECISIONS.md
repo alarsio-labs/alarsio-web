@@ -302,6 +302,60 @@ the extra argument.
 
 ---
 
+## ADR-013 · Daily reports: draft, submit, edit with history, review is final
+**Date:** 2026-10-17 · **Status:** Proposed · **By:** Anuradha (review: Nikhil)
+
+**Context.** Issue #29. Daily Reporting is the second field-capture module, and
+Offline Sync (#13) will push its records, so the shape has to survive replays and a
+stale phone. The issue left three questions open: what makes a blocker serious, the
+size limits, and whether a manager can edit.
+
+**Decision.**
+- R1. A report has a status: `draft`, `submitted` or `reviewed`, as `text` + `CHECK`.
+  A draft may be incomplete and is visible only to its author. Completeness
+  (headcount and non-blank work done) is checked when it becomes `submitted`.
+- R2. One report per site per date, whoever files it. The date may not be later than
+  UTC today + 2, which allows the local tomorrow in every time zone. The guard reads
+  no Identity table, so it needs no new published function.
+- R3. A serious blocker is a boolean `serious_blocker` the supervisor sets, and it
+  needs blocker text. `daily_report_status.flagged` is `serious_blocker or
+  safety_incident`; both are also shown on their own. A flag is a column and a view,
+  nothing more: no push, email or SMS.
+- R4. Limits: work done 4000, blockers 2000, next-day plan 2000, edit reason 500,
+  review note 1000, photo caption 200, headcount 0-1000, photos 10 per report, 10 MB
+  each, jpeg, png or webp.
+- R5. Only the author edits, and only until the report is reviewed. A manager marks a
+  report reviewed through `review_daily_report(report_id, note)` and never edits.
+- R6. An edit to a submitted report is an ordinary `UPDATE` that must carry
+  `edit_reason`. A `BEFORE UPDATE` trigger copies the previous values into
+  `daily_report_revisions` with the editor, the time and the reason, then clears the
+  reason. Because it is a trigger it binds every writer: web, phone and the future
+  sync handler. A report cannot go back to draft, and a reviewed report refuses every
+  update, so a stale phone cannot overwrite it.
+- R7. Revisions are append-only, even for the table owner: no client grant, and a
+  trigger rejects UPDATE, DELETE and TRUNCATE.
+- R8. A photo is metadata in `report_photos`; the file is in the private
+  `report-photos` bucket at `<org>/<site>/<report>/<photo>.<ext>`, a path the row
+  fixes. A photo may be added after submit and after review (a slow upload must not be
+  lost) but is never changed or removed. A file can be uploaded only at the exact path
+  of a metadata row made by the uploader, and read only by someone who can read that
+  row, so a draft's file stays with its author.
+- R9. `review_daily_report` answers a missing id, a draft and another organisation's
+  report with the same `42501`, and reviewing a reviewed report is a no-op.
+- R10. For `sync_daily_reports` and `sync_report_photos`, "same content" is
+  `site_id, report_date, status, headcount, work_done, blockers, serious_blocker,
+  safety_incident, next_day_plan` and `report_id, storage_path, caption, size_bytes,
+  content_type`. The handlers wait for Offline Sync's `sync_result` type.
+
+**Consequences.** A submitted report has complete history, and every rule that matters
+is in the database, so no client can skip it. A manager who disagrees with a report can
+only say so in the review note. Costs: `audit_log` records each row's content, so once
+an owner may read it (PR #32) the owner can read a supervisor's draft text there,
+which R1 hides from the reports table; a second supervisor who files the same site and
+date is refused by the unique key (sync will show a conflict); the photo-limit trigger
+runs before RLS and so steps aside for callers the policy will refuse; and the bucket
+policies on `storage.objects` are tested here only against a shim, so they need one
+check on a real Supabase project.
 ## ADR-012 · Audit guards: owner-only read, per-user rate limit, 3-year retention floor
 **Date:** 2026-10-16 · **Status:** Proposed · **By:** Anuradha (input: Ishant, Nikhil; issue #19)
 
@@ -599,6 +653,141 @@ new user's records wait for the next trigger (at most 60 s). The transport depen
 on supabase-js not overwriting an `Authorization` header we set, which a library
 upgrade must not break; a test covers our side of it. The home screen still counts
 every user's rows until the sync status screen shows per-user counts.
+
+---
+
+## ADR-021 · Attendance capture: one visit row, geofence in the database, days keyed by site and date
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28; handler contract agreed on #13, review: Anuradha)
+
+**Context.** Attendance is the first module a supervisor uses on the phone with no signal,
+and the first whose wage-relevant rows are approved by someone else. The issue left open
+how check-out is stored, how half a day and overtime are shaped, how many days a site has,
+what a replayed record is compared on, and whose clock counts. Two things also cut across
+modules: the geofence needs a site's coordinates, and two supervisors on one site can open
+the same day on two phones.
+
+**Decision.**
+- **D1 · Check-out is the same row.** `site_visits` has one row per visit. Check-in creates it
+  with a phone-made uuid; check-out sets the check-out columns of that row, once. The policy
+  matches only a row with `check_out_at is null`, so a second check-out, or a colleague's,
+  changes 0 rows. No "one open visit" rule (D12): a forgotten check-out must not become a
+  permanent conflict on the next day's check-in.
+- **D2 · Half a day is a status**: `present`, `absent`, `half_day`, `leave`. No fraction.
+- **D3 · Overtime** is `numeric(4,2)` hours, 0 to 8 inclusive, and non-zero only on `present`
+  or `half_day`. Raising the maximum is a migration.
+- **D4 · One day per site per date**, not per supervisor. A unique index on
+  `(site_id, attendance_date)`.
+- **D5 · Entries point at their day by natural key** `(org_id, site_id, attendance_date)`, not by
+  the day's id. Two phones that open the same day offline with different uuids do not strand
+  each other's entries; the second day insert is a harmless duplicate that the sync handler
+  answers `accepted`. Two phones marking the *same worker* is a real disagreement: one entry per
+  worker per day, first writer wins, the second hears `conflict` (#34). Rejected: a day-id foreign
+  key (the second phone's entries would retry forever on a parent that is not there) and a
+  hash-derived day id (needs the same hash on the phone).
+- **D6 · "Same content" for a replay** is the caller-writable columns of that push, excluding
+  ids, timestamps and anything the server stamps. Check-in push: `site_id`, `check_in_at`,
+  `check_in_lat`, `check_in_lng`, `check_in_reason`. Check-out push: `check_out_at`,
+  `check_out_lat`, `check_out_lng`, `check_out_reason`. A handler compares only the fields its
+  push carries, so replaying the check-in after the check-out is `accepted`. Day:
+  `site_id`, `attendance_date`. Entry: `site_id`, `attendance_date`, `worker_id`, `status`,
+  `overtime_hours`, `note`. The handlers themselves arrive in the next PR.
+- **D7 · Two clocks.** `check_in_at` / `check_out_at` are the phone's clock, because an offline
+  record is hours old by design; `created_at` / `updated_at` are the server's. The phone's clock
+  is accepted up to one day ahead of the server and not beyond. Nothing is paid on a clock: a
+  manager approves the day.
+- **D8 · The geofence rule applies to check-out too.** The database computes the distance
+  (pure-SQL haversine, Earth radius 6371008.8 m, no PostGIS) and flags the visit when distance
+  is greater than `geofence_radius_m`; exactly on the radius is inside. Outside, a trimmed
+  reason of 1–500 characters is mandatory. The distance and the flag have no column grant, so
+  the phone cannot set them. The flag is a record of the day and is not recomputed if the radius
+  changes later.
+- **D9 · Sites publishes `site_geofence`** (`security_invoker`: `id`, `org_id`, `latitude`,
+  `longitude`, `geofence_radius_m`). Attendance reads a site's pin only through it, as the
+  architecture requires. A caller who cannot see a site gets no row, and the trigger answers
+  `42501`, the same as for a site that does not exist.
+- **D10 · Rostered on a date** is the Asia/Kolkata calendar day of `assigned_at` and
+  `unassigned_at`, both ends inclusive, read from `worker_roster`. One helper function
+  (`attendance_local_date`) holds the zone. `organizations.timezone` has no published view, so
+  it is not read.
+- **D11 · `attendance_days` has its final shape now**: `status` (`open`, `approved`, `rejected`)
+  and the reviewer's stamp, with a table rule that an open day carries no stamp, a reviewed day
+  says who and when, and a rejection says why. No client can write them yet, so every day is
+  `open`; the review function and the lock come next.
+- **D12 · No one-open-visit rule.** A visit is not refused because the same user has another
+  open visit. A forgotten check-out must not turn the next day's check-in into a permanent sync
+  conflict; managers see open visits instead.
+- **D13 · FEATURES ticks.** A row is ticked only when a named test proves the database side of its
+  wording. Parts that need a screen or the phone stay unticked, and the module note says so.
+- **Validation failures are `23514`** (the sync router answers `rejected` / `invalid_input`): a
+  missing reason, a bad range, a phone clock too far ahead, a date beyond UTC today + 1, and a
+  worker who was not rostered. The roster rule is an AFTER INSERT trigger on entries, so the
+  policy answers first (`42501`) and another organisation's worker is stopped by the foreign key
+  (`23503`).
+- `mark_all_present(site, date)` is `SECURITY INVOKER`: it opens the day if needed and adds a
+  `present` entry for every active worker rostered that day who has none yet, so it never
+  overwrites an exception and returns how many it created. Offline, the phone writes those
+  records itself.
+- The two pure helpers (`attendance_distance_m`, `attendance_local_date`) are executable by
+  `authenticated`, because the triggers run as the caller and must call them. They read no table.
+
+**Consequences.** Once the phone screens and the sync handlers ship (next PR and the mobile
+work), a supervisor can check in, mark a site and fix exceptions with no signal; the keys are
+chosen so that a replay or a second phone cannot create a duplicate day or visit. The geofence cannot be
+bypassed by any writer. Costs: the distance is that of the coordinates the phone reports, so a
+spoofed GPS passes; `audit_log` copies the whole row, so check-in coordinates are stored there
+too (owner-readable, kept at least 3 years, ADR-012); an organisation outside India would need
+`attendance_local_date` changed; there is no lower bound on `attendance_date`, so a long-offline
+phone can back-fill, which the approval step is there to catch; and a supervisor unassigned
+while offline can no longer check out the visit they opened.
+## ADR-022 · Daily Reporting sync handlers: update in place, replay before permission
+**Date:** 2026-10-18 · **Status:** Proposed · **By:** Anuradha (issue #63; contract agreed with Nikhil on #13)
+
+**Context.** `sync_push` routes `daily_reports` and `report_photos` to handlers that
+did not exist, so every report a phone sent came back `handler_unavailable`. Unlike
+the stock ledger, a report is not insert-only: a draft pushed earlier is submitted
+later, and a submitted report is edited, under the same `record_id`. The #35 guard
+triggers already hold the lifecycle rules, and #13 agreed the handlers are
+`SECURITY INVOKER`. Three things were open: where the report's `org_id` comes from,
+what a reviewed report answers, and whether a replay is answered before permission.
+
+**Decision.**
+- H1. `sync_daily_reports` and `sync_report_photos` are `SECURITY INVOKER`. They read
+  the payload, answer a replay, and insert or update under the caller's RLS. Every
+  lifecycle rule stays in the #35 triggers, so web and phone follow one rule.
+- H2. The report payload is the whole report. `org_id`, `site_id`, `report_date` and
+  `status` are required; each field has one JSON type, so `"12"` is not a headcount.
+  Status may only be `draft` or `submitted`.
+- H3. The phone sends the report's `org_id`, because the composite key to `sites` needs
+  it and Daily Reporting may not read `sites` itself. A `23503` on a report insert can
+  only mean the site is not in that organisation (sites never sync from a phone), so
+  the handler raises it as `22023`: `rejected`, never a retry loop.
+- H4. An existing report by the caller, pushed with different content, is an `UPDATE`.
+  The handler never answers `accepted` for an update that changed 0 rows: it re-reads
+  the row and answers `conflict` / `reviewed` if it was reviewed meanwhile, otherwise
+  `rejected` / `permission_denied`.
+- H5. The handlers return two conflicts themselves: `reviewed` (the server's version is
+  final) and `different_report` (this id already holds another site or date). The
+  rest come from `sync_push`'s mapping: no reason `invalid_input`, un-submit
+  `invalid_state`, a second report for the site and day `duplicate`.
+- H6. **Replay before permission**, as Materials does (ADR-017). Private `SECURITY
+  DEFINER` matchers (`daily_report_matches`, `report_photo_matches`) compare only the
+  caller's own row and return a boolean. So a phone that missed an answer still hears
+  `accepted` after losing the site. A reviewed report matches its submitted content,
+  because the server holds exactly what the phone sent.
+- H7. A photo's site and organisation come from its report, which this module owns, so
+  the photo payload is exactly the #13 "same content". A report the caller cannot see
+  is `retryable_error` / `missing_parent` (not synced yet), unless it is the caller's
+  own (`is_own_daily_report`, definer, true only for the caller's reports): then the
+  caller lost the site, and it is `rejected` / `permission_denied`.
+
+**Consequences.** A report filed offline needs one record, a replay never writes, and a
+stale phone cannot overwrite a reviewed report. Costs: the phone must send `org_id`
+for a report; three small definer helpers are executable by `authenticated`, though
+each speaks only about the caller's own rows; a photo for another user's report that
+the caller cannot see retries with backoff instead of being refused, since under RLS
+it looks the same as a report still on its way (the phone only sends photos of its
+own reports); and the race in H4, a review landing between the read and the update,
+is handled in code but not covered by a test, as the SQL suites run on one connection.
 
 ---
 
