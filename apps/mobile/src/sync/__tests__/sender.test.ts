@@ -4,7 +4,7 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { getDeviceId } from '../device-id';
 import type { SyncResultRow } from '../entities';
-import { countByStatus, enqueue, getStatus, MAX_BATCH } from '../outbox';
+import { claimBatch, countByStatus, enqueue, getStatus, MAX_BATCH } from '../outbox';
 import {
   runSync,
   SESSION_CHANGED,
@@ -167,6 +167,99 @@ describe('runSync', () => {
       };
       await runSync(db, transport, { now: () => T0 });
       expect(seen).toEqual([USER_A]);
+    });
+  });
+
+  describe('review of #67: a re-save during the push, and a local failure after the claim', () => {
+    const USER_B = '22222222-0000-4000-8000-00000000000b';
+
+    /**
+     * Wraps the database so a hook runs right after the next transaction once
+     * armed: exactly the gap between applyVerdicts and the release that follows.
+     */
+    function hookedDb(inner: DeviceDb) {
+      const state: { armed: (() => Promise<void>) | null; failNext: Error | null } = { armed: null, failNext: null };
+      const db: DeviceDb = {
+        ...inner,
+        async transaction(fn) {
+          if (state.failNext) {
+            const error = state.failNext;
+            state.failNext = null;
+            throw error;
+          }
+          await inner.transaction(fn);
+          const hook = state.armed;
+          state.armed = null;
+          if (hook) await hook();
+        },
+      };
+      return { db, state };
+    }
+
+    it("a record re-saved during the push and claimed by another run is not failed by this run's release", async () => {
+      await queue(db, 1); // record 1, saved by A
+      const { db: hooked, state } = hookedDb(db);
+      let otherRun: string[] = [];
+      const transport: SyncTransport = {
+        currentUserId: async () => USER_A,
+        push: async (batch) => {
+          // B edits record 1 while A's push is in flight: dirty, author B.
+          await enqueue(db, { entity: 'material_transactions', recordId: ID(1), authorId: USER_B, payload: { qty: 9 } }, T0);
+          // After applyVerdicts requeues it, B's engine claims it before A's release.
+          state.armed = async () => {
+            otherRun = (await claimBatch(db, USER_B, T0)).map((e) => e.recordId);
+          };
+          return acceptAll(batch);
+        },
+      };
+
+      await runSync(hooked, transport, { now: () => T0 });
+
+      expect(otherRun).toEqual([ID(1)]);
+      const [row] = await db.all<{ status: string; reason: string | null }>('select status, reason from outbox');
+      expect(row).toEqual({ status: 'syncing', reason: null }); // still B's, in flight
+    });
+
+    it('a local failure after the claim fails the batch with a backoff instead of leaving it syncing', async () => {
+      await queue(db, 2);
+      const { db: hooked, state } = hookedDb(db);
+      const transport: SyncTransport = {
+        currentUserId: async () => USER_A,
+        push: async (batch) => {
+          state.failNext = new Error('database is locked'); // applyVerdicts' transaction
+          return acceptAll(batch);
+        },
+      };
+
+      expect(await runSync(hooked, transport, { now: () => T0 })).toEqual({
+        kind: 'failed',
+        reason: 'local_error',
+        batches: 0,
+        records: 0,
+      });
+
+      const left = await db.all<{ status: string; reason: string; attempts: number }>(
+        'select status, reason, attempts from outbox order by seq',
+      );
+      expect(left).toEqual([
+        { status: 'failed', reason: 'local_error', attempts: 1 },
+        { status: 'failed', reason: 'local_error', attempts: 1 },
+      ]);
+    });
+
+    it('ignores a malformed result row and still applies the good ones', async () => {
+      await queue(db, 2);
+      const respond = (batch: SyncBatch): PushResponse => ({
+        results: [
+          { entity: 'material_transactions', record_id: null, verdict: 'accepted', reason: null } as unknown as SyncResultRow,
+          { entity: batch.records[1]!.entity, record_id: batch.records[1]!.record_id, verdict: 'accepted', reason: null },
+        ],
+      });
+
+      expect(await runSync(db, fakeTransport(respond).transport, { now: () => T0 })).toMatchObject({ kind: 'done' });
+
+      expect(await status(db, 1)).toBe('failed'); // unanswered: no_result, retried later
+      expect(await status(db, 2)).toBe('synced');
     });
   });
 

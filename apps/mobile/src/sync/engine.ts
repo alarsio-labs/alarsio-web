@@ -92,25 +92,10 @@ export interface SyncEngineOptions {
 }
 
 /**
- * The transport as this engine's user sees it: anyone else's session counts as
- * no session. So an engine never claims and sends one user's records under
- * another's, and what the screen shows is what gets sent.
- */
-function boundTo(transport: SyncTransport, userId: string): SyncTransport {
-  return {
-    currentUserId: async () => {
-      const id = await transport.currentUserId();
-      return id !== null && id.toLowerCase() === userId.toLowerCase() ? id : null;
-    },
-    push: (batch, uid) => transport.push(batch, uid),
-  };
-}
-
-/**
- * Starts syncing for one user: once now, then on foreground, on reconnect,
- * every minute, and shortly after requestSync(). Runs of this engine never
- * overlap; another engine's may (ADR-016, ADR-018 amendments). Errors inside a
- * run are kept in `last`, never thrown at a trigger.
+ * Starts syncing for this app session: once now, then on foreground, on
+ * reconnect, every minute, and shortly after requestSync(). Runs of this
+ * engine never overlap; another engine's may (ADR-016, ADR-018 amendments).
+ * Errors inside a run are kept in `last`, never thrown at a trigger.
  */
 export function startSyncEngine(
   db: DeviceDb,

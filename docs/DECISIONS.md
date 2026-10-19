@@ -513,10 +513,14 @@ record waiting on a 30-minute backoff waits even if the network returns sooner
 (the sender may later offer a manual retry); and `synced` rows stay in the table
 until a cleanup rule is decided.
 
-**Amended (#68, #69 review, 2026-10-19).** The manual retry exists: Sync now
-makes the signed-in user's `failed` rows due at once. It clears the wait, not
-`attempts`, so a record that keeps failing still backs off further next time.
-Conflict and rejected rows are not re-sent by it (ADR-029).
+**Amended (#66, #67, 2026-10-19).** "One in-flight batch at a time" holds per
+sync engine, not per phone: across a user switch, two engines can each have a
+batch in flight. That is safe because no step settles another run's rows.
+- `releaseBatch` and `returnBatch` act only on the keys of their own batch.
+- After a push, only the keys the server left unanswered are released.
+- A local failure after a claim fails the rows still owned, with a backoff.
+- `recoverInterrupted` resets every `syncing` row, so it runs once per app
+  session, when the database opens.
 
 ---
 
@@ -594,6 +598,11 @@ row, so on a shared phone records saved under one user would be pushed under the
 next user's session. That must be closed before sign-in ships (#14): tag each row
 with its author and send only the signed-in user's rows, or block sign-out until
 the outbox is empty.
+
+**Amended (#66, #67, 2026-10-19).** "Runs never overlap" holds within one engine
+(`singleFlight`). Two engines, for example the old and new user's across a
+sign-in, can overlap. Each run releases only the rows it still owns (ADR-016
+amendment), so overlapping runs cannot settle each other's batches.
 
 ---
 
