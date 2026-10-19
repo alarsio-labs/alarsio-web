@@ -1232,6 +1232,53 @@ entry column for hourly pay, corrections must carry it too.
 
 ---
 
+## ADR-032 · Attendance publishes approved days and site exceptions; wage readers see every approved day
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28, PR 3a of 3; columns agreed with Ishant on #61; review: Anuradha)
+
+**Context.** `ARCHITECTURE.md` lists two Attendance views, "approved `attendance_days`" and
+`site_exceptions`, with no columns. Wage Summaries (#61) asked for one row per worker per approved day,
+with corrections applied. Both views are `security_invoker`, so they follow `has_site_access`, and an
+accountant reads only sites where they hold an open assignment (`has_site_access`, ADR-007): a wage period built from the
+view would silently miss every other site. ADR-030 left "how a fixed rejected day shows" to this PR. The
+number: #90 asks to renumber a duplicate ADR-026 and needs ADR-031, so this one is ADR-032.
+
+**Decision.**
+- **D1 · Number.** ADR-032, leaving ADR-031 for #90.
+- **D2 · `approved_attendance_days`** has exactly the columns #61 asked for: `org_id, site_id, worker_id,
+  work_date, status, overtime_hours, approved_at, approved_by`. One row per entry of an `approved` day,
+  all four statuses. `work_date` is `attendance_date`; `approved_at` / `approved_by` are the day's review
+  stamp. Corrections are already applied, because an approved correction writes the entry (ADR-030 D8).
+  More columns later are a `create or replace view` that appends.
+- **D3 · Wage readers see every approved day.** Two SELECT policies, `attendance_days_select_wages`
+  (`status = 'approved' and can_view_wages(org_id)`) and `attendance_entries_select_wages`
+  (`can_view_wages(org_id)` and the entry's day is approved), add to the `has_site_access` ones. The owner
+  and the accountant read every approved day of their organisation; nothing open or rejected is widened,
+  no other role gains anything, no write grant changes. Rejected: leaving RLS alone (the silent
+  undercount) and a `SECURITY DEFINER` wage function reading the tables directly (breaks rule 4).
+- **D4 · `site_exceptions` is one row per exception**, with a `kind`: `geofence_check_in`,
+  `geofence_check_out`, `visit_not_closed` (no check-out, checked in before today, IST),
+  `day_awaiting_review`, `day_rejected`, `correction_pending`. Read from Attendance's own tables only.
+- **D5 · No "attendance missing" kind.** There is no working calendar, so it would fire on every Sunday,
+  holiday and paused site.
+- **D6 · Columns:** `org_id, site_id, exception_date, kind, source_id, worker_id, raised_by, reason,
+  distance_m, changed_since_review, raised_at`. No coordinates. `exception_date` is the day's date, or the
+  IST date of the check-in for a visit; the view has no time window, a screen filters by date.
+- **D7 · A fixed rejected day** shows `changed_since_review = true` when any of its entries has
+  `updated_at > reviewed_at`. No new column.
+- Writing through either view is refused (no write grant; neither view is automatically updatable, so
+  Postgres answers `55000` before it checks the grant).
+
+**Consequences.** Wage Summaries reads one published view and never re-implements corrections, and an
+accountant's wage run covers every site. A reviewer has one list for the day's loose ends. Costs: an
+accountant with no site assignment can now read every approved day's statuses, overtime and notes in
+their organisation (the payroll job needs them); an approved correction can change a day already inside
+a locked wage period, and the view shows the new value, which #61 must handle; `site_exceptions` grows
+without bound (geofence rows never resolve) until a screen filters by date; `visit_not_closed` depends
+on `now()`, so the same row appears at IST midnight without any write; `changed_since_review` cannot tell
+a real fix from an edit that changed nothing material.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
