@@ -83,6 +83,8 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
 
+*An accountant reads the organisation's workers, so rates have names (ADR-011 W10).*
+
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
 ### 4 · Attendance & Site Presence
