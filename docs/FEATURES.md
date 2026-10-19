@@ -83,6 +83,8 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
 
+*Worker screens in #60: add, edit, rates, site assignment, remove personal details. They need #57, #59 and #75 (`site_directory`). Nothing new is ticked until they run against the team project (#58).*
+
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
 ### 4 · Attendance & Site Presence
