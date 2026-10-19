@@ -339,6 +339,8 @@ export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date 
     [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
   );
   return changes;
+}
+
 async function syncingRows(
   db: DeviceDb,
   batch: readonly OutboxKey[],
