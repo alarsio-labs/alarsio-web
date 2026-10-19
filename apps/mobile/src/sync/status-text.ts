@@ -34,6 +34,7 @@ const REASONS: Record<string, string> = {
   duplicate: DIFFERENT_VERSION,
   different_report: DIFFERENT_VERSION,
   reviewed: 'A manager already reviewed it.',
+  locked: 'A manager already approved this day, so it was not changed.',
 };
 
 /** Why the server refused or kept its own version of a record, in plain words. */
