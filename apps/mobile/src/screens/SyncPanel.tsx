@@ -19,12 +19,14 @@ export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
   const needAttention = status.counts.conflict + status.counts.rejected;
   const notListed = Math.max(0, needAttention - status.attention.length);
   const label = status.running ? 'Sending…' : 'Sync now';
+  const offline = pullLine(status.mirror, status.lastPull, new Date());
 
   return (
     <View style={styles.panel}>
       <Text style={styles.line} accessibilityLiveRegion="polite">
         {syncLine(status)}
       </Text>
+      {offline && <Text style={styles.subline}>{offline}</Text>}
 
       {status.attention.length > 0 && (
         <View style={styles.listBox}>
@@ -60,6 +62,7 @@ export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
 const styles = StyleSheet.create({
   panel: { alignSelf: 'stretch', alignItems: 'center', gap: 12 },
   line: { fontSize: 16, textAlign: 'center' },
+  subline: { fontSize: 14, color: '#555', textAlign: 'center' },
   listBox: { alignSelf: 'stretch', gap: 8 },
   list: { maxHeight: 240 },
   heading: { fontSize: 14, fontWeight: '600', color: '#b00020' },

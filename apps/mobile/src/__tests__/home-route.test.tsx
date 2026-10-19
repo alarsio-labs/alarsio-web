@@ -35,6 +35,8 @@ function handle(): SyncHandle {
       attention: [],
       loaded: true,
       readFailed: false,
+      lastPull: null,
+      mirror: null,
       userId: USER.id,
       last: null,
       running: false,
@@ -58,7 +60,10 @@ describe('home route wiring', () => {
 
     expect(await screen.findByText('All your records are on the server')).toBeTruthy();
     expect(startSyncEngine).toHaveBeenCalledTimes(1);
-    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', { userId: USER.id });
+    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', {
+      userId: USER.id,
+      mirrorSource: expect.anything(),
+    });
   });
 
   it('starts no engine when no user is signed in', async () => {

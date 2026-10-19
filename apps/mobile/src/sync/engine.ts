@@ -1,5 +1,5 @@
 // When to sync, and what the app shows about it. Owner: Offline Sync (Nikhil).
-// Issues #47, #68. The events come through SyncEnv, so tests drive them by hand.
+// Issues #47, #68, #49, #69. The events come through SyncEnv, so tests drive them by hand.
 // An engine belongs to one user (ADR-029): it counts, lists, retries and sends
 // for that user only.
 
@@ -16,6 +16,8 @@ export const SYNC_INTERVAL_MS = 60_000;
 export const REQUEST_DEBOUNCE_MS = 2_000;
 /** How many refused records the status keeps; the rest are counted, not listed. */
 export const ATTENTION_LIMIT = 50;
+/** A full refresh of the mirrors at most this often, unless Sync now asks for one. */
+export const PULL_INTERVAL_MS = 5 * 60_000;
 
 export interface SyncStatus {
   /** This user's records per status. Zeros until `loaded`. */
@@ -89,18 +91,37 @@ export interface SyncEngineOptions {
    * the stored session, which the transport may not.
    */
   userId: string;
+  /** Where the mirrors come from. Without it, nothing is pulled. */
+  mirrorSource?: MirrorSource;
+  /** The clock for the pull interval, in ms. Tests pass their own. */
+  now?: () => number;
 }
 
 /**
- * Starts syncing for this app session: once now, then on foreground, on
- * reconnect, every minute, and shortly after requestSync(). Runs of this
- * engine never overlap; another engine's may (ADR-016, ADR-018 amendments).
- * Errors inside a run are kept in `last`, never thrown at a trigger.
+ * The transport as this engine's user sees it: anyone else's session counts as
+ * no session. So an engine never claims and sends one user's records under
+ * another's, and what the screen shows is what gets sent.
+ */
+function boundTo(transport: SyncTransport, userId: string): SyncTransport {
+  return {
+    currentUserId: async () => {
+      const id = await transport.currentUserId();
+      return id !== null && id.toLowerCase() === userId.toLowerCase() ? id : null;
+    },
+    push: (batch, uid) => transport.push(batch, uid),
+  };
+}
+
+/**
+ * Starts syncing for one user: once now, then on foreground, on reconnect,
+ * every minute, and shortly after requestSync(). Runs of this engine never
+ * overlap; another engine's may (ADR-016, ADR-018 amendments). Errors inside a
+ * run are kept in `last`, never thrown at a trigger.
  */
 export function startSyncEngine(
   db: DeviceDb,
   rawTransport: SyncTransport,
-  { userId }: SyncEngineOptions,
+  { userId, mirrorSource, now = Date.now }: SyncEngineOptions,
   env: SyncEnv = realSyncEnv,
 ): SyncHandle {
   const transport = boundTo(rawTransport, userId);
@@ -111,6 +132,8 @@ export function startSyncEngine(
     loaded: false,
     readFailed: false,
     userId,
+    lastPull: null,
+    mirror: null,
     last: null,
     running: false,
   };
@@ -138,6 +161,16 @@ export function startSyncEngine(
 
   const localFailure = (): SyncRunResult => ({ kind: 'failed', reason: 'local_error', batches: 0, records: 0 });
 
+  // What the phone holds, so the screen can show it with no network and after a
+  // failed pull. Only this user's: another user's copy reads as nothing.
+  const refreshMirror = async () => {
+    try {
+      publish({ mirror: userId ? await mirrorSummary(db, userId) : null });
+    } catch {
+      publish({ mirror: null });
+    }
+  };
+
   const run = singleFlight(async (): Promise<SyncRunResult> => {
     publish({ running: true });
     let result: SyncRunResult;
@@ -149,6 +182,16 @@ export function startSyncEngine(
       result = localFailure();
     }
     await refreshCounts();
+    // Pull after the push, so the server balance already includes what was sent.
+    if (mirrorSource && result.kind !== 'signed_out' && pullDue()) {
+      forcePull = false;
+      // runPull reports its own failures; the message of anything else can name files.
+      const pulled = await runPull(db, mirrorSource).catch((): PullResult => ({ kind: 'failed', reason: 'local_error' }));
+      // Only a finished pull resets the clock, so a failed one is tried next run.
+      if (pulled.kind === 'done') lastPullAt = now();
+      publish({ lastPull: pulled });
+      await refreshMirror();
+    }
     publish({ running: false, last: result });
     return result;
   });
@@ -166,6 +209,7 @@ export function startSyncEngine(
   ];
 
   void refreshCounts();
+  void refreshMirror();
   trigger();
 
   return {
@@ -187,6 +231,7 @@ export function startSyncEngine(
         publish({ last: result });
         return result;
       }
+      forcePull = true;
       return run();
     },
     getStatus: () => status,

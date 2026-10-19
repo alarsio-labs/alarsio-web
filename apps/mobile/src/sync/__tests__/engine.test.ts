@@ -377,11 +377,11 @@ describe('startSyncEngine', () => {
       const f = fakeEnv();
       const { transport } = countingTransport();
       const m = mirrorSource();
-      const handle = startSyncEngine(db, transport, f.env, {
+      const handle = startSyncEngine(db, transport, {
         userId: USER_A,
         mirrorSource: m.source,
         now: () => clock,
-      });
+      }, f.env);
 
       await handle.syncNow();
       expect(m.pulls()).toBe(1);
@@ -406,7 +406,7 @@ describe('startSyncEngine', () => {
     it('publishes what the phone holds after a pull', async () => {
       const f = fakeEnv();
       const m = mirrorSource();
-      const handle = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A, mirrorSource: m.source });
+      const handle = startSyncEngine(db, countingTransport().transport, { userId: USER_A, mirrorSource: m.source }, f.env);
 
       await handle.syncNow();
 
@@ -416,18 +416,18 @@ describe('startSyncEngine', () => {
 
     it('shows the copy it already holds at start, with no network and a failing pull', async () => {
       const f = fakeEnv();
-      const first = startSyncEngine(db, countingTransport().transport, f.env, {
+      const first = startSyncEngine(db, countingTransport().transport, {
         userId: USER_A,
         mirrorSource: mirrorSource().source,
-      });
+      }, f.env);
       await first.syncNow();
       first.stop();
 
       // Next app start: offline, so the pull fails. The old copy is still there to show.
-      const next = startSyncEngine(db, countingTransport().transport, f.env, {
+      const next = startSyncEngine(db, countingTransport().transport, {
         userId: USER_A,
         mirrorSource: mirrorSource(true).source,
-      });
+      }, f.env);
       await next.syncNow();
 
       expect(next.getStatus().mirror).toMatchObject({ sites: 1 });
@@ -437,11 +437,11 @@ describe('startSyncEngine', () => {
 
     it("never shows another user's copy", async () => {
       const f = fakeEnv();
-      const a = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A, mirrorSource: mirrorSource().source });
+      const a = startSyncEngine(db, countingTransport().transport, { userId: USER_A, mirrorSource: mirrorSource().source }, f.env);
       await a.syncNow();
       a.stop();
 
-      const b = startSyncEngine(db, countingTransport(false).transport, f.env, { userId: '22222222-0000-4000-8000-00000000000b' });
+      const b = startSyncEngine(db, countingTransport(false).transport, { userId: '22222222-0000-4000-8000-00000000000b' }, f.env);
       await b.syncNow();
 
       expect(b.getStatus().mirror).toBeNull();
@@ -452,7 +452,7 @@ describe('startSyncEngine', () => {
       const f = fakeEnv();
       const { transport } = countingTransport();
       const m = mirrorSource(true);
-      const handle = startSyncEngine(db, transport, f.env, { userId: USER_A, mirrorSource: m.source });
+      const handle = startSyncEngine(db, transport, { userId: USER_A, mirrorSource: m.source }, f.env);
 
       const result = await handle.syncNow();
 
@@ -467,16 +467,16 @@ describe('startSyncEngine', () => {
     it('does not pull while signed out, or without a mirror source', async () => {
       const f = fakeEnv();
       const m = mirrorSource();
-      const signedOut = startSyncEngine(db, countingTransport(false).transport, f.env, {
+      const signedOut = startSyncEngine(db, countingTransport(false).transport, {
         userId: USER_A,
         mirrorSource: m.source,
-      });
+      }, f.env);
       await signedOut.syncNow();
       expect(m.pulls()).toBe(0);
       expect(signedOut.getStatus().lastPull).toBeNull();
       signedOut.stop();
 
-      const noSource = startSyncEngine(db, countingTransport().transport, f.env, { userId: USER_A });
+      const noSource = startSyncEngine(db, countingTransport().transport, { userId: USER_A }, f.env);
       await noSource.syncNow();
       expect(noSource.getStatus().lastPull).toBeNull();
       noSource.stop();
