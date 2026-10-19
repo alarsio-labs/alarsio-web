@@ -15,11 +15,9 @@ const config = readPublicConfig();
 // Module-level, so the reference is stable and the screen's effect runs once
 // per mount. _layout.tsx remounts this screen when the signed-in user changes.
 const startSync = config.ok
-  ? (db: DeviceDb, userId: string) =>
-      startSyncEngine(db, supabaseTransport(getSupabase(config.config)), { userId })
-  ? (db: DeviceDb, userId?: string) => {
+  ? (db: DeviceDb, userId: string) => {
       const supabase = getSupabase(config.config);
-      return startSyncEngine(db, supabaseTransport(supabase), undefined, {
+      return startSyncEngine(db, supabaseTransport(supabase), {
         userId,
         mirrorSource: supabaseMirrorSource(supabase),
       });

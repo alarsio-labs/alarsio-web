@@ -67,7 +67,6 @@ export function syncLine(status: SyncStatus): string {
 // A server code such as server:PT429 or server:28000: short, letters and digits only.
 const SAFE_SERVER_REASON = /^server:[A-Za-z0-9]{1,8}$/;
 
-function lastRunNote(last: SyncStatus['last'], userId: string | null, waiting: boolean): string | null {
 /** How old a timestamp is, in plain words. A clock that moved back reads as just now. */
 function ageText(timestamp: string, now: Date): string {
   const minutes = Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000);
@@ -97,7 +96,7 @@ export function pullLine(mirror: MirrorSummary | null, lastPull: PullResult | nu
   return parts.join(' · ');
 }
 
-function lastRunNote(last: SyncStatus['last'], userId: string | null): string | null {
+function lastRunNote(last: SyncStatus['last'], userId: string | null, waiting: boolean): string | null {
   if (last?.kind === 'signed_out') {
     // Signed in on the phone, but the session could not be refreshed: offline
     // with an expired token (#56). Signing in again would not help. It only
