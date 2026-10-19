@@ -12,6 +12,8 @@ const MESSAGES = {
   org_failed: "Could not create the organisation. Try again.",
   review_forbidden: "You cannot review this report.",
   review_note_long: "Keep the review note to 1000 characters or fewer.",
+  export_rate_limited: "You can export 5 times an hour. Try again later.",
+  export_failed: "The export could not be made, and nothing was downloaded. Try again.",
   generic: "Something went wrong. Try again."
 } as const;
 

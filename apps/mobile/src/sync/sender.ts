@@ -8,7 +8,7 @@
 import type { DeviceDb } from '../db/device-db';
 import { getDeviceId } from './device-id';
 import type { SyncEntity, SyncResultRow } from './entities';
-import { applyVerdicts, claimBatch, recoverInterrupted, releaseBatch, type Payload } from './outbox';
+import { applyVerdicts, claimBatch, releaseBatch, returnBatch, type Payload } from './outbox';
 
 export const MAX_BATCHES_PER_RUN = 5;
 
@@ -91,28 +91,27 @@ export async function runSync(
       const reason = error instanceof SyncTransportError ? error.reason : 'network';
       if (reason === SESSION_CHANGED) {
         // Nothing was sent. Hand the batch back untouched for its author's next session.
-        await recoverInterrupted(db, now());
+        await returnBatch(db, claimed, now());
         return { kind: 'failed', reason, batches, records };
       }
-      await releaseBatch(db, reason, now());
+      await releaseBatch(db, claimed, reason, now());
       return { kind: 'failed', reason, batches, records };
     }
 
     if ('error' in response) {
       // The server refused the envelope, which is a bug in this app, not in a record.
       const reason = `invalid_envelope:${response.reason}`;
-      await releaseBatch(db, reason, now());
+      await releaseBatch(db, claimed, reason, now());
       return { kind: 'failed', reason, batches, records };
     }
     if (!Array.isArray(response.results)) {
-      await releaseBatch(db, 'bad_response', now());
+      await releaseBatch(db, claimed, 'bad_response', now());
       return { kind: 'failed', reason: 'bad_response', batches, records };
     }
 
     await applyVerdicts(db, response.results, now());
-    // Anything the server did not answer is still syncing. One batch is in
-    // flight at a time, so releasing every syncing row releases only those.
-    await releaseBatch(db, 'no_result', now());
+    // Anything in this batch the server did not answer is still syncing.
+    await releaseBatch(db, claimed, 'no_result', now());
 
     batches += 1;
     records += claimed.length;
@@ -123,7 +122,8 @@ export async function runSync(
 
 /**
  * Wraps a run so that overlapping triggers share one run instead of starting
- * a second, which the outbox does not allow (ADR-016: one batch in flight).
+ * a second (ADR-016). Runs from two engines, e.g. across a user switch, may
+ * still overlap; each releases only the batch it claimed, so that is safe.
  */
 export function singleFlight<T>(run: () => Promise<T>): () => Promise<T> {
   let current: Promise<T> | null = null;

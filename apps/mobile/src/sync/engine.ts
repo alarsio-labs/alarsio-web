@@ -1,19 +1,24 @@
 // When to sync, and what the app shows about it. Owner: Offline Sync (Nikhil).
-// Issue #47. The events come through SyncEnv, so tests drive them by hand.
+// Issues #47, #68. The events come through SyncEnv, so tests drive them by hand.
 
 import { AppState } from 'react-native';
 import NetInfo from '@react-native-community/netinfo';
 
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from './entities';
-import { countByStatus } from './outbox';
+import { countByStatus, listAttention, retryFailedNow, type AttentionRow } from './outbox';
 import { runSync, singleFlight, type SyncRunResult, type SyncTransport } from './sender';
 
 export const SYNC_INTERVAL_MS = 60_000;
 export const REQUEST_DEBOUNCE_MS = 2_000;
 
 export interface SyncStatus {
+  /** This user's records per status, or every user's when no user was given. */
   counts: Record<OutboxStatus, number>;
+  /** Conflict and rejected records, newest first, for the same user. */
+  attention: AttentionRow[];
+  /** The user signed in on the phone, as the app knows it, or null. */
+  userId: string | null;
   /** The last finished run, or null before the first one. */
   last: SyncRunResult | null;
   running: boolean;
@@ -22,8 +27,10 @@ export interface SyncStatus {
 export interface SyncHandle {
   /** Ask for a sync soon, e.g. right after a capture screen saves a record. */
   requestSync(): void;
-  /** Run now and wait for it, e.g. for a "Sync now" button. */
+  /** Run now and wait for it. */
   syncNow(): Promise<SyncRunResult>;
+  /** The "Sync now" button: this user's failed records skip their backoff, then run. */
+  retryNow(): Promise<SyncRunResult>;
   getStatus(): SyncStatus;
   subscribe(listener: (status: SyncStatus) => void): () => void;
   stop(): void;
@@ -62,6 +69,14 @@ export const realSyncEnv: SyncEnv = {
   },
 };
 
+export interface SyncEngineOptions {
+  /**
+   * The user signed in on the phone. Counts and the attention list are theirs
+   * only (ADR-020). The app knows this even offline, from the stored session.
+   */
+  userId?: string;
+}
+
 /**
  * Starts syncing for this app session: once now, then on foreground, on
  * reconnect, every minute, and shortly after requestSync(). Runs never
@@ -71,10 +86,13 @@ export function startSyncEngine(
   db: DeviceDb,
   transport: SyncTransport,
   env: SyncEnv = realSyncEnv,
+  { userId }: SyncEngineOptions = {},
 ): SyncHandle {
   const listeners = new Set<(status: SyncStatus) => void>();
   let status: SyncStatus = {
     counts: { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 },
+    attention: [],
+    userId: userId ?? null,
     last: null,
     running: false,
   };
@@ -87,7 +105,7 @@ export function startSyncEngine(
   };
 
   const refreshCounts = async () => {
-    publish({ counts: await countByStatus(db) });
+    publish({ counts: await countByStatus(db, userId), attention: await listAttention(db, userId) });
   };
 
   const run = singleFlight(async (): Promise<SyncRunResult> => {
@@ -128,6 +146,10 @@ export function startSyncEngine(
       });
     },
     syncNow: () => run(),
+    async retryNow() {
+      await retryFailedNow(db, userId);
+      return run();
+    },
     getStatus: () => status,
     subscribe(listener) {
       listeners.add(listener);

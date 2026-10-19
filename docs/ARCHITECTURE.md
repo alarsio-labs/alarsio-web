@@ -42,8 +42,6 @@ list, publish it deliberately and add it here in the same PR.
 | Sites | `archive_site` | `site_timeline` · `site_geofence` · `site_directory` (name and status only; ADR-025) |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` |
 | Attendance | `mark_all_present(site, date)` · `review_attendance_day` · `review_attendance_correction` | approved `attendance_days` · `site_exceptions` |
-| Daily Reporting | `review_daily_report` | `daily_report_status` |
-| Attendance | `review_attendance_day` · `review_attendance_correction` | approved `attendance_days` · `site_exceptions` |
 | Daily Reporting | `review_daily_report(report_id, note)` · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
@@ -111,6 +109,15 @@ public.sync_<table>(p_record_id uuid, p_payload jsonb) returns sync_result
 A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
 replay (`accepted`) against `conflict` for its own records. The module that owns
 the table publishes the handler and lists it in its row of the public surface above.
+
+## Data export
+
+The one read that crosses every module (ADR-026). An owner downloads their
+organisation's data from `/export`: every table except `purge_log` and
+`rate_limit_counters`, read **as the owner**, so RLS decides every row. It is a named
+exception to rule 4 below: read-only, owner-only, and kept in
+`apps/web/src/lib/export/`. A new table or column must be added to
+`apps/web/src/lib/export/tables.ts` (or exempted with an ADR); a test fails until it is.
 
 ## What is deliberately not here
 
