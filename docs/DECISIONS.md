@@ -275,7 +275,7 @@ the same supervisor needs the roster to mark attendance.
 - W6. Nothing is deleted. `status` retires a worker; `anonymize_worker()` clears the
   name and phone, closes open assignments, and is terminal. Assignments close
   (`unassigned_at`), as in Sites, and a closed one is never reopened.
-- W7. The roster rule is `has_worker_access(worker)`: owner and project_manager
+- W7 (extended by W9, W10). The roster rule is `has_worker_access(worker)`: owner and project_manager
   across the org, anyone with `has_site_access` to a site the worker is assigned to.
   It is private to Workforce; other modules read a view.
 - W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
@@ -286,11 +286,14 @@ the same supervisor needs the roster to mark attendance.
   trade and status, and no rates. So a closed row keeps its name,
   `has_worker_access` also counts a closed assignment at a site the caller can
   access: a supervisor sees everyone ever rostered at their site, no one else.
-- W10. An accountant reads every worker of their organisation (name, code, trade,
-  status), through `can_view_wages` inside `has_worker_access`. They already read
-  every rate; without the names a rate is useless for paying anyone. They still
-  cannot create, edit, assign or import (2026-10-18).
-
+- W10. An accountant reads the full `workers` row of every worker in their
+  organisation, including phone (personal data, DPDP), pay type, `created_by` and
+  `anonymized_at`, through `can_view_wages` inside `has_worker_access`. They already
+  read every rate, and need the name and code to pay a person and the phone to reach
+  them about pay. They cannot create, edit, assign or import. This widens `workers`
+  only: assignments and `worker_roster` still follow `has_site_access`. Worker
+  visibility now follows `can_view_wages`, so changing that predicate changes who
+  reads workers (2026-10-18).
 **Consequences.** A supervisor can run attendance without ever seeing pay. Rate
 history is complete, so a wage summary can be reproduced for any past date. Costs:
 `audit_log` records the old row on an update, so an anonymized worker's earlier name
