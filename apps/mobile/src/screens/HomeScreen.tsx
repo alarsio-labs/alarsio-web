@@ -1,14 +1,15 @@
 // The shell's only screen: proves the app starts, its device database is ready,
-// and how many records are waiting to sync.
-// Owner: Offline Sync (Nikhil). Issues #14, #47. Domain screens arrive in later issues.
+// and shows the signed-in user's sync status.
+// Owner: Offline Sync (Nikhil). Issues #14, #47, #68. Domain screens arrive in later issues.
 
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { PublicConfigResult } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
+import { SyncPanel } from './SyncPanel';
 
 type DbStatus =
   | { kind: 'opening' }
@@ -19,14 +20,17 @@ export interface HomeScreenProps {
   /** Opens the device database. Injected so tests need no native SQLite. */
   openDb: () => Promise<DeviceDb>;
   /** Starts syncing once the database is open. Absent when the app has no config. */
-  startSync?: (db: DeviceDb) => SyncHandle;
+  startSync?: (db: DeviceDb, userId?: string) => SyncHandle;
+  /** The user signed in on the phone, so counts are theirs only (ADR-020). */
+  userId?: string;
   config: PublicConfigResult;
   appVersion: string;
 }
 
-export function HomeScreen({ openDb, startSync, config, appVersion }: HomeScreenProps) {
+export function HomeScreen({ openDb, startSync, userId, config, appVersion }: HomeScreenProps) {
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [sync, setSync] = useState<SyncStatus | null>(null);
+  const handleRef = useRef<SyncHandle | null>(null);
 
   useEffect(() => {
     let cancelled = false;
@@ -36,7 +40,8 @@ export function HomeScreen({ openDb, startSync, config, appVersion }: HomeScreen
         if (cancelled) return;
         setDb({ kind: 'ready' });
         if (startSync) {
-          handle = startSync(opened);
+          handle = startSync(opened, userId);
+          handleRef.current = handle;
           setSync(handle.getStatus());
           handle.subscribe(setSync);
         }
@@ -50,8 +55,9 @@ export function HomeScreen({ openDb, startSync, config, appVersion }: HomeScreen
     return () => {
       cancelled = true;
       handle?.stop();
+      handleRef.current = null;
     };
-  }, [openDb, startSync]);
+  }, [openDb, startSync, userId]);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -66,7 +72,7 @@ export function HomeScreen({ openDb, startSync, config, appVersion }: HomeScreen
 
       <Text style={db.kind === 'failed' ? styles.errorText : styles.line}>{dbLine(db)}</Text>
 
-      {sync && <Text style={styles.line}>{syncLine(sync)}</Text>}
+      {sync && <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow()} />}
 
       <Text style={styles.version}>{`Version ${appVersion}`}</Text>
     </SafeAreaView>
@@ -82,18 +88,6 @@ function dbLine(db: DbStatus): string {
     case 'failed':
       return `Device database failed: ${db.message}`;
   }
-}
-
-/** One line about the outbox. "Submitted" is never claimed here (ADR-009). */
-export function syncLine(status: SyncStatus): string {
-  const { counts, last, running } = status;
-  const waiting = counts.pending + counts.syncing + counts.failed;
-  const attention = counts.conflict + counts.rejected;
-  const parts = [running ? `Sync: sending… ${waiting} waiting` : `Sync: ${waiting} waiting`];
-  if (attention > 0) parts.push(`${attention} need attention`);
-  if (last?.kind === 'signed_out') parts.push('sign in to sync');
-  if (last?.kind === 'failed') parts.push(`last try failed (${last.reason})`);
-  return parts.join(' · ');
 }
 
 const styles = StyleSheet.create({

@@ -191,16 +191,24 @@ export async function applyVerdicts(
   });
 }
 
+/** A claimed record, by its key. */
+export type OutboxKey = Pick<OutboxEntry, 'entity' | 'recordId'>;
+
 /**
- * The whole push failed (no network, a server error, an envelope error), so
- * every syncing row is failed with a backoff, or pending again if it is dirty.
+ * The push of `batch` failed (no network, a server error, an envelope error),
+ * or the server did not answer some of it. Those rows, if still syncing, are
+ * failed with a backoff, or pending again if dirty. Only this batch's rows are
+ * touched: another run may have a batch in flight at the same time (#56).
  */
-export async function releaseBatch(db: DeviceDb, reason: string, now: Date = new Date()): Promise<void> {
+export async function releaseBatch(
+  db: DeviceDb,
+  batch: readonly OutboxKey[],
+  reason: string,
+  now: Date = new Date(),
+): Promise<void> {
   const at = now.toISOString();
   await db.transaction(async () => {
-    const rows = await db.all<{ seq: number; dirty: number; attempts: number }>(
-      `select seq, dirty, attempts from outbox where status = 'syncing'`,
-    );
+    const rows = await syncingRows(db, batch);
     for (const row of rows) {
       if (row.dirty === 1) {
         await requeue(db, row.seq, at);
@@ -212,10 +220,24 @@ export async function releaseBatch(db: DeviceDb, reason: string, now: Date = new
 }
 
 /**
- * Run on app start. A push the app was killed in the middle of left its rows
- * syncing; they are pending again. Sending them twice is safe, because the
- * server never duplicates a record (#33). The sender also uses it to hand back
- * a claimed batch with no retry penalty when the signed-in user changes.
+ * Hands `batch` back unsent and with no retry penalty: its rows, if still
+ * syncing, are pending again. Used when the signed-in user changed after the
+ * claim (ADR-020). Only this batch's rows are touched (#56).
+ */
+export async function returnBatch(db: DeviceDb, batch: readonly OutboxKey[], now: Date = new Date()): Promise<void> {
+  const at = now.toISOString();
+  await db.transaction(async () => {
+    for (const row of await syncingRows(db, batch)) {
+      await db.run(`update outbox set status = 'pending', dirty = 0, updated_at = ? where seq = ?`, [at, row.seq]);
+    }
+  });
+}
+
+/**
+ * Run once on app start, before any sync run. A push the app was killed in
+ * the middle of left its rows syncing; they are pending again. Sending them
+ * twice is safe, because the server never duplicates a record (#33). Never
+ * call it while a run may be in flight: it resets every syncing row.
  */
 export async function recoverInterrupted(db: DeviceDb, now: Date = new Date()): Promise<number> {
   const { changes } = await db.run(
@@ -266,6 +288,71 @@ export async function countUnsent(db: DeviceDb, authorId: string): Promise<numbe
     [authorId.toLowerCase()],
   );
   return row?.n ?? 0;
+}
+
+/** A record the server refused or would not overwrite, for the phone to show (#68). */
+export interface AttentionRow {
+  entity: SyncEntity;
+  recordId: string;
+  status: 'conflict' | 'rejected';
+  reason: string | null;
+  updatedAt: string;
+}
+
+/**
+ * Conflict and rejected records, newest first: this user's, or every user's
+ * when no author is given. They are never retried by themselves (ADR-016).
+ */
+export async function listAttention(db: DeviceDb, authorId?: string, limit = 50): Promise<AttentionRow[]> {
+  const rows = await db.all<{
+    entity: SyncEntity;
+    record_id: string;
+    status: 'conflict' | 'rejected';
+    reason: string | null;
+    updated_at: string;
+  }>(
+    `select entity, record_id, status, reason, updated_at from outbox
+      where status in ('conflict', 'rejected')
+        and (? is null or author_id = ?)
+      order by updated_at desc, seq desc
+      limit ?`,
+    [authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null, Math.max(1, limit)],
+  );
+  return rows.map((r) => ({
+    entity: r.entity,
+    recordId: r.record_id,
+    status: r.status,
+    reason: r.reason,
+    updatedAt: r.updated_at,
+  }));
+}
+
+/**
+ * "Sync now": makes this user's failed records due at once instead of waiting
+ * out their backoff (ADR-016's manual retry). Conflict and rejected records stay
+ * as they are; only saving them again re-queues them. Returns how many changed.
+ */
+export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date = new Date()): Promise<number> {
+  const { changes } = await db.run(
+    `update outbox set next_attempt_at = null, updated_at = ?
+      where status = 'failed' and (? is null or author_id = ?)`,
+    [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
+  );
+  return changes;
+async function syncingRows(
+  db: DeviceDb,
+  batch: readonly OutboxKey[],
+): Promise<{ seq: number; dirty: number; attempts: number }[]> {
+  const rows: { seq: number; dirty: number; attempts: number }[] = [];
+  for (const key of batch) {
+    const [row] = await db.all<{ seq: number; dirty: number; attempts: number }>(
+      `select seq, dirty, attempts from outbox
+        where entity = ? and record_id = ? and status = 'syncing'`,
+      [key.entity, key.recordId.toLowerCase()],
+    );
+    if (row) rows.push(row);
+  }
+  return rows;
 }
 
 async function requeue(db: DeviceDb, seq: number, at: string): Promise<void> {

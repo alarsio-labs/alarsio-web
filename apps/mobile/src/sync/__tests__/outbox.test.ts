@@ -10,12 +10,15 @@ import {
   claimBatch,
   countByStatus,
   countUnsent,
+  listAttention,
   enqueue,
   getStatus,
   MAX_BATCH,
   newRecordId,
   recoverInterrupted,
   releaseBatch,
+  retryFailedNow,
+  returnBatch,
   type NewOutboxEntry,
 } from '../outbox';
 
@@ -282,13 +285,13 @@ describe('outbox', () => {
   });
 
   describe('releaseBatch', () => {
-    it('fails every syncing record with a backoff when the whole push failed', async () => {
+    it("fails the batch's syncing records with a backoff when the whole push failed", async () => {
       await enqueue(db, entry(1), T0);
       await enqueue(db, entry(2), T0);
-      await claimBatch(db, USER_A, T0);
+      const batch = await claimBatch(db, USER_A, T0);
       await enqueue(db, entry(2, { qty: 22 }), at(1)); // edited during the push
 
-      await releaseBatch(db, 'network', at(2));
+      await releaseBatch(db, batch, 'network', at(2));
 
       expect(await row(db, 1)).toMatchObject({
         status: 'failed',
@@ -297,6 +300,35 @@ describe('outbox', () => {
         next_attempt_at: at(32).toISOString(),
       });
       expect(await row(db, 2)).toMatchObject({ status: 'pending', dirty: 0 });
+    });
+
+    it("leaves another batch's syncing records alone (#56)", async () => {
+      await enqueue(db, entry(1), T0);
+      const mine = await claimBatch(db, USER_A, T0);
+      await enqueue(db, entry(2), T0);
+      await claimBatch(db, USER_A, T0); // a second run's batch, still in flight
+
+      await releaseBatch(db, mine, 'no_result', at(1));
+
+      expect(await row(db, 1)).toMatchObject({ status: 'failed', reason: 'no_result' });
+      expect(await row(db, 2)).toMatchObject({ status: 'syncing', attempts: 0 });
+    });
+  });
+
+  describe('returnBatch', () => {
+    it('puts only its own syncing records back to pending, with no retry penalty', async () => {
+      await enqueue(db, entry(1), T0);
+      const first = await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [verdict(1, 'retryable_error', 'busy')], T0);
+      const retried = await claimBatch(db, USER_A, at(31)); // record 1 again, attempts 1
+      expect(retried).toEqual(first);
+      await enqueue(db, entry(2), at(31));
+      await claimBatch(db, USER_A, at(31)); // another run's batch
+
+      await returnBatch(db, retried, at(32));
+
+      expect(await row(db, 1)).toMatchObject({ status: 'pending', attempts: 1, dirty: 0 });
+      expect(await row(db, 2)).toMatchObject({ status: 'syncing' });
     });
   });
 
@@ -415,7 +447,7 @@ describe('outbox', () => {
     it("counts a user's unsent rows: everything but synced, and only theirs", async () => {
       for (let n = 1; n <= 5; n += 1) await enqueue(db, entry(n), T0);
       await enqueue(db, asB(6), T0);
-      await claimBatch(db, USER_A, T0);
+      const batch = await claimBatch(db, USER_A, T0);
       await applyVerdicts(
         db,
         [
@@ -426,7 +458,7 @@ describe('outbox', () => {
         ],
         T0,
       );
-      await releaseBatch(db, 'no_result', T0); // record 5 had no answer
+      await releaseBatch(db, batch, 'no_result', T0); // record 5 had no answer
 
       expect(await countUnsent(db, USER_A)).toBe(4);
       expect(await countUnsent(db, USER_B)).toBe(1);
@@ -451,6 +483,49 @@ describe('outbox', () => {
       expect(await old.all('select record_id, author_id from outbox')).toEqual([
         { record_id: ID(1), author_id: null },
       ]);
+    });
+  });
+
+  describe('needs attention and retry now (#68)', () => {
+    const asB = (n: number): NewOutboxEntry => ({ ...entry(n), authorId: USER_B });
+
+    it("lists this user's conflict and rejected records, newest first, up to the limit", async () => {
+      for (let n = 1; n <= 4; n += 1) await enqueue(db, entry(n), T0);
+      await enqueue(db, asB(5), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [verdict(1, 'rejected', 'invalid_input'), verdict(2, 'accepted')], at(1));
+      await applyVerdicts(db, [verdict(3, 'conflict', 'reviewed')], at(2));
+      await applyVerdicts(db, [verdict(4, 'retryable_error', 'busy')], at(3));
+      await claimBatch(db, USER_B, T0);
+      await applyVerdicts(db, [verdict(5, 'rejected', 'permission_denied')], at(4));
+
+      expect(await listAttention(db, USER_A)).toEqual([
+        { entity: 'material_transactions', recordId: ID(3), status: 'conflict', reason: 'reviewed', updatedAt: at(2).toISOString() },
+        { entity: 'material_transactions', recordId: ID(1), status: 'rejected', reason: 'invalid_input', updatedAt: at(1).toISOString() },
+      ]);
+      expect(await listAttention(db, USER_A, 1)).toHaveLength(1);
+      expect((await listAttention(db)).map((r) => r.recordId)).toEqual([ID(5), ID(3), ID(1)]);
+    });
+
+    it("makes only this user's failed records due now, and leaves the rest alone", async () => {
+      for (let n = 1; n <= 3; n += 1) await enqueue(db, entry(n), T0);
+      await enqueue(db, asB(4), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(
+        db,
+        [verdict(1, 'retryable_error', 'busy'), verdict(2, 'rejected', 'invalid_input'), verdict(3, 'conflict', 'duplicate')],
+        T0,
+      );
+      await claimBatch(db, USER_B, T0);
+      await applyVerdicts(db, [verdict(4, 'retryable_error', 'busy')], T0);
+      expect(await claimBatch(db, USER_A, at(1))).toEqual([]); // backing off for 30 s
+
+      expect(await retryFailedNow(db, USER_A, at(1))).toBe(1);
+
+      expect((await claimBatch(db, USER_A, at(1))).map((e) => e.recordId)).toEqual([ID(1)]);
+      expect(await row(db, 2)).toMatchObject({ status: 'rejected' });
+      expect(await row(db, 3)).toMatchObject({ status: 'conflict' });
+      expect(await claimBatch(db, USER_B, at(1))).toEqual([]); // B still backing off
     });
   });
 

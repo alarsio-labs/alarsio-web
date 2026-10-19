@@ -3,7 +3,7 @@ import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { REQUEST_DEBOUNCE_MS, startSyncEngine, SYNC_INTERVAL_MS, type SyncEnv, type SyncStatus } from '../engine';
-import { enqueue } from '../outbox';
+import { applyVerdicts, claimBatch, enqueue } from '../outbox';
 import type { PushResponse, SyncBatch, SyncTransport } from '../sender';
 
 // Jest hoists jest.mock above the imports. The engine imports NetInfo for its
@@ -200,5 +200,56 @@ describe('startSyncEngine', () => {
 
     expect(f.listenerCount()).toBe(0);
     expect(runs()).toBe(before);
+  });
+
+  describe('per-user status and retry now (#68)', () => {
+    const USER_B = '22222222-0000-4000-8000-00000000000b';
+    const save = (n: number, authorId: string) =>
+      enqueue(db, { entity: 'material_transactions', recordId: ID(n), authorId, payload: {} });
+
+    it("counts and lists only the signed-in user's records when given a user", async () => {
+      await save(1, USER_A);
+      await save(2, USER_B);
+      await claimBatch(db, USER_B);
+      await applyVerdicts(db, [
+        { entity: 'material_transactions', record_id: ID(2), verdict: 'rejected', reason: 'permission_denied' },
+      ]);
+      const { env } = fakeEnv();
+      const { transport } = countingTransport(false); // signed out: nothing is sent, counts stay
+
+      const handle = startSyncEngine(db, transport, env, { userId: USER_A });
+      await handle.syncNow();
+
+      expect(handle.getStatus()).toMatchObject({ userId: USER_A, attention: [] });
+      expect(handle.getStatus().counts).toMatchObject({ pending: 1, rejected: 0 });
+      handle.stop();
+
+      const all = startSyncEngine(db, transport, env);
+      await all.syncNow();
+      expect(all.getStatus().userId).toBeNull();
+      expect(all.getStatus().counts).toMatchObject({ pending: 1, rejected: 1 });
+      expect(all.getStatus().attention.map((r) => r.reason)).toEqual(['permission_denied']);
+      all.stop();
+    });
+
+    it('retryNow sends a record that is backing off, in one run', async () => {
+      await save(1, USER_A);
+      await claimBatch(db, USER_A);
+      await applyVerdicts(db, [
+        { entity: 'material_transactions', record_id: ID(1), verdict: 'retryable_error', reason: 'busy' },
+      ]);
+      const { env } = fakeEnv();
+      const { transport, pushes } = countingTransport();
+      const handle = startSyncEngine(db, transport, env, { userId: USER_A });
+      await handle.syncNow();
+      expect(pushes).toHaveLength(0); // still backing off
+
+      const result = await handle.retryNow();
+
+      expect(result).toEqual({ kind: 'done', batches: 1, records: 1 });
+      expect(pushes).toHaveLength(1);
+      expect(handle.getStatus().counts.synced).toBe(1);
+      handle.stop();
+    });
   });
 });

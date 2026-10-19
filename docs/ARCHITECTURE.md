@@ -110,6 +110,15 @@ A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
 replay (`accepted`) against `conflict` for its own records. The module that owns
 the table publishes the handler and lists it in its row of the public surface above.
 
+## Data export
+
+The one read that crosses every module (ADR-026). An owner downloads their
+organisation's data from `/export`: every table except `purge_log` and
+`rate_limit_counters`, read **as the owner**, so RLS decides every row. It is a named
+exception to rule 4 below: read-only, owner-only, and kept in
+`apps/web/src/lib/export/`. A new table or column must be added to
+`apps/web/src/lib/export/tables.ts` (or exempted with an ADR); a test fails until it is.
+
 ## What is deliberately not here
 
 Approvals engine · Procurement · Projects and BOQ · Property Sales ·

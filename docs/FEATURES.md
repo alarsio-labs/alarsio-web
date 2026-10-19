@@ -62,6 +62,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 1 · Identity & Access
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
+  *Web sign-in merged (#51); mobile sign-in in #56 (ADR-026). Unticked until both run end to end against the team project (#58).*
 - [ ] Invite a team member by email or copyable link
   *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
@@ -76,8 +77,11 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 3 · Workforce
 - [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
+  *Import page in #57 (ADR-027). Pay type is locked once a rate exists and a blank phone keeps the stored one (ADR-011 W11, W12). Unticked until it runs against the team project (#58).*
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
+
+*An accountant reads the organisation's workers, so rates have names (ADR-011 W10).*
 
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
@@ -124,12 +128,23 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [ ] A repeated push creates no duplicate
-- [ ] One bad record does not block the rest of its batch
+- [x] A repeated push creates no duplicate
+- [x] One bad record does not block the rest of its batch
 
-*Server router `sync_push` is in place (#33): envelope, per-record verdicts and the
-rate limit, tested with stand-in handlers. The rows above get ticked when the real
-entity handlers are wired in week 5.*
+*The last two rows are proven through `sync_push` with the real Materials and Daily
+Reporting handlers, not stand-ins. A batch pushed twice writes nothing the second
+time and gets the same answer (`materials_ledger_test`, `sync_daily_reports_test`).
+A mixed batch stores its good records and refuses only the bad ones
+(`sync_daily_reports_test`, `sync_push_test`). On the phone, the outbox keeps one row
+per (entity, record_id) and applies each verdict to its own record. Attendance has
+no handler yet (its PR 2, #28), so attendance records cannot sync until then, and
+those handlers need the same two tests. Not yet run against the team Supabase
+project (#58).*
+
+*The home screen shows the signed-in user's sync status (#68): counts, an honest
+sync line that never says "submitted", the conflict and rejected records with their
+reason, and Sync now. "Status shown" and "Never shows submitted" stay unticked until
+the capture screens show each record's own status.*
 
 ### 9 · Audit, Retention & Guards
 - [x] One generic trigger writing `audit_log` across every privileged table
@@ -143,6 +158,10 @@ entity handlers are wired in week 5.*
 CI if any table except the three logs lacks `write_audit()` after every row change, and
 `schema_guards_test.sql` does the same for RLS, invoker views, pinned definer functions,
 client delete grants and anon grants.*
+*The owner export is in place (#76, ADR-026): `/export` downloads one ZIP of a CSV per
+table, read under the owner's RLS and rate-limited to 5 an hour (`export_org_data`).
+`tables.test.ts` and `data_export_test.sql` prove every table is listed and readable.
+Unticked until a download runs end to end against the team project (#58), as with invites.*
 
 ---
 

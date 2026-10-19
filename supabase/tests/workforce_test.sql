@@ -72,6 +72,12 @@ do $$ begin
     'import_workers is security invoker');
 end $$;
 
+-- has_worker_access keeps its grants after the W10 redefinition.
+do $$ begin
+  perform test_assert(not has_function_privilege('anon', 'public.has_worker_access(uuid)', 'execute'), 'anon cannot execute has_worker_access');
+  perform test_assert(has_function_privilege('authenticated', 'public.has_worker_access(uuid)', 'execute'), 'authenticated can execute has_worker_access');
+end $$;
+
 -- ------------------------------------------------------------ anon is denied
 do $$
 declare denied int := 0;
@@ -103,7 +109,14 @@ do $$ begin
   reset role;
   perform test_as('d0000000-0000-0000-0000-00000000000d');           -- accountant
   perform test_assert((select count(*) from public.worker_wage_rates) = 1, 'accountant reads rates');
-  perform test_assert((select count(*) from public.workers) = 0, 'unassigned accountant sees no workers by roster rule');
+  perform test_assert((select count(*) from public.workers) = 2, 'accountant reads every org A worker, to pay them (W10)');
+  perform test_assert((select count(*) from public.workers where id = '77000000-0000-0000-0000-0000000000b1') = 0, 'accountant cannot read an org B worker by id');
+  perform test_assert(
+    (select count(*) from public.workers w
+       join public.worker_effective_rates r on r.worker_id = w.id
+      where w.id = '77000000-0000-0000-0000-000000000001') = 1,
+    'accountant reads a worker together with their rate (W10)');
+  perform test_assert((select count(*) from public.worker_roster) = 0, 'an unassigned accountant still reads no roster rows (W10 widens workers only)');
   reset role;
   perform test_as('b0000000-0000-0000-0000-00000000000b');           -- supervisor at site 1
   perform test_assert((select count(*) from public.workers) = 1, 'supervisor sees only the worker at their site');
