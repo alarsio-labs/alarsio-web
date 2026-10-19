@@ -138,18 +138,35 @@ as an offline draft" is ticked when the phone's report screen ships.*
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [x] A repeated push creates no duplicate
-- [x] One bad record does not block the rest of its batch
+- [ ] A repeated push creates no duplicate
+- [ ] One bad record does not block the rest of its batch
 
-*The last two rows are proven through `sync_push` with the real Materials and Daily
-Reporting handlers, not stand-ins. A batch pushed twice writes nothing the second
-time and gets the same answer (`materials_ledger_test`, `sync_daily_reports_test`).
-A mixed batch stores its good records and refuses only the bad ones
-(`sync_daily_reports_test`, `sync_push_test`). On the phone, the outbox keeps one row
-per (entity, record_id) and applies each verdict to its own record. Attendance has
-no handler yet (its PR 2, #28), so attendance records cannot sync until then, and
-those handlers need the same two tests. Not yet run against the team Supabase
-project (#58).*
+*The replay and poison-record rows stay unticked until all seven entities are
+wired. ADR-014 ties the no-duplicate guarantee to every handler, and calls for a
+shared handler contract test that does not exist yet. The four Attendance entities
+have no handler, so pushing one returns `retryable_error: handler_unavailable`
+(Attendance's PR 2, #28). Not yet run against the team Supabase project (#58).*
+
+*Proof so far, in `supabase/tests`, with the real handlers unless stated:*
+- *Whole batch pushed twice, same answer, nothing written the second time:
+  `materials_ledger_test` only.*
+- *Daily Reporting is proven one record at a time (`sync_daily_reports_test`: a
+  replayed draft, a replayed edit, a replay after losing the site).
+  `sync_report_photos_test`: a photo sent before its report gets
+  `retryable_error: missing_parent` and stores nothing, and report plus photo in one
+  batch are both accepted.*
+- *One bad record, real handler: the mixed batch in `sync_daily_reports_test`
+  stores its two good reports and refuses the bad ones. The mixed batch in
+  `materials_ledger_test` has no accepted record, so it is not poison-record proof.*
+- *A handler that wrote a row and then failed is rolled back: proven with stand-in
+  handlers only (`sync_push_test`), which also covers replay and one verdict per
+  record at the router.*
+- *On the phone: `outbox.test.ts` ("keeps one row per record…", "turns each verdict
+  into its status") and `sender.test.ts` ("applies a mix of verdicts record by
+  record").*
+
+*To tick both rows: Attendance's handlers with their own replay and poison tests,
+and one contract test that runs the same checks over all seven handlers.*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their
