@@ -992,6 +992,41 @@ fake reader and the SQL suite, not against a hosted project (#58).
 
 ---
 
+## ADR-028 · Sites publishes site_details, the full site record for the offline mirror
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Manish (issue #49; asked for by Nikhil for PR #71)
+
+**Context.** Offline Sync mirrors each user's sites onto the phone so a supervisor can pick a
+site with no signal. It may read another module's data only through a published view
+(`ARCHITECTURE.md` rule 4). Sites already publishes two views, both narrow on purpose:
+`site_geofence` (`id, org_id, latitude, longitude, geofence_radius_m`, ADR-021 D9, pinned by
+Attendance's tests) and `site_directory` (`id, org_id, name, status`, ADR-025 W1, "no address,
+pin or geofence", pinned by `sites_directory_test.sql`). Neither has the address, and `site_timeline`,
+listed in `ARCHITECTURE.md`, does not exist. Until now the mirror in #71 read the `sites` table.
+
+**Decision.**
+- S1. Sites publishes a third view, `site_details (id, org_id, name, address, status, latitude,
+  longitude, geofence_radius_m)`, `security_invoker`, select-only for `authenticated`.
+- S2. It is separate from the other two. Widening `site_directory` would reverse ADR-025 W1 and
+  break `sites_directory_test.sql`'s column test; widening `site_geofence` would break D9 and
+  Attendance's.
+  Each view stays the least a consumer needs.
+- S3. No row filter. It returns what `sites_select` (`has_site_access`) lets the caller read: an
+  owner or project manager sees every site of their organisation, archived ones included with
+  `status = 'archived'`, so the consumer decides. A supervisor's or accountant's archived sites
+  disappear because `archive_site` closes their assignments.
+- S4. No `updated_at` on the view. `sites` has one, but `site_assignments` has none, and a site
+  leaves a user's list when an assignment closes, which `sites.updated_at` cannot show. So an
+  incremental pull is not possible and the mirror stays a full refresh (issue #49).
+- S5. `ARCHITECTURE.md` lists it in the Sites row, and marks `site_timeline` as not built yet.
+
+**Consequences.** The phone mirror no longer reads a table another module owns, and the three
+views never drift into each other. Costs: three overlapping Sites views to keep in step if a site
+column is renamed; the address and pin of every site a user can read are copied onto the phone,
+so the device encryption and wipe-on-sign-out questions on #71 matter (not decided here); and a
+later merge of the views into one would need Attendance's and Daily Reporting's agreement.
+
+---
+
 ## Template — copy this for a new decision
 
 ```

@@ -39,7 +39,7 @@ list, publish it deliberately and add it here in the same PR.
 | Module | Functions others may call | Views others may read |
 | :-- | :-- | :-- |
 | Identity & Access | `is_org_member` · `is_org_owner` · `has_site_access` · `can_manage_sites` · `can_record_on_site` · `can_review_site` · `can_view_wages` · `create_organization` · `create_invite` · `accept_invite` · `revoke_invite` | — |
-| Sites | `archive_site` | `site_timeline` · `site_geofence` · `site_directory` (name and status only; ADR-025) |
+| Sites | `archive_site` | `site_timeline` (not built yet) · `site_geofence` · `site_directory` (name and status only; ADR-025) · `site_details` (the full site record, for the offline mirror; ADR-028) |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` |
 | Attendance | `mark_all_present(site, date)` · `review_attendance_day` · `review_attendance_correction` | approved `attendance_days` · `site_exceptions` |
 | Daily Reporting | `review_daily_report(report_id, note)` · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
