@@ -100,7 +100,7 @@ describe('startSyncEngine', () => {
     const { transport, pushes } = countingTransport();
     const seen: SyncStatus[] = [];
 
-    const handle = startSyncEngine(db, transport, env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, env);
     handle.subscribe((s) => seen.push(s));
     const result = await handle.syncNow(); // joins the run started at start
 
@@ -115,7 +115,7 @@ describe('startSyncEngine', () => {
   it('syncs again when the app comes to the foreground, the network returns, and every minute', async () => {
     const f = fakeEnv();
     const { transport, runs } = countingTransport();
-    const handle = startSyncEngine(db, transport, f.env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, f.env);
     await handle.syncNow();
     const afterStart = runs();
 
@@ -134,7 +134,7 @@ describe('startSyncEngine', () => {
   it('shares one run between overlapping triggers', async () => {
     const f = fakeEnv();
     const { transport, runs } = countingTransport();
-    const handle = startSyncEngine(db, transport, f.env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, f.env);
 
     f.foreground();
     f.reconnect();
@@ -148,7 +148,7 @@ describe('startSyncEngine', () => {
   it('debounces requestSync into one run', async () => {
     const f = fakeEnv();
     const { transport, runs } = countingTransport();
-    const handle = startSyncEngine(db, transport, f.env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, f.env);
     await handle.syncNow();
     const before = runs();
 
@@ -166,7 +166,7 @@ describe('startSyncEngine', () => {
     await enqueue(db, { entity: 'material_transactions', recordId: ID(1), authorId: USER_A, payload: {} });
     const { env } = fakeEnv();
     const { transport, pushes } = countingTransport(false);
-    const handle = startSyncEngine(db, transport, env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, env);
 
     expect(await handle.syncNow()).toEqual({ kind: 'signed_out' });
     expect(pushes).toHaveLength(0);
@@ -182,11 +182,11 @@ describe('startSyncEngine', () => {
       },
       push: async () => ({ results: [] }),
     };
-    const handle = startSyncEngine(db, transport, env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, env);
 
     expect(await handle.syncNow()).toEqual({
       kind: 'failed',
-      reason: 'local:storage unavailable',
+      reason: 'local_error',
       batches: 0,
       records: 0,
     });
@@ -197,7 +197,7 @@ describe('startSyncEngine', () => {
   it('stops listening when stopped', async () => {
     const f = fakeEnv();
     const { transport, runs } = countingTransport();
-    const handle = startSyncEngine(db, transport, f.env);
+    const handle = startSyncEngine(db, transport, { userId: USER_A }, f.env);
     await handle.syncNow();
     const before = runs();
 
@@ -215,7 +215,7 @@ describe('startSyncEngine', () => {
     const save = (n: number, authorId: string) =>
       enqueue(db, { entity: 'material_transactions', recordId: ID(n), authorId, payload: {} });
 
-    it("counts and lists only the signed-in user's records when given a user", async () => {
+    it("counts and lists only the signed-in user's records", async () => {
       await save(1, USER_A);
       await save(2, USER_B);
       await claimBatch(db, USER_B);
@@ -225,19 +225,105 @@ describe('startSyncEngine', () => {
       const { env } = fakeEnv();
       const { transport } = countingTransport(false); // signed out: nothing is sent, counts stay
 
-      const handle = startSyncEngine(db, transport, env, { userId: USER_A });
+      const a = startSyncEngine(db, transport, { userId: USER_A }, env);
+      await a.syncNow();
+      expect(a.getStatus()).toMatchObject({ userId: USER_A, attention: [], loaded: true, readFailed: false });
+      expect(a.getStatus().counts).toMatchObject({ pending: 1, rejected: 0 });
+      a.stop();
+
+      const b = startSyncEngine(db, transport, { userId: USER_B }, env);
+      await b.syncNow();
+      expect(b.getStatus().counts).toMatchObject({ pending: 0, rejected: 1 });
+      expect(b.getStatus().attention.map((r) => r.recordId)).toEqual([ID(2)]);
+      b.stop();
+    });
+
+    it("Sync now for one user leaves another user's backoff alone", async () => {
+      await save(1, USER_A);
+      await save(2, USER_B);
+      await claimBatch(db, USER_A);
+      await claimBatch(db, USER_B);
+      await applyVerdicts(db, [
+        { entity: 'material_transactions', record_id: ID(1), verdict: 'retryable_error', reason: 'busy' },
+        { entity: 'material_transactions', record_id: ID(2), verdict: 'retryable_error', reason: 'busy' },
+      ]);
+      const { env } = fakeEnv();
+      const { transport, pushes } = countingTransport(false);
+      const b = startSyncEngine(db, transport, { userId: USER_B }, env);
+
+      await b.retryNow();
+
+      const rows = await db.all<{ record_id: string; next_attempt_at: string | null }>(
+        'select record_id, next_attempt_at from outbox order by seq',
+      );
+      expect(rows.find((r) => r.record_id === ID(1))?.next_attempt_at).not.toBeNull(); // A: still backing off
+      expect(rows.find((r) => r.record_id === ID(2))?.next_attempt_at).toBeNull(); // B: due now
+      expect(pushes).toHaveLength(0);
+      b.stop();
+    });
+
+    it("sends nothing when the session belongs to someone other than the engine's user", async () => {
+      await save(1, USER_A);
+      await save(2, USER_B);
+      const { env } = fakeEnv();
+      const pushes: SyncBatch[] = [];
+      const transport: SyncTransport = {
+        currentUserId: async () => USER_B, // B is signed in, but this engine is A's
+        push: async (batch): Promise<PushResponse> => (pushes.push(batch), { results: [] }),
+      };
+      const a = startSyncEngine(db, transport, { userId: USER_A }, env);
+
+      expect(await a.syncNow()).toEqual({ kind: 'signed_out' });
+
+      expect(pushes).toEqual([]);
+      expect(a.getStatus().counts).toMatchObject({ pending: 1, syncing: 0 });
+      a.stop();
+    });
+
+    /** The database, with reads and writes that fail on demand. */
+    function flakyDb() {
+      const flags = { failReads: false, failWrites: false };
+      const flaky: DeviceDb = {
+        ...db,
+        all: async (sql, params) => {
+          if (flags.failReads) throw new Error('database is locked: /data/user/0/app/alarsio.db');
+          return db.all(sql, params);
+        },
+        run: async (sql, params) => {
+          if (flags.failWrites) throw new Error('database is locked');
+          return db.run(sql, params);
+        },
+      };
+      return { flaky, flags };
+    }
+
+    it('does not claim everything is on the server when it could not read the counts', async () => {
+      const { env } = fakeEnv();
+      const { flaky, flags } = flakyDb();
+      flags.failReads = true;
+      const handle = startSyncEngine(flaky, countingTransport(false).transport, { userId: USER_A }, env);
+
       await handle.syncNow();
+      expect(handle.getStatus()).toMatchObject({ loaded: false, readFailed: true });
 
-      expect(handle.getStatus()).toMatchObject({ userId: USER_A, attention: [] });
-      expect(handle.getStatus().counts).toMatchObject({ pending: 1, rejected: 0 });
+      flags.failReads = false;
+      await handle.syncNow();
+      expect(handle.getStatus()).toMatchObject({ loaded: true, readFailed: false });
       handle.stop();
+    });
 
-      const all = startSyncEngine(db, transport, env);
-      await all.syncNow();
-      expect(all.getStatus().userId).toBeNull();
-      expect(all.getStatus().counts).toMatchObject({ pending: 1, rejected: 1 });
-      expect(all.getStatus().attention.map((r) => r.reason)).toEqual(['permission_denied']);
-      all.stop();
+    it('keeps a failed Sync now as a result instead of rejecting', async () => {
+      const { env } = fakeEnv();
+      const { flaky, flags } = flakyDb();
+      const handle = startSyncEngine(flaky, countingTransport().transport, { userId: USER_A }, env);
+      await handle.syncNow();
+      flags.failWrites = true;
+
+      const result = await handle.retryNow();
+
+      expect(result).toEqual({ kind: 'failed', reason: 'local_error', batches: 0, records: 0 });
+      expect(handle.getStatus()).toMatchObject({ last: result, running: false });
+      handle.stop();
     });
 
     it('retryNow sends a record that is backing off, in one run', async () => {
@@ -248,7 +334,7 @@ describe('startSyncEngine', () => {
       ]);
       const { env } = fakeEnv();
       const { transport, pushes } = countingTransport();
-      const handle = startSyncEngine(db, transport, env, { userId: USER_A });
+      const handle = startSyncEngine(db, transport, { userId: USER_A }, env);
       await handle.syncNow();
       expect(pushes).toHaveLength(0); // still backing off
 

@@ -7,8 +7,8 @@ const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, reject
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
-  lastPull: null,
-  mirror: null,
+  loaded: true,
+  readFailed: false,
   last: null,
   running: false,
   userId: USER,
@@ -41,9 +41,19 @@ describe('syncLine (#68)', () => {
     );
   });
 
-  it('says waiting for connection when signed in on the phone but the session cannot refresh offline', () => {
-    expect(syncLine(status({ last: { kind: 'signed_out' } }))).toBe(
-      'All your records are on the server · Waiting for connection',
+  it('says waiting for connection only when something is waiting and the session cannot refresh offline', () => {
+    expect(syncLine(status({ counts: { ...zero, pending: 2 }, last: { kind: 'signed_out' } }))).toBe(
+      '2 waiting to send · Waiting for connection',
+    );
+    expect(syncLine(status({ last: { kind: 'signed_out' } }))).toBe('All your records are on the server');
+  });
+
+  it('claims nothing about the server until the counts have been read', () => {
+    expect(syncLine(status({ loaded: false }))).toBe('Checking…');
+    expect(syncLine(status({ loaded: false, readFailed: true }))).toBe('Could not read your records on this phone.');
+    // A later failed read: the old counts may be stale, so no claim either.
+    expect(syncLine(status({ loaded: true, readFailed: true, counts: { ...zero, synced: 3 } }))).toBe(
+      'Could not read your records on this phone.',
     );
   });
 
@@ -57,6 +67,28 @@ describe('syncLine (#68)', () => {
     expect(syncLine(status({ ...waiting, last: failed('server:28000') }))).toBe(
       '1 waiting to send · Last try failed (server:28000)',
     );
+  });
+
+  it('never prints raw error text: internal failures get one fixed sentence each', () => {
+    const waiting = { counts: { ...zero, pending: 1 } };
+    const line = (reason: string) => syncLine(status({ ...waiting, last: failed(reason) }));
+    expect(line('local_error')).toBe('1 waiting to send · Something went wrong on this phone. Will retry.');
+    expect(line('invalid_envelope:version must be 1')).toBe(
+      '1 waiting to send · The app and the server disagree. Please update the app.',
+    );
+    expect(line('bad_response')).toBe("1 waiting to send · The server's answer wasn't understood. Will retry.");
+
+    const leaks = [
+      `local:SQLITE_FULL: ${'x'.repeat(300)} /data/user/0/com.alarsio/databases/alarsio.db`,
+      'server:' + 'y'.repeat(200),
+      'server:PGRST 301 jwt expired for user a@b.com',
+      '/data/user/0/com.alarsio/files',
+    ];
+    for (const reason of leaks) {
+      const text = line(reason);
+      expect(text).toBe('1 waiting to send · Last try failed. Will retry.');
+      expect(text).not.toMatch(/\/|SQLITE|@|xxxx|yyyy/);
+    }
   });
 
   it('never says submitted, whatever the state', () => {

@@ -6,6 +6,7 @@ import { StatusBar } from 'expo-status-bar';
 import { ActivityIndicator, View } from 'react-native';
 
 import { supabaseAuthClient } from '../auth/auth-client';
+import { SessionUserContext } from '../auth/session-user';
 import { useSession } from '../auth/use-session';
 import { readPublicConfig } from '../config/public-config';
 import { signOutAndClearMirrors } from '../auth/sign-out';
@@ -58,8 +59,10 @@ export default function RootLayout() {
 
   // Keyed by user: a sign-in mounts fresh screens and a fresh sync engine for
   // that user; sign-out unmounts them. Overlapping runs are safe since #67.
+  // The context hands the screens the user, so each shows and syncs that
+  // user's records only (ADR-029).
   return (
-    <>
+    <SessionUserContext.Provider value={session.user}>
       <Stack
         key={session.user.id}
         screenOptions={{
@@ -70,6 +73,6 @@ export default function RootLayout() {
         }}
       />
       <StatusBar style="auto" />
-    </>
+    </SessionUserContext.Provider>
   );
 }

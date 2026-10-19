@@ -42,23 +42,32 @@ export function reasonText(reason: string | null): string {
   return REASONS[reason] ?? `Refused (${reason})`;
 }
 
-/** One line about this user's outbox and the last run. */
+/**
+ * One line about this user's outbox and the last run. It says "all on the
+ * server" only about counts it has read, and never prints raw error text.
+ */
 export function syncLine(status: SyncStatus): string {
-  const { counts, last, running, userId } = status;
+  const { counts, last, running, userId, loaded, readFailed } = status;
   const waiting = counts.pending + counts.syncing + counts.failed;
   const attention = counts.conflict + counts.rejected;
 
   const parts: string[] = [];
-  if (running) parts.push(`Sending… ${waiting} waiting`);
+  if (readFailed) parts.push('Could not read your records on this phone.');
+  else if (!loaded) parts.push('Checking…');
+  else if (running) parts.push(`Sending… ${waiting} waiting`);
   else if (waiting > 0) parts.push(`${waiting} waiting to send`);
   else if (attention === 0) parts.push(userId ? 'All your records are on the server' : 'Nothing waiting to send');
-  if (attention > 0) parts.push(`${attention} need attention`);
+  if (loaded && !readFailed && attention > 0) parts.push(`${attention} need attention`);
 
-  const note = lastRunNote(last, userId);
+  const note = lastRunNote(last, userId, loaded && !readFailed && waiting > 0);
   if (note) parts.push(note);
   return parts.join(' · ');
 }
 
+// A server code such as server:PT429 or server:28000: short, letters and digits only.
+const SAFE_SERVER_REASON = /^server:[A-Za-z0-9]{1,8}$/;
+
+function lastRunNote(last: SyncStatus['last'], userId: string | null, waiting: boolean): string | null {
 /** How old a timestamp is, in plain words. A clock that moved back reads as just now. */
 function ageText(timestamp: string, now: Date): string {
   const minutes = Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000);
@@ -91,13 +100,21 @@ export function pullLine(mirror: MirrorSummary | null, lastPull: PullResult | nu
 function lastRunNote(last: SyncStatus['last'], userId: string | null): string | null {
   if (last?.kind === 'signed_out') {
     // Signed in on the phone, but the session could not be refreshed: offline
-    // with an expired token (#56). Signing in again would not help.
-    return userId ? 'Waiting for connection' : 'Sign in to sync';
+    // with an expired token (#56). Signing in again would not help. It only
+    // matters when something is waiting.
+    if (!userId) return 'Sign in to sync';
+    return waiting ? 'Waiting for connection' : null;
   }
   if (last?.kind !== 'failed') return null;
-  if (last.reason === 'network') return 'No connection. Will retry.';
-  if (last.reason === 'server:PT429') return 'Server busy. Will retry.';
+  const reason = last.reason;
+  if (reason === 'network') return 'No connection. Will retry.';
+  if (reason === 'server:PT429') return 'Server busy. Will retry.';
   // Another user signed in mid-run; their run follows, and nothing was lost.
-  if (last.reason === 'session_changed') return null;
-  return `Last try failed (${last.reason})`;
+  if (reason === 'session_changed') return null;
+  if (reason === 'local_error') return 'Something went wrong on this phone. Will retry.';
+  if (reason.startsWith('invalid_envelope')) return 'The app and the server disagree. Please update the app.';
+  if (reason === 'bad_response') return "The server's answer wasn't understood. Will retry.";
+  // Only a short server code is echoed; anything else could carry file names or data.
+  if (SAFE_SERVER_REASON.test(reason)) return `Last try failed (${reason})`;
+  return 'Last try failed. Will retry.';
 }

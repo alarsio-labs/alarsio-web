@@ -20,8 +20,12 @@ export interface HomeScreenProps {
   /** Opens the device database. Injected so tests need no native SQLite. */
   openDb: () => Promise<DeviceDb>;
   /** Starts syncing once the database is open. Absent when the app has no config. */
-  startSync?: (db: DeviceDb, userId?: string) => SyncHandle;
-  /** The user signed in on the phone, so counts are theirs only (ADR-020). */
+  startSync?: (db: DeviceDb, userId: string) => SyncHandle;
+  /**
+   * The user signed in on the phone. Sync starts only for a user: with none,
+   * there is no engine and no sync panel, never one that covers every user
+   * (ADR-020, ADR-029).
+   */
   userId?: string;
   config: PublicConfigResult;
   appVersion: string;
@@ -39,7 +43,7 @@ export function HomeScreen({ openDb, startSync, userId, config, appVersion }: Ho
       (opened) => {
         if (cancelled) return;
         setDb({ kind: 'ready' });
-        if (startSync) {
+        if (startSync && userId) {
           handle = startSync(opened, userId);
           handleRef.current = handle;
           setSync(handle.getStatus());
@@ -56,6 +60,9 @@ export function HomeScreen({ openDb, startSync, userId, config, appVersion }: Ho
       cancelled = true;
       handle?.stop();
       handleRef.current = null;
+      // The previous user's panel must not stay on screen while the next
+      // user's engine starts.
+      setSync(null);
     };
   }, [openDb, startSync, userId]);
 
@@ -72,7 +79,9 @@ export function HomeScreen({ openDb, startSync, userId, config, appVersion }: Ho
 
       <Text style={db.kind === 'failed' ? styles.errorText : styles.line}>{dbLine(db)}</Text>
 
-      {sync && <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow()} />}
+      {sync && (
+        <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow().catch(() => undefined)} />
+      )}
 
       <Text style={styles.version}>{`Version ${appVersion}`}</Text>
     </SafeAreaView>

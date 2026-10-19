@@ -1,5 +1,6 @@
 import Constants from 'expo-constants';
 
+import { useSessionUser } from '../auth/session-user';
 import { readPublicConfig } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
 import { openAppDb } from '../lib/app-db';
@@ -14,6 +15,8 @@ const config = readPublicConfig();
 // Module-level, so the reference is stable and the screen's effect runs once
 // per mount. _layout.tsx remounts this screen when the signed-in user changes.
 const startSync = config.ok
+  ? (db: DeviceDb, userId: string) =>
+      startSyncEngine(db, supabaseTransport(getSupabase(config.config)), { userId })
   ? (db: DeviceDb, userId?: string) => {
       const supabase = getSupabase(config.config);
       return startSyncEngine(db, supabaseTransport(supabase), undefined, {
@@ -24,10 +27,13 @@ const startSync = config.ok
   : undefined;
 
 export default function Index() {
+  // The user the layout's sign-in gate let through. With none, nothing syncs.
+  const user = useSessionUser();
   return (
     <HomeScreen
       openDb={openAppDb}
       startSync={startSync}
+      userId={user?.id}
       config={config}
       appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />
