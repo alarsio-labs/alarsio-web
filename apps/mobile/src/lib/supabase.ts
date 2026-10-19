@@ -51,6 +51,16 @@ class LargeSecureStore {
   }
 }
 
+/**
+ * Where the session lives. Named, rather than supabase-js's default, so sign-in
+ * can read the stored session itself when a refresh cannot reach the server
+ * (offline with an expired token) and keep the user signed in (Identity, #56).
+ */
+export const AUTH_STORAGE_KEY = 'alarsio-auth';
+
+/** The one encrypted store the client uses, shared with the sign-in code. */
+export const authStorage = new LargeSecureStore();
+
 let client: SupabaseClient | null = null;
 
 /** The shared client, created on first use from the app's public config. */
@@ -58,7 +68,8 @@ export function getSupabase(config: PublicConfig): SupabaseClient {
   if (!client) {
     client = createClient(config.supabaseUrl, config.supabasePublishableKey, {
       auth: {
-        storage: new LargeSecureStore(),
+        storage: authStorage,
+        storageKey: AUTH_STORAGE_KEY,
         autoRefreshToken: true,
         persistSession: true,
         detectSessionInUrl: false,
