@@ -819,6 +819,53 @@ shared phone hands over cleanly. Costs: offline, the app shows a user as signed 
 whose token cannot be refreshed yet, so the sync line says it is waiting for a
 connection (Nikhil, #69); a revoked user stays signed in on the phone until it next
 reaches the server; and the session key change signs out anyone signed in before it.
+## ADR-026 · Owner data export: every table read under the owner's RLS, one ZIP of CSVs
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #76)
+
+**Context.** Module 9's last row is "a customer can export all of their own data" (CUJ-6).
+An export is by definition a read of every module's tables, but `ARCHITECTURE.md` rule 4
+says one module reads another only through a published view, and only a few tables have
+one. The rows also include worker names, phones and site locations (DPDP), and PostgREST
+caps a response at 1000 rows.
+
+**Decision.**
+- E1. The export is a web feature, `/export` and `POST /export/download`, owner only. It
+  reads every table **directly, as the signed-in owner**, with the normal Supabase client.
+  RLS decides every row; there is no service-role key and no `SECURITY DEFINER` reader.
+  This is a named exception to rule 4: read-only, owner-only, in one place
+  (`apps/web/src/lib/export/`). Publishing an export view per module was declined: nine PRs
+  across four owners for a copy of each table.
+- E2. The tables and columns are a fixed list (`tables.ts`). A Vitest test reads
+  `supabase/migrations` and fails when a table or column is neither in the list nor
+  exempt; `apps/web/turbo.json` makes the migrations an input of that test. Exempt:
+  `purge_log` and `rate_limit_counters`, closed to every client (ADR-012). Withheld:
+  `invites.token_hash`, which the client may not select. `data_export_test.sql` checks
+  the database side: `authenticated` may select every other column, and the export's query
+  returns only the owner's organisation from every table.
+- E3. One ZIP (`fflate`) of one CSV per table plus `manifest.csv` (rows per table, when,
+  who, and a note where RLS shows the owner less than everything: their own profile only,
+  no other user's draft reports, no photo files). Pages of 1000 by `id` (keyset), until a
+  page comes back empty, so a lower server row cap loses nothing. Any failure returns no
+  file. `write_audit()` stores whole rows (ADR-008), so a withheld column is also removed
+  from `audit_log.old_data` / `new_data` for that table's rows: no invite token hash
+  leaves the system.
+- E4. CSV is RFC 4180, CRLF, UTF-8 with a BOM. A text cell starting with `=`, `+`, `-`,
+  `@`, tab or CR gets a leading `'` (OWASP CSV injection); numbers and booleans do not.
+- E5. `enforce_rate_limit` gains the key `export_org_data`, at most 5 per user per hour,
+  called before any read so a failed export still counts. The route also refuses a POST
+  whose `Origin` is another site.
+
+**Consequences.** An owner can take all of their data out without asking us, and gets
+exactly what they can already see. Costs: every new table or column fails the web test
+until it is added to `tables.ts` or exempted with an ADR, so other modules' PRs touch this
+module's file; the ZIP is built in memory, fine for 2–20 sites but to be streamed if a
+pilot organisation outgrows it; photo files are not included; the export itself leaves no
+record beyond the rate-limit counter (a `data_exports` table would be a new decision);
+other users' profile names are absent because profiles are self-only; an anonymized
+worker's earlier name and phone are still in `audit_log` until the 3-year floor
+(ADR-012's retention exception), so the export carries them too; the `'` prefix
+changes how a cell such as `-5 bags` reads back; and the route has been tested only with a
+fake reader and the SQL suite, not against a hosted project (#58).
 
 ---
 
