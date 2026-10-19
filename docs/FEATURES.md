@@ -64,6 +64,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 1 · Identity & Access
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
+  *Web sign-in merged (#51); mobile sign-in in #56 (ADR-026). Unticked until both run end to end against the team project (#58).*
 - [ ] Invite a team member by email or copyable link
   *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
@@ -78,6 +79,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 3 · Workforce
 - [x] Add a worker: name, trade, pay type, rate
 - [ ] Bulk import workers from CSV or Excel, keyed on worker code
+  *Import page in #57 (ADR-027). Pay type is locked once a rate exists and a blank phone keeps the stored one (ADR-011 W11, W12). Unticked until it runs against the team project (#58).*
 - [x] Effective-dated wage rates — never overwrite, always add
 - [x] Assign workers to sites
 
@@ -142,6 +144,11 @@ entity handlers are wired in week 5.*
 - [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
 - [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
+
+*The owner export is in place (#76, ADR-026): `/export` downloads one ZIP of a CSV per
+table, read under the owner's RLS and rate-limited to 5 an hour (`export_org_data`).
+`tables.test.ts` and `data_export_test.sql` prove every table is listed and readable.
+Unticked until a download runs end to end against the team project (#58), as with invites.*
 
 ---
 
