@@ -146,5 +146,6 @@ between a 4-second run and a 90-second one.
 | How do we work day to day? | `docs/WORKFLOW.md` |
 | What must a security review check? | `docs/SECURITY.md` |
 | How do we test? | `docs/TESTING.md` |
+| What does Claude do, step by step, for a feature, a bug fix or a PR review? | `docs/PLAYBOOK.md` |
 
 The full architecture and roadmap PDFs are in `docs/reference/`.

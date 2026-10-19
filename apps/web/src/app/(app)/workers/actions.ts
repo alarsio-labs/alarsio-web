@@ -3,10 +3,9 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
-import { UUID as UUID_RE, formText, workerErrorCode, workerFields } from "@/lib/workers/form";
+import { UUID } from "@/lib/uuid";
+import { LIMITS, formText, workerErrorCode, workerFields } from "@/lib/workers/form";
 import { MAX_IMPORT_ROWS, type ImportRow } from "@/lib/workers/roster-file";
-
-const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
 export type ImportResultRow = {
   row: number;
@@ -19,17 +18,21 @@ export type ImportOutcome = { ok: true; results: ImportResultRow[] } | { ok: fal
 
 const RESULTS = new Set(["created", "updated", "skipped", "rejected"]);
 
+// Fields are passed as typed, never cut short: a shortened code would be a
+// different worker. The database rejects values over its limits per row.
+const MAX_FIELD = 500;
+
 function cleanRow(value: unknown): ImportRow | null {
   if (typeof value !== "object" || value === null) return null;
   const o = value as Record<string, unknown>;
-  const str = (k: string, max: number) => (typeof o[k] === "string" ? (o[k] as string).slice(0, max) : "");
-  const row: ImportRow = {
-    code: str("code", 60),
-    full_name: str("full_name", 200),
-    trade: str("trade", 100),
-    pay_type: str("pay_type", 20)
-  };
-  const phone = str("phone", 30);
+  const fields = ["code", "full_name", "trade", "pay_type", "phone"] as const;
+  for (const k of fields) {
+    const v = o[k];
+    if (v !== undefined && (typeof v !== "string" || v.length > MAX_FIELD)) return null;
+  }
+  const str = (k: (typeof fields)[number]) => (typeof o[k] === "string" ? (o[k] as string) : "");
+  const row: ImportRow = { code: str("code"), full_name: str("full_name"), trade: str("trade"), pay_type: str("pay_type") };
+  const phone = str("phone");
   if (phone) row.phone = phone;
   return row;
 }
@@ -73,13 +76,16 @@ export async function importWorkers(orgId: string, rows: unknown): Promise<Impor
   return { ok: true, results: toResults(data) };
 }
 
+function backToList(orgId: string, error: string): never {
+  redirect(`/workers?org=${orgId}&error=${error}`);
+}
+
 export async function addWorker(form: FormData) {
-  const orgId = formText(form, "org_id", 36);
-  if (!UUID_RE.test(orgId)) redirect("/dashboard");
+  const orgId = formText(form, "org_id", 36) ?? "";
+  if (!UUID.test(orgId)) redirect("/dashboard");
   const fields = workerFields(form);
-  const code = formText(form, "code", 40);
-  const back = (q: string): never => redirect(`/workers?org=${orgId}&${q}`);
-  if (!code || !fields.full_name || !fields.trade || !fields.pay_type) back("error=worker_invalid");
+  const code = formText(form, "code", LIMITS.code);
+  if (!code || !fields) backToList(orgId, "worker_invalid");
 
   const supabase = await supabaseServer();
   // Plain insert under RLS (workers_insert: can_manage_sites) and the table's
@@ -89,7 +95,7 @@ export async function addWorker(form: FormData) {
     .insert({ org_id: orgId, code, ...fields })
     .select("id")
     .single();
-  if (error || !data) return back(`error=${workerErrorCode(error?.code)}`);
+  if (error || !data) backToList(orgId, workerErrorCode(error?.code));
   revalidatePath("/workers");
   redirect(`/workers/${data.id}?org=${orgId}&done=worker_added`);
 }
