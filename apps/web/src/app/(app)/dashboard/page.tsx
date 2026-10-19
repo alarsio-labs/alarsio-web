@@ -67,7 +67,10 @@ export default async function DashboardPage({
                   {m.orgName} <span className="text-sm text-neutral-500">· {ROLE_LABEL[m.role]}</span>
                 </span>
                 {m.role === "owner" && (
-                  <Link href={`/team?org=${m.orgId}`} className="text-sm underline">Team</Link>
+                  <span className="flex gap-4">
+                    <Link href={`/team?org=${m.orgId}`} className="text-sm underline">Team</Link>
+                    <Link href={`/export?org=${m.orgId}`} className="text-sm underline">Export data</Link>
+                  </span>
                 )}
               </li>
             ))}
