@@ -17,5 +17,5 @@ export type MessageCode = keyof typeof MESSAGES;
 
 export function messageFor(code: unknown): string | null {
   if (typeof code !== "string" || code.length === 0) return null;
-  return code in MESSAGES ? MESSAGES[code as MessageCode] : MESSAGES.generic;
+  return Object.hasOwn(MESSAGES, code) ? MESSAGES[code as MessageCode] : MESSAGES.generic;
 }
