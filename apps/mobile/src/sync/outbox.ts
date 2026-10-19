@@ -300,10 +300,12 @@ export interface AttentionRow {
 }
 
 /**
- * Conflict and rejected records, newest first: this user's, or every user's
- * when no author is given. They are never retried by themselves (ADR-016).
+ * This user's conflict and rejected records, newest first. They are never
+ * retried by themselves (ADR-016). Without an author there is no list: this
+ * never falls back to every user's records (ADR-020).
  */
-export async function listAttention(db: DeviceDb, authorId?: string, limit = 50): Promise<AttentionRow[]> {
+export async function listAttention(db: DeviceDb, authorId: string, limit = 50): Promise<AttentionRow[]> {
+  if (!authorId) return [];
   const rows = await db.all<{
     entity: SyncEntity;
     record_id: string;
@@ -312,11 +314,10 @@ export async function listAttention(db: DeviceDb, authorId?: string, limit = 50)
     updated_at: string;
   }>(
     `select entity, record_id, status, reason, updated_at from outbox
-      where status in ('conflict', 'rejected')
-        and (? is null or author_id = ?)
+      where status in ('conflict', 'rejected') and author_id = ?
       order by updated_at desc, seq desc
       limit ?`,
-    [authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null, Math.max(1, limit)],
+    [authorId.toLowerCase(), Math.max(1, limit)],
   );
   return rows.map((r) => ({
     entity: r.entity,
@@ -331,12 +332,14 @@ export async function listAttention(db: DeviceDb, authorId?: string, limit = 50)
  * "Sync now": makes this user's failed records due at once instead of waiting
  * out their backoff (ADR-016's manual retry). Conflict and rejected records stay
  * as they are; only saving them again re-queues them. Returns how many changed.
+ * Without an author it changes nothing, never every user's records (ADR-020).
  */
-export async function retryFailedNow(db: DeviceDb, authorId?: string, now: Date = new Date()): Promise<number> {
+export async function retryFailedNow(db: DeviceDb, authorId: string, now: Date = new Date()): Promise<number> {
+  if (!authorId) return 0;
   const { changes } = await db.run(
     `update outbox set next_attempt_at = null, updated_at = ?
-      where status = 'failed' and (? is null or author_id = ?)`,
-    [now.toISOString(), authorId?.toLowerCase() ?? null, authorId?.toLowerCase() ?? null],
+      where status = 'failed' and author_id = ?`,
+    [now.toISOString(), authorId.toLowerCase()],
   );
   return changes;
 }

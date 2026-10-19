@@ -19,6 +19,8 @@ const USER = '11111111-0000-4000-8000-00000000000a';
 const status = (over: Partial<SyncStatus> = {}): SyncStatus => ({
   counts: zero,
   attention: [],
+  loaded: true,
+  readFailed: false,
   last: null,
   running: false,
   userId: USER,
@@ -29,7 +31,7 @@ function fakeHandle(over: Partial<SyncHandle> = {}): SyncHandle {
   return {
     requestSync: jest.fn(),
     syncNow: jest.fn(),
-    retryNow: jest.fn(),
+    retryNow: jest.fn(() => Promise.resolve({ kind: 'done' as const, batches: 0, records: 0 })),
     getStatus: () => status({ counts: { ...zero, pending: 3 } }),
     subscribe: () => () => undefined,
     stop: jest.fn(),
@@ -89,12 +91,50 @@ describe('HomeScreen', () => {
     expect(startSync).toHaveBeenCalledTimes(1);
   });
 
+  it('starts no sync and shows no sync panel when no user is given, instead of showing every user', async () => {
+    const startSync = jest.fn(() => fakeHandle());
+
+    await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} appVersion="0.1.0" />);
+
+    expect(await screen.findByText('Device database ready')).toBeTruthy();
+    expect(startSync).not.toHaveBeenCalled();
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+    expect(screen.queryByText(/waiting to send|need attention/)).toBeNull();
+  });
+
+  it("drops the previous user's panel as soon as the user changes", async () => {
+    let opens = 0;
+    // The first open resolves; the second never does, so we see the gap between users.
+    const openDb = () => (opens++ === 0 ? Promise.resolve(fakeDb) : new Promise<DeviceDb>(() => undefined));
+    const stop = jest.fn();
+    const startSync = jest.fn(() => fakeHandle({ stop }));
+    const { rerender } = await render(
+      <HomeScreen openDb={openDb} startSync={startSync} userId={USER} config={goodConfig} appVersion="0.1.0" />,
+    );
+    expect(await screen.findByText('3 waiting to send')).toBeTruthy();
+
+    await rerender(
+      <HomeScreen
+        openDb={openDb}
+        startSync={startSync}
+        userId="22222222-0000-4000-8000-00000000000b"
+        config={goodConfig}
+        appVersion="0.1.0"
+      />,
+    );
+
+    expect(stop).toHaveBeenCalledTimes(1);
+    expect(screen.queryByText('3 waiting to send')).toBeNull();
+    expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
+  });
+
   it('Sync now retries through the handle', async () => {
-    const retryNow = jest.fn();
+    const retryNow = jest.fn(() => Promise.resolve({ kind: 'done' as const, batches: 0, records: 0 }));
     await render(
       <HomeScreen
         openDb={openFakeDb}
         startSync={() => fakeHandle({ retryNow })}
+        userId={USER}
         config={goodConfig}
         appVersion="0.1.0"
       />,

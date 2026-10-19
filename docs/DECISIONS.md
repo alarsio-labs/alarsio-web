@@ -513,6 +513,11 @@ record waiting on a 30-minute backoff waits even if the network returns sooner
 (the sender may later offer a manual retry); and `synced` rows stay in the table
 until a cleanup rule is decided.
 
+**Amended (#68, #69 review, 2026-10-19).** The manual retry exists: Sync now
+makes the signed-in user's `failed` rows due at once. It clears the wait, not
+`attempts`, so a record that keeps failing still backs off further next time.
+Conflict and rejected rows are not re-sent by it (ADR-029).
+
 ---
 
 ## ADR-017 · The stock ledger: one writer, replay before permission, warn-only alerts
@@ -662,6 +667,10 @@ new user's records wait for the next trigger (at most 60 s). The transport depen
 on supabase-js not overwriting an `Authorization` header we set, which a library
 upgrade must not break; a test covers our side of it. The home screen still counts
 every user's rows until the sync status screen shows per-user counts.
+
+**Amended (#69 review, 2026-10-19).** The home screen no longer counts every
+user's rows: the sync status is scoped to the signed-in user, and with no user
+there is none (ADR-029).
 
 ---
 
@@ -1024,6 +1033,54 @@ views never drift into each other. Costs: three overlapping Sites views to keep 
 column is renamed; the address and pin of every site a user can read are copied onto the phone,
 so the device encryption and wipe-on-sign-out questions on #71 matter (not decided here); and a
 later merge of the views into one would need Attendance's and Daily Reporting's agreement.
+
+---
+
+## ADR-029 · Sync status belongs to one user, and never says more than it has read
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Nikhil (issue #68, review of #69)
+
+**Context.** #69 added the sync status on the phone: counts, the refused records
+with their reasons, and Sync now. It scoped them to the signed-in user only when
+a user was passed in, and with none it covered every user. The app passed none.
+Once sign-in (#56) merged, on a shared phone user B's screen would have listed
+A's refused records, and B's Sync now would have reset A's backoff. That is the
+leak ADR-020 closes, in a new place. The review also found the screen claiming
+"all on the server" about counts it had failed to read, printing raw error text
+(file paths, database messages), and a long list pushing Sync now off the screen.
+
+**Decision.**
+- **No user, no engine, no panel.** `startSyncEngine` requires a `userId`, and
+  `HomeScreen` starts sync only when it has one. `listAttention` and
+  `retryFailedNow` require an author and do nothing without one: no code path
+  falls back to every user's records.
+- **The engine belongs to its user.** Its transport counts anyone else's session
+  as no session, so it claims and sends only that user's rows, and what the screen
+  shows is what is sent. The user comes from the stored session (it works
+  offline, even when the token has expired and the transport reports no session)
+  through a context set by the sign-in gate in `_layout.tsx`. In that offline
+  case the line says "Waiting for connection".
+- **The line claims only what it has read.** "All your records are on the server"
+  appears only after a successful read of the counts. A failed read says
+  "Could not read your records on this phone", and a failed read is a state in the
+  status (`loaded`, `readFailed`), not a swallowed error.
+- **No raw error text on screen.** Internal failures map to one fixed sentence
+  each (`local_error`, `invalid_envelope:*`, `bad_response`). Only a short server
+  code (`server:` and up to 8 letters or digits) is echoed. A session change is not
+  shown, since it is not this user's problem.
+- **A long list scrolls.** The refused records scroll inside a bounded box, at most
+  50 are kept, and the rest are counted as "and N more". Sync now stays on screen.
+  A failed Sync now is a result, not a rejected promise.
+- **Sync now clears the wait, not `attempts`** (ADR-016 amendment).
+- **Accessibility.** The button's name follows its text ("Sending…" while it runs),
+  its disabled colour keeps 4.5:1 contrast, and the line is a polite live region.
+
+**Consequences.** A shared phone shows each person their own records only, and the
+screen can no longer say something it has not checked. Costs: the screen shows
+nothing at all, instead of everything, when the app has no user (which only
+happens outside the sign-in gate); the user reaches the engine through a context,
+which `_layout.tsx` (Identity's) must keep providing, and a test covers the screen
+side of that; and a `failed` record still looks like a waiting one although it can
+wait up to 30 minutes (ADR-016), which a later change can show as "next try in …".
 
 ---
 
