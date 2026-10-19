@@ -64,6 +64,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 ### 1 · Identity & Access
 - [ ] Create an organisation with name, timezone, currency (INR)
 - [ ] Sign in with email + password and a verification link
+  *Web sign-in merged (#51); mobile sign-in in #56 (ADR-026). Unticked until both run end to end against the team project (#58).*
 - [ ] Invite a team member by email or copyable link
   *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
