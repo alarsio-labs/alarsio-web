@@ -94,15 +94,22 @@ will read once #71 stops reading `sites` directly. No row is ticked for it: it a
 - [x] Outside the geofence asks for a reason, never silently accepts
 - [ ] Mark everyone present in one tap, then change exceptions
 - [x] Half-day, leave, overtime hours, per-worker note
-- [ ] A correction keeps the old value, the new value and the reason
+- [x] A correction keeps the old value, the new value and the reason
 - [ ] Manager approves or rejects a day
 
 *Database side of capture is in #28 (ADR-021): `site_visits` with the geofence, `attendance_days`,
 `attendance_entries` and `mark_all_present`. Two rows are ticked because the database refuses the
 bad case and stores the values (tested). "Check in and check out" stays unticked because location
 captured only on that tap is device behaviour, and "mark everyone present in one tap" because the
-tap is a screen and offline mark-all is phone code. Corrections, review and the approved-day lock
-are the next PR.*
+tap is a screen and offline mark-all is phone code.*
+
+*Corrections, review and the approved-day lock are in #28 PR 2 (ADR-029). "A correction keeps the
+old value, the new value and the reason" is ticked: `attendance_review_test.sql` proves the database
+stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited, except the one review move, or
+deleted. "Manager approves or rejects a day" stays unticked: `review_attendance_day` and the lock
+(an approved day's entries change 0 rows, a late write raises `PS409`) are tested, but the row is a
+manager's action and the web screen (#80) does not exist. The approved-days and `site_exceptions`
+views and the four sync handlers are PR 3.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -147,7 +154,7 @@ time and gets the same answer (`materials_ledger_test`, `sync_daily_reports_test
 A mixed batch stores its good records and refuses only the bad ones
 (`sync_daily_reports_test`, `sync_push_test`). On the phone, the outbox keeps one row
 per (entity, record_id) and applies each verdict to its own record. Attendance has
-no handler yet (its PR 2, #28), so attendance records cannot sync until then, and
+no handler yet (its PR 3, #28), so attendance records cannot sync until then, and
 those handlers need the same two tests. Not yet run against the team Supabase
 project (#58).*
 
