@@ -33,4 +33,18 @@ describe('SignInScreen', () => {
     await render(<SignInScreen signIn={jest.fn()} />);
     expect(screen.getByText(/invite link/)).toBeTruthy();
   });
+
+  it('sends once even when tapped twice quickly', async () => {
+    let resolve: (r: SignInResult) => void = () => undefined;
+    const signIn = jest.fn(() => new Promise<SignInResult>((r) => { resolve = r; }));
+    await render(<SignInScreen signIn={signIn} />);
+    await fireEvent.changeText(screen.getByLabelText('Email'), 'a@x.in');
+    await fireEvent.changeText(screen.getByLabelText('Password'), 'pw');
+    const button = screen.getByRole('button');
+    await fireEvent.press(button);
+    await fireEvent.press(button);
+    expect(signIn).toHaveBeenCalledTimes(1);
+    resolve({ ok: false, message: 'Email or password is wrong.' });
+    expect(await screen.findByText('Email or password is wrong.')).toBeTruthy();
+  });
 });

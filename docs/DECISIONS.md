@@ -568,7 +568,7 @@ and there is no team dev Supabase project yet.
   lost and shared. Sign-in screens stay Identity's.
 
 **Consequences.** Capture screens only save to the outbox and call `requestSync()`.
-Costs: until sign-in exists the app syncs nothing; an end-to-end test needs a dev
+Costs: until sign-in exists the app syncs nothing (sign-in: #56, ADR-026); an end-to-end test needs a dev
 Supabase project with the migrations applied; supabase-js adds about 0.8 MB to the
 bundle; download of sites, materials and the roster to the phone is a separate,
 still unplanned piece of Offline Sync; and the outbox does not record who captured a
@@ -784,6 +784,41 @@ the caller cannot see retries with backoff instead of being refused, since under
 it looks the same as a report still on its way (the phone only sends photos of its
 own reports); and the race in H4, a review landing between the read and the update,
 is handled in code but not covered by a test, as the SQL suites run on one connection.
+
+---
+
+## ADR-026 · Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha, Nikhil; #56)
+
+**Context.** The sync sender (ADR-018, ADR-020) sends nothing while no one is signed
+in, and field capture must keep working with no signal (CLAUDE.md rule 6). Review of
+#56 found that supabase-js returns no session offline once the access token expires,
+and that an offline sign-out with an expired token did not clear the stored session.
+On a shared phone that would save the next person's records as the previous user's.
+
+**Decision.**
+- M1. The sign-in gate lives in `app/_layout.tsx`, around every route, so a deep link
+  (scheme `alarsio`) cannot reach a screen while signed out.
+- M2. Offline with an expired token, the user stays signed in as the user in the
+  stored session (`isAuthRetryableFetchError`). Only a refresh the server refuses, or
+  a sign-out, ends the session. The session key is fixed (`alarsio-auth`) so the app
+  can read it.
+- M3. Sign-out always ends this phone's session: if supabase-js returns an error or
+  throws, the app removes the stored session itself and reports signed out.
+- M4. Sign-out never blocks (ADR-020). It warns with the user's unsent counts, split
+  into rows that will send next time and rows that need a fix (ADR-016), and says so
+  when it could not count.
+- M5. No sign-up on the phone. People join through the invite link on the web
+  (ADR-019), then sign in on the phone.
+- M6. The signed-in screens are keyed by user id, so a sign-in mounts a fresh sync
+  engine for that user. Overlapping runs during a switch are safe once the sender
+  releases only its own batch (#67).
+
+**Consequences.** A supervisor keeps capturing through a day with no signal, and a
+shared phone hands over cleanly. Costs: offline, the app shows a user as signed in
+whose token cannot be refreshed yet, so the sync line says it is waiting for a
+connection (Nikhil, #69); a revoked user stays signed in on the phone until it next
+reaches the server; and the session key change signs out anyone signed in before it.
 
 ---
 

@@ -1,11 +1,14 @@
-// Sign-in for the field app. Owner: Identity (Ishant). Issue #14.
+// Sign-in for the field app. Owner: Identity (Ishant). Issue #56, ADR-026.
 //
 // Screens talk to an AuthClient, not to Supabase, so they are tested without a
-// network. The real client is supabaseAuthClient below. Supervisors are
-// invited from the web dashboard and create their account there, so the phone
-// only signs in and out.
+// network. Supervisors are invited from the web dashboard and create their
+// account there, so the phone only signs in and out.
+//
+// Offline first (CLAUDE.md rule 6): a supervisor who signed in on site stays
+// signed in through a restart with no signal, even after the access token has
+// expired. Only a refresh the server refuses, or a sign-out, ends the session.
 
-import type { SupabaseClient } from '@supabase/supabase-js';
+import { isAuthRetryableFetchError, type SupabaseClient } from '@supabase/supabase-js';
 import { AppState } from 'react-native';
 
 export interface SignedInUser {
@@ -18,9 +21,16 @@ export type SignInResult = { ok: true; user: SignedInUser } | { ok: false; messa
 export interface AuthClient {
   currentUser(): Promise<SignedInUser | null>;
   signIn(email: string, password: string): Promise<SignInResult>;
+  /** Always ends this phone's session, online or not. */
   signOut(): Promise<void>;
   /** Called with the new user, or null, whenever the session changes. */
   onChange(listener: (user: SignedInUser | null) => void): () => void;
+}
+
+/** The part of the encrypted store sign-in needs. */
+export interface SessionStore {
+  getItem(key: string): Promise<string | null>;
+  removeItem(key: string): Promise<void>;
 }
 
 /** A fixed message per failure, so nothing from the server is shown as-is. */
@@ -37,24 +47,61 @@ export function signInErrorMessage(error: { code?: string; status?: number; name
   return 'Could not sign in. Try again.';
 }
 
-function toUser(user: { id: string; email?: string | null } | null | undefined): SignedInUser | null {
-  return user ? { id: user.id, email: user.email ?? '' } : null;
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
+function toUser(user: { id?: unknown; email?: unknown } | null | undefined): SignedInUser | null {
+  if (!user || typeof user.id !== 'string' || !UUID.test(user.id)) return null;
+  return { id: user.id, email: typeof user.email === 'string' ? user.email : '' };
 }
 
-export function supabaseAuthClient(supabase: SupabaseClient): AuthClient {
-  // Supabase's Expo guide: refresh the token only while the app is in front, so
-  // a backgrounded phone does not keep waking the radio.
+/** The user in the stored session, read without the network. */
+export async function readStoredUser(store: SessionStore, key: string): Promise<SignedInUser | null> {
+  try {
+    const raw = await store.getItem(key);
+    if (!raw) return null;
+    const parsed: unknown = JSON.parse(raw);
+    if (typeof parsed !== 'object' || parsed === null) return null;
+    return toUser((parsed as { user?: { id?: unknown; email?: unknown } }).user);
+  } catch {
+    return null;
+  }
+}
+
+export function supabaseAuthClient(supabase: SupabaseClient, store: SessionStore, storageKey: string): AuthClient {
+  const listeners = new Set<(user: SignedInUser | null) => void>();
+  const emit = (user: SignedInUser | null) => {
+    for (const listener of listeners) listener(user);
+  };
+
+  // Supabase's Expo guide: refresh the token only while the app is in front.
   AppState.addEventListener('change', (state) => {
     if (state === 'active') supabase.auth.startAutoRefresh();
     else supabase.auth.stopAutoRefresh();
   });
 
+  const currentUser = async (): Promise<SignedInUser | null> => {
+    const { data, error } = await supabase.auth.getSession();
+    const user = toUser(data.session?.user);
+    if (user) return user;
+    // Offline with an expired token, getSession() gives null plus a retryable
+    // error, but the session is still stored. Stay signed in as that user; the
+    // token refreshes when the signal is back. A refusal from the server is not
+    // retryable, and supabase-js has already removed the session then.
+    if (error && isAuthRetryableFetchError(error)) return readStoredUser(store, storageKey);
+    return null;
+  };
+
+  supabase.auth.onAuthStateChange((event, session) => {
+    const user = toUser(session?.user);
+    if (user) emit(user);
+    else if (event === 'SIGNED_OUT') emit(null);
+    // A null INITIAL_SESSION or failed refresh may only mean "no signal":
+    // ask currentUser, which knows the difference.
+    else void currentUser().then(emit, () => emit(null));
+  });
+
   return {
-    async currentUser() {
-      // getSession reads the stored session, so this works offline.
-      const { data } = await supabase.auth.getSession();
-      return toUser(data.session?.user);
-    },
+    currentUser,
 
     async signIn(email, password) {
       const trimmed = email.trim().toLowerCase();
@@ -70,13 +117,26 @@ export function supabaseAuthClient(supabase: SupabaseClient): AuthClient {
     },
 
     async signOut() {
-      // 'local' clears this phone's session even with no connection.
-      await supabase.auth.signOut({ scope: 'local' });
+      // 'local' ends only this phone's session. Offline with an expired token,
+      // supabase-js returns an error before it removes the stored session, so
+      // remove it ourselves: on a shared phone the next person's records must
+      // never be saved under this user (ADR-020).
+      let failed = false;
+      try {
+        const { error } = await supabase.auth.signOut({ scope: 'local' });
+        failed = error !== null;
+      } catch {
+        failed = true;
+      }
+      if (failed || (await readStoredUser(store, storageKey)) !== null) {
+        await store.removeItem(storageKey);
+      }
+      emit(null);
     },
 
     onChange(listener) {
-      const { data } = supabase.auth.onAuthStateChange((_event, session) => listener(toUser(session?.user)));
-      return () => data.subscription.unsubscribe();
+      listeners.add(listener);
+      return () => listeners.delete(listener);
     },
   };
 }
