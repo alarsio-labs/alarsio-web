@@ -28,3 +28,12 @@ create function public.test_assert(ok boolean, msg text) returns void language p
 begin
   if ok is not true then raise exception 'ASSERT FAILED: %', msg; end if;
 end $$;
+
+-- Like a hosted project, everything the migrations create in public starts out
+-- granted to the client roles, so a migration that forgets its
+-- `revoke all ... from public, anon, authenticated` fails here, in the schema
+-- guards (ADR-024), instead of shipping open. Set last, so the helpers above
+-- keep their plain defaults.
+alter default privileges in schema public grant all on tables    to anon, authenticated;
+alter default privileges in schema public grant all on sequences to anon, authenticated;
+alter default privileges in schema public grant all on functions to anon, authenticated;

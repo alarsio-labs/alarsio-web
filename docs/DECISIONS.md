@@ -800,6 +800,53 @@ is handled in code but not covered by a test, as the SQL suites run on one conne
 
 ---
 
+## ADR-024 · Schema guards: the non-negotiables are checked in CI, test-only
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #72)
+
+**Context.** `write_audit()` (ADR-008) has been attached to every business table, and
+every table, view and definer function on `main` follows `CLAUDE.md`'s rules. But only a
+reviewer reading each migration checked that. `attendance_corrections`, `wage_periods` and
+`wage_lines` are next, and one forgotten line in any of them would leave a table unaudited
+or open, with nothing failing.
+
+**Decision.**
+- G1. Two SQL suites read `pg_catalog` after every migration has been applied:
+  `audit_coverage_test.sql` and `schema_guards_test.sql`. They cover every table, view,
+  materialized view and `SECURITY DEFINER` function in `public`, so a new one is checked
+  without anyone adding it to a list.
+- G2. **Audit.** Every table that is not exempt has a `write_audit()` trigger `AFTER INSERT
+  OR UPDATE OR DELETE FOR EACH ROW`, and a `uuid` `id`. The trigger must fire on every
+  ordinary write: enabled or `ALWAYS`, never disabled or replica-only, with no `WHEN (…)`
+  clause and no `UPDATE OF` column list. The exemptions are
+  exactly three, and the suite asserts all three exist:
+  - `audit_log` (ADR-008), which is the log itself;
+  - `purge_log`, which is itself a log (ADR-012);
+  - `rate_limit_counters`, which counts requests and records no change. It has RLS, no
+    policies and no grants (ADR-012).
+- G3. **Schema.** Every table has RLS on. Every view is `security_invoker`. There are no
+  materialized views, since they cannot be invoker, and no foreign tables, since Postgres
+  cannot enforce RLS on them. Every `SECURITY DEFINER` function sets
+  `search_path = public`, and neither `PUBLIC` nor `anon` may execute it. Neither `anon` nor
+  `authenticated` may DELETE or TRUNCATE a table, and `anon` has no table or column privilege.
+- G4. A failure names the object and the rule it breaks. Each suite also breaks every
+  rule on a probe object, and the main rules on real objects, and asserts the guard names
+  exactly those. That proves the guard can fail.
+- G4a. The test shim now grants everything in `public` to `anon` and `authenticated` by
+  default, as a hosted project does. So a migration that forgets its `revoke all … from
+  public, anon, authenticated` fails the guard here, instead of shipping open. Every
+  existing suite passes with this default.
+- G5. Test-only. A published `schema_guard_violations()` function, which an operator could
+  run on the real project, was considered and declined: it adds public surface for a check
+  CI already makes. Revisit when the team project exists (#58).
+- G6. A new exemption is a line in the suite **and** an ADR saying why.
+
+**Consequences.** The rules in `CLAUDE.md` that a migration can break are now enforced on
+every PR, for every module, and the two week-1 audit rows can be ticked on evidence.
+Costs: a module that truly needs a client DELETE, or a table with no audit, must argue it
+in an ADR first. The guards run only against the test shim. It copies the hosted default
+grants, but objects that exist only on the hosted project (extensions, Supabase's own)
+are not checked until #58. And the checks are structural: a policy that is present but
+too wide still needs a reviewer and the module's own role tests.
 ## ADR-027 · Worker import: the file is read in the browser, with read-excel-file
 **Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha; #57)
 

@@ -15,8 +15,6 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 2 | **Sites** | Manish | 🟡 | `sites`, `site_assignments` |
 | 3 | **Workforce** | Ishant | 🟡 | `workers`, `worker_site_assignments`, `worker_wage_rates` |
 | 4 | **Attendance & Site Presence** | Manish | 🟡 | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
-| 5 | **Daily Reporting** | Anuradha | ⬜ | `daily_reports`, `daily_report_revisions`, `report_photos` |
-| 4 | **Attendance & Site Presence** | Manish | ⬜ | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | 🟡 | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
 | 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
@@ -36,7 +34,7 @@ Everything depends on these. Nothing else starts cleanly until they exist.
 - [ ] Monorepo + Turborepo running, CI green on an empty app — *all four*
 - [ ] **Identity & Access** — org, membership, 4 roles, RLS predicates — *Ishant*
 - [ ] **Sites** — sites, geofence, supervisor assignment — *Manish*
-- [ ] **Audit, Retention & Guards** — the generic audit trigger — *Anuradha*
+- [x] **Audit, Retention & Guards** — the generic audit trigger — *Anuradha*
 - [x] Mobile app shell + test harness — *Nikhil*
 
 ### Weeks 3–6 · Field capture
@@ -149,13 +147,17 @@ reason, and Sync now. "Status shown" and "Never shows submitted" stay unticked u
 the capture screens show each record's own status.*
 
 ### 9 · Audit, Retention & Guards
-- [ ] One generic trigger writing `audit_log` across every privileged table
+- [x] One generic trigger writing `audit_log` across every privileged table
 - [x] Audit log is append-only
 - [x] Removing a user or worker never deletes history
 - [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
 - [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
 
+*Audit coverage is proven, not assumed (#72, ADR-024): `audit_coverage_test.sql` fails
+CI if any table except the three logs lacks `write_audit()` after every row change, and
+`schema_guards_test.sql` does the same for RLS, invoker views, pinned definer functions,
+client delete grants and anon grants.*
 *The owner export is in place (#76, ADR-026): `/export` downloads one ZIP of a CSV per
 table, read under the owner's RLS and rate-limited to 5 an hour (`export_org_data`).
 `tables.test.ts` and `data_export_test.sql` prove every table is listed and readable.
