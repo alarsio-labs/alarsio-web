@@ -1,7 +1,7 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const SIGNED_IN_ONLY = ["/dashboard", "/team"];
+const SIGNED_IN_ONLY = ["/dashboard", "/team", "/workers"];
 
 // Refreshes the Supabase session cookie on every page request, and sends a
 // signed-out visitor on a signed-in-only page to sign in. This is a
@@ -28,7 +28,10 @@ export async function proxy(request: NextRequest) {
   } = await supabase.auth.getUser();
 
   const path = request.nextUrl.pathname;
-  if (!user && SIGNED_IN_ONLY.some((p) => path === p || path.startsWith(p + "/"))) {
+  // The export download is a POST whose form holds the organisation; the
+  // route sends a signed-out caller back to that organisation's export page.
+  const ownSignIn = path === "/export/download";
+  if (!user && !ownSignIn && SIGNED_IN_ONLY.some((p) => path === p || path.startsWith(p + "/"))) {
     const signIn = request.nextUrl.clone();
     signIn.pathname = "/sign-in";
     signIn.search = "";

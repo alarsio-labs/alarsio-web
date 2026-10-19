@@ -275,7 +275,7 @@ the same supervisor needs the roster to mark attendance.
 - W6. Nothing is deleted. `status` retires a worker; `anonymize_worker()` clears the
   name and phone, closes open assignments, and is terminal. Assignments close
   (`unassigned_at`), as in Sites, and a closed one is never reopened.
-- W7. The roster rule is `has_worker_access(worker)`: owner and project_manager
+- W7 (extended by W9, W10). The roster rule is `has_worker_access(worker)`: owner and project_manager
   across the org, anyone with `has_site_access` to a site the worker is assigned to.
   It is private to Workforce; other modules read a view.
 - W8. `import_workers(org, rows)` is `SECURITY INVOKER`, keyed on code, at most 1000
@@ -286,7 +286,20 @@ the same supervisor needs the roster to mark attendance.
   trade and status, and no rates. So a closed row keeps its name,
   `has_worker_access` also counts a closed assignment at a site the caller can
   access: a supervisor sees everyone ever rostered at their site, no one else.
-
+- W10. An accountant reads the full `workers` row of every worker in their
+  organisation, including phone (personal data, DPDP), pay type, `created_by` and
+  `anonymized_at`, through `can_view_wages` inside `has_worker_access`. They already
+  read every rate, and need the name and code to pay a person and the phone to reach
+  them about pay. They cannot create, edit, assign or import. This widens `workers`
+  only: assignments and `worker_roster` still follow `has_site_access`. Worker
+  visibility now follows `can_view_wages`, so changing that predicate changes who
+  reads workers (2026-10-18).
+- W11. A worker's pay type cannot change once they have a wage rate. A rate row has
+  no basis column, so switching daily and hourly would reread every past rate. A
+  trigger enforces it for every writer; to change the basis, add a new worker code.
+  (W10 is the accountant's read access, #59.)
+- W12. A re-import with a blank or missing phone keeps the stored phone. Clearing a
+  phone is done on the worker's page.
 **Consequences.** A supervisor can run attendance without ever seeing pay. Rate
 history is complete, so a wage summary can be reproduced for any past date. Costs:
 `audit_log` records the old row on an update, so an anonymized worker's earlier name
@@ -568,7 +581,7 @@ and there is no team dev Supabase project yet.
   lost and shared. Sign-in screens stay Identity's.
 
 **Consequences.** Capture screens only save to the outbox and call `requestSync()`.
-Costs: until sign-in exists the app syncs nothing; an end-to-end test needs a dev
+Costs: until sign-in exists the app syncs nothing (sign-in: #56, ADR-026); an end-to-end test needs a dev
 Supabase project with the migrations applied; supabase-js adds about 0.8 MB to the
 bundle; download of sites, materials and the roster to the phone is a separate,
 still unplanned piece of Offline Sync; and the outbox does not record who captured a
@@ -784,6 +797,111 @@ the caller cannot see retries with backoff instead of being refused, since under
 it looks the same as a report still on its way (the phone only sends photos of its
 own reports); and the race in H4, a review landing between the read and the update,
 is handled in code but not covered by a test, as the SQL suites run on one connection.
+
+---
+
+## ADR-027 · Worker import: the file is read in the browser, with read-excel-file
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha; #57)
+
+**Context.** Contractors keep their worker register in Excel or CSV. The import needs
+to read both, and the rows go to `import_workers()` (ADR-011 W8).
+
+**Decision.**
+- The file is parsed in the browser. Only the rows reach the server action, so the
+  file is never uploaded or stored, and the server's job stays one RPC as the user.
+- CSV uses our own small RFC 4180 reader. `.xlsx` uses `read-excel-file` (MIT),
+  loaded only when someone picks an Excel file. Only the first sheet is read; `.xls`
+  is not supported.
+- The file is checked before sending: required columns, duplicate column names, an
+  unclosed quote, a CSV not saved as UTF-8, date or TRUE/FALSE cells, more than 1000
+  rows or 5 MB, and duplicate codes. Each message names the real file line. Values
+  are checked by the database, row by row.
+- Codes Excel stored as numbers are imported as text, with a warning about lost
+  leading zeros, rather than refused.
+
+**Consequences.** No file storage or server-side parser to secure. Costs:
+`read-excel-file` has a single maintainer, which is a supply-chain risk (pinned in the
+lockfile, reviewed on upgrade); old `.xls` files must be re-saved; and a leading zero
+already lost by Excel cannot be recovered, only warned about.
+## ADR-026 · Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha, Nikhil; #56)
+
+**Context.** The sync sender (ADR-018, ADR-020) sends nothing while no one is signed
+in, and field capture must keep working with no signal (CLAUDE.md rule 6). Review of
+#56 found that supabase-js returns no session offline once the access token expires,
+and that an offline sign-out with an expired token did not clear the stored session.
+On a shared phone that would save the next person's records as the previous user's.
+
+**Decision.**
+- M1. The sign-in gate lives in `app/_layout.tsx`, around every route, so a deep link
+  (scheme `alarsio`) cannot reach a screen while signed out.
+- M2. Offline with an expired token, the user stays signed in as the user in the
+  stored session (`isAuthRetryableFetchError`). Only a refresh the server refuses, or
+  a sign-out, ends the session. The session key is fixed (`alarsio-auth`) so the app
+  can read it.
+- M3. Sign-out always ends this phone's session: if supabase-js returns an error or
+  throws, the app removes the stored session itself and reports signed out.
+- M4. Sign-out never blocks (ADR-020). It warns with the user's unsent counts, split
+  into rows that will send next time and rows that need a fix (ADR-016), and says so
+  when it could not count.
+- M5. No sign-up on the phone. People join through the invite link on the web
+  (ADR-019), then sign in on the phone.
+- M6. The signed-in screens are keyed by user id, so a sign-in mounts a fresh sync
+  engine for that user. Overlapping runs during a switch are safe once the sender
+  releases only its own batch (#67).
+
+**Consequences.** A supervisor keeps capturing through a day with no signal, and a
+shared phone hands over cleanly. Costs: offline, the app shows a user as signed in
+whose token cannot be refreshed yet, so the sync line says it is waiting for a
+connection (Nikhil, #69); a revoked user stays signed in on the phone until it next
+reaches the server; and the session key change signs out anyone signed in before it.
+## ADR-026 · Owner data export: every table read under the owner's RLS, one ZIP of CSVs
+**Date:** 2026-10-19 · **Status:** Proposed · **By:** Anuradha (issue #76)
+
+**Context.** Module 9's last row is "a customer can export all of their own data" (CUJ-6).
+An export is by definition a read of every module's tables, but `ARCHITECTURE.md` rule 4
+says one module reads another only through a published view, and only a few tables have
+one. The rows also include worker names, phones and site locations (DPDP), and PostgREST
+caps a response at 1000 rows.
+
+**Decision.**
+- E1. The export is a web feature, `/export` and `POST /export/download`, owner only. It
+  reads every table **directly, as the signed-in owner**, with the normal Supabase client.
+  RLS decides every row; there is no service-role key and no `SECURITY DEFINER` reader.
+  This is a named exception to rule 4: read-only, owner-only, in one place
+  (`apps/web/src/lib/export/`). Publishing an export view per module was declined: nine PRs
+  across four owners for a copy of each table.
+- E2. The tables and columns are a fixed list (`tables.ts`). A Vitest test reads
+  `supabase/migrations` and fails when a table or column is neither in the list nor
+  exempt; `apps/web/turbo.json` makes the migrations an input of that test. Exempt:
+  `purge_log` and `rate_limit_counters`, closed to every client (ADR-012). Withheld:
+  `invites.token_hash`, which the client may not select. `data_export_test.sql` checks
+  the database side: `authenticated` may select every other column, and the export's query
+  returns only the owner's organisation from every table.
+- E3. One ZIP (`fflate`) of one CSV per table plus `manifest.csv` (rows per table, when,
+  who, and a note where RLS shows the owner less than everything: their own profile only,
+  no other user's draft reports, no photo files). Pages of 1000 by `id` (keyset), until a
+  page comes back empty, so a lower server row cap loses nothing. Any failure returns no
+  file. `write_audit()` stores whole rows (ADR-008), so a withheld column is also removed
+  from `audit_log.old_data` / `new_data` for that table's rows: no invite token hash
+  leaves the system.
+- E4. CSV is RFC 4180, CRLF, UTF-8 with a BOM. A text cell starting with `=`, `+`, `-`,
+  `@`, tab or CR gets a leading `'` (OWASP CSV injection); numbers and booleans do not.
+- E5. `enforce_rate_limit` gains the key `export_org_data`, at most 5 per user per hour,
+  called before any read so a failed export still counts. The route also refuses a POST
+  whose `Origin` is another site.
+
+**Consequences.** An owner can take all of their data out without asking us, and gets
+exactly what they can already see. Costs: every new table or column fails the web test
+until it is added to `tables.ts` or exempted with an ADR, so other modules' PRs touch this
+module's file; the ZIP is built in memory, fine for 2–20 sites but to be streamed if a
+pilot organisation outgrows it; photo files are not included; the export itself leaves no
+record beyond the rate-limit counter (a `data_exports` table would be a new decision);
+other users' profile names are absent because profiles are self-only; an anonymized
+worker's earlier name and phone are still in `audit_log` until the 3-year floor
+(ADR-012's retention exception), so the export carries them too; the `'` prefix
+changes how a cell such as `-5 bags` reads back; and the route has been tested only with a
+fake reader and the SQL suite, not against a hosted project (#58).
 
 ---
 
