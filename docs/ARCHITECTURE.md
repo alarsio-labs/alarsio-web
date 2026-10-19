@@ -115,6 +115,14 @@ the table publishes the handler and lists it in its row of the public surface ab
 The phone also **pulls** what the signed-in user may see (sites, material
 balances, today's roster) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).
+## Data export
+
+The one read that crosses every module (ADR-026). An owner downloads their
+organisation's data from `/export`: every table except `purge_log` and
+`rate_limit_counters`, read **as the owner**, so RLS decides every row. It is a named
+exception to rule 4 below: read-only, owner-only, and kept in
+`apps/web/src/lib/export/`. A new table or column must be added to
+`apps/web/src/lib/export/tables.ts` (or exempted with an ADR); a test fails until it is.
 
 ## What is deliberately not here
 
