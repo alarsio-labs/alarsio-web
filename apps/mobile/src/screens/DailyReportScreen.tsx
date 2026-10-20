@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
+import { readHeadcount } from '../attendance/headcount';
 import type { DeviceDb } from '../db/device-db';
 import type { PickResult } from '../reports/photo-device';
 import { photoErrorText, PhotoError, photoStatusText, PHOTO_LIMITS } from '../reports/photo';
@@ -15,11 +16,14 @@ import { addPhoto, listPhotos, type PhotoFiles, type StoredPhoto } from '../repo
 import {
   dayLabel,
   fieldsOf,
+  headcountHint,
   isFlagged,
   needsReason,
+  openingFields,
   reportDay,
   reportErrorText,
   reportStatusText,
+  type DayAttendance,
   type ReportFields,
   type ReportStatus,
   type ReportTone,
@@ -71,6 +75,8 @@ export function DailyReportScreen({
   const [form, setForm] = useState<ReportFields>(fieldsOf(null));
   const [reasonText, setReasonText] = useState('');
   const [message, setMessage] = useState<string | null>(null);
+  // The day's attendance on this phone, read once when the form is filled (#109).
+  const [attendance, setAttendance] = useState<DayAttendance | null>(null);
   const alive = useRef(true);
   // The form is filled from the phone once; a poll only updates the status line,
   // so it never overwrites what the supervisor is typing.
@@ -105,6 +111,10 @@ export function DailyReportScreen({
       const site = (await readSites(db, userId)).find((s) => s.id === siteId.toLowerCase());
       const stored = site ? await findReport(db, userId, site.id, day) : null;
       const photoList = stored && photos ? await listPhotos(db, userId, stored.recordId) : [];
+      // Only for the first fill, and never in the way of the report: a failed read
+      // just leaves the headcount to be typed (ADR-038 D4).
+      const counted =
+        site && !filled.current ? await readHeadcount(db, userId, site.id, day).catch(() => null) : null;
       if (!alive.current) return;
       const read = JSON.stringify([site ?? null, stored, photoList]);
       if (read === snapshot.current) return;
@@ -115,7 +125,8 @@ export function DailyReportScreen({
       }
       if (!filled.current) {
         filled.current = true;
-        setForm(fieldsOf(stored?.report ?? null));
+        setAttendance(counted);
+        setForm(openingFields(stored?.report ?? null, counted));
       }
       setLoad({ kind: 'ready', site, stored, photoList });
     } catch {
@@ -228,6 +239,7 @@ export function DailyReportScreen({
             editable={editable}
             style={styles.input}
           />
+          {attendance && <Text style={styles.hint}>{headcountHint(attendance)}</Text>}
         </Field>
         <Field label="Work done">
           <TextInput
@@ -376,6 +388,7 @@ const styles = StyleSheet.create({
   field: { gap: 4 },
   photos: { gap: 8 },
   label: { fontSize: 16, color: '#111' },
+  hint: { fontSize: 14, color: '#555' },
   input: { minHeight: 44, borderWidth: 1, borderColor: '#888', borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
   multiline: { minHeight: 88, paddingVertical: 8, textAlignVertical: 'top' },
   toggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },

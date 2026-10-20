@@ -1432,6 +1432,107 @@ up to 16 h at 2x); only the day is capped. A period can be locked while some of 
 future: only a payable day with no rate blocks the lock, and a day approved later shows as `approved_after_lock`
 (D11). And `wage_lines` and `wage_line_days` are a derived snapshot,
 upserted while a period is a draft and frozen once locked; only `wage_adjustments` and `wage_period_reopens` are ledgers.
+## ADR-040 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #80 AC 3; the web screen is PR #100; review: Anuradha)
+
+**Context.** `review_attendance_day` and `review_attendance_correction` (ADR-030 D5) checked only
+`can_review_site`. "Nobody reviews a day they recorded" held because recorders (`supervisor`) and
+reviewers (`owner`, `project_manager`) are different roles, and one person has one role per
+organisation. An owner can change a member's role (`grant update (role) on memberships`), so a supervisor
+made a project manager could approve or reject days they recorded, and nothing in the database said no.
+The web pages hide the controls (ADR-039 W8), which is presentation only.
+
+**Decision.**
+- **S1 · The check is in the two functions**, right after the permission check, so it answers before any
+  state rule (a blank reason, "an approved day cannot be rejected") and before the no-op for an already
+  decided record. It is `42501`, the same as "not yours", so the web messages and the router are unchanged.
+- **S2 · A day** is refused to a caller who opened it (`attendance_days.recorded_by`) or who recorded any
+  of its entries (`attendance_entries.recorded_by`, same site and date).
+- **S3 · A correction** is refused to its proposer (`proposed_by`), also when it is already decided.
+  It is **not** refused for a day the caller recorded: that is a different act on a different row, and the
+  day was approved by someone else. This matches the web page, which tests the same two things.
+- **S4 · No new column, table, grant or role.** The two functions are replaced (`create or replace`) with
+  their bodies plus the check; grants and `SECURITY DEFINER` / `search_path` are unchanged.
+
+**Consequences.** The rule is now a database fact, so a hand-made call by a promoted supervisor fails and
+leaves no audit row. Costs: a person who recorded on a site and is later made a reviewer can never review
+those days, and if they are the only reviewer, the owner must; an entry a reviewer recorded blocks the whole
+day for them, even if a colleague opened it; the check reads `attendance_entries` on every day review (an
+indexed lookup on site and date); and it binds only the recorder's own account, so a person with two
+accounts is not stopped, which no database rule can do.
+
+**Known gap: an edit is not recording.** `attendance_entries.recorded_by` never moves on an update, and
+any supervisor assigned to the site may edit another supervisor's entry on a day that is not approved. If
+supervisor A opens a day and records it, B changes several entries, and B is later made a project manager,
+B may review that day even though B wrote some of its figures. Closing it needs an `updated_by`-style column
+on `attendance_entries`, or a read of `audit_log`, which another module owns; either is a decision of its own
+and is not in this change. `attendance_self_review_test.sql` [3.09] pins today's behaviour, so the gap is on
+record and a later fix changes that case on purpose. A day the reviewer opened that has no entries is
+refused ([2.12b]), so the opener rule stands on its own.
+
+---
+
+## ADR-039 · Web review of attendance: one list, one detail page, no new write, and a self-review gap the database does not close
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish and Anuradha (issue #80; reviewer: Ishant)
+
+**Context.** The database side of Attendance review is on `main` (ADR-030, ADR-032) but no screen
+uses it, so a day stays `open` until someone calls the functions by hand. Issue #80 asks for the
+manager's screen, shaped like the daily-report review (ADR-025), and says "nobody reviews a day
+they recorded". `review_attendance_day` and `review_attendance_correction` check only
+`can_review_site`; they never compare `recorded_by` or `proposed_by` with the caller. The rule holds
+today because the role sets are disjoint (`can_record_on_site` is `supervisor`, `can_review_site` is
+`owner` / `project_manager`, one membership per person per organisation), but an owner may change a
+member's role, so a supervisor made a project manager can review days they recorded.
+ADR-031 is held for #90 and ADR-034 to ADR-038 are taken, so this one is ADR-039.
+
+**Decision.**
+- **W1 · Routes.** `/attendance?org=` is the list and `/attendance/[id]?org=` the day (its id is the
+  day's id), as `/reports`. `/attendance` joins `SIGNED_IN_ONLY`, and the dashboard links to it for
+  `owner` and `project_manager` only.
+- **W2 · No new write, no migration.** The pages write only through `review_attendance_day` and
+  `review_attendance_correction`, and never through `.from(...)`. They add no table, view, policy or grant.
+- **W3 · What a row is.** One row per (site, date): the day when there is one, plus a row for a date that
+  has flagged exceptions and no day (a visit with no attendance opened), which has no link. Reads are
+  `attendance_days`, `site_exceptions`, and on the day page `attendance_entries` and
+  `attendance_corrections`, all under the viewer's RLS; site names come from `site_directory` (ADR-025
+  W1) and worker names from `worker_roster`, de-duplicated by worker. Membership is checked with
+  `is_org_member`, and whether to draw the buttons with `can_review_site`.
+- **W4 · Needs review** is the default filter: a day that is `open`, or `rejected` and edited since
+  (`changed_since_review`, ADR-032 D7), or has a pending correction. A geofence or not-closed exception
+  on an approved day does not count, because those rows never resolve (ADR-032 consequence), and nor does
+  a date that has only such a flag and no day at all: it has nothing to approve and no way to clear the
+  flag, so it shows under "All" only. Rows are newest date first; within a date, flagged rows, then rows waiting,
+  then site name.
+- **W5 · Time.** "Today", the default range and every timestamp are Asia/Kolkata and say IST (ADR-021),
+  unlike the reports pages, which are UTC. The default range is the 31 days ending today, and the longest
+  is 31, because a day left unreviewed for ten days is exactly what a manager must see.
+- **W6 · Reason.** One form per decision with Approve and Reject buttons and one reason box. A reject with a
+  blank reason, and any reason over 500 characters after trimming, is refused before the database is
+  called; an approve may carry a note. Errors are fixed messages chosen by SQLSTATE
+  (`42501`, `22023`, `55000` with separate texts for a day and a correction); `28000` goes back to sign-in.
+- **W7 · No names of people.** A day or correction by the viewer says "you"; others say nothing
+  (ADR-025 W7).
+- **W8 · AC 3 in this PR is presentation.** The day's Approve / Reject form is drawn only when the viewer
+  neither recorded the day nor any of its entries, and a correction's only when the viewer did not propose
+  it; otherwise the page says someone else must review. The database check is **not** part of this PR.
+  The follow-up is PR #101 (ADR-040): a migration that makes both functions answer `42501` for a self-recorded day or a
+  self-proposed correction, with SQL tests, as its own PR for Attendance's owner.
+- **W9 · Where decided.** Corrections are decided on the day's page, one small form each, not on a page of
+  their own.
+
+**Consequences.** A manager can see what needs a look and decide it, and the same wording and layout as
+the report review makes the two screens feel alike. Costs: until the follow-up migration lands, AC 3's
+"nobody reviews a day they recorded" is true only by role separation and by the hidden buttons, and a
+promoted supervisor who posts the form by hand is accepted; an accountant can open `/attendance` and read
+approved days (ADR-032 D3) but never sees a control; the list reads all days of a 31-day window (capped at
+1000, a cap that 20 sites do not reach) and two ordered exception queries of up to 1000 rows each (waiting
+corrections and sent-back days apart from geofence and not-closed flags, so a flood of flags cannot push a
+waiting correction out); the site, the dates and open / rejected / approved are filtered in the database,
+but "Needs review" and "All" are applied after the read, so when a cap is reached the oldest rows are the
+ones cut, and they may need review (the page says which cap was hit); an exception-only row cannot be
+opened; the list shows no per-day entry counts; the decision logic in
+`lib/attendance` and the two actions (mocked client) have unit tests, but no test renders a page or the
+form, and none has been driven against a real Supabase project.
 ## ADR-034 · Sites web, part 1: list, create, edit, status and archive, with no new database surface
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #78, PR 1 of 2; review: Ishant)
 
@@ -1573,7 +1674,8 @@ needs a reason, and what the screen may say before the server answers.
 - D6. **A serious blocker or a safety incident shows a banner before submit** saying the report will be flagged
   to managers. In-app only (ADR-013 R3).
 - D7. **Headcount is typed for now.** Pre-filling it from the day's attendance entries waits for the phone's
-  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then.
+  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then. *The pre-fill
+  is in #109 (ADR-038); it counts entries once the phone records them.*
 
 **Consequences.** A supervisor can save, finish and submit a report with no signal, and the only record is an
 outbox row that survives a restart. Costs: every draft save is also sent, so the server holds the author's
@@ -1627,6 +1729,47 @@ report in its app folder; the 4xx rule treats an unknown refusal as final, so a 
 the JPEG re-encode drops EXIF, which is intended but also loses the original's capture time; and the
 `Paths.document` folder is not cleared when a user signs out, so a photo of user A that was never uploaded stays on
 the phone until A signs in again (the queue row is A's, so B never sees or sends it).
+
+---
+
+## ADR-038 · Daily report headcount pre-filled from the day's attendance on the phone
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #109, follow-up to #81 AC 2; review: Manish, because the reader is in Attendance's phone folder)
+
+**Context.** ADR-036 D7 left the report's headcount typed until the phone recorded attendance. The
+shape of an attendance entry on the phone is fixed by Attendance's handler (`sync_attendance_entries`,
+ADR-033): `org_id`, `site_id`, `attendance_date`, `worker_id`, `status`, `overtime_hours`, `note`. So a
+report can count the day's entries from the outbox now, and the count starts working the day the
+phone's mark-all (ADR-034 D2, #79 PR 2) writes entries.
+
+**Decision.**
+- D1. **Attendance answers the count.** `readHeadcount(db, user, site, date)` lives in
+  `apps/mobile/src/attendance/headcount.ts`, so only Attendance's code reads an entry's payload; the
+  report screen calls it and never parses the record. It is read-only and additive, like ADR-034 D4's
+  `listRecords`.
+- D2. **On site means `present` or `half_day`**, counted once per worker by their newest entry.
+  `absent` and `leave` are not counted. The half days are counted apart for the hint.
+- D3. **Only the signed-in user's own entries** (ADR-020), through `listRecords`. An entry the server
+  `rejected` was never stored and is not counted; a record without a text site, day and worker and
+  one of the four statuses is skipped, as are another site and another day. The server stays the
+  check on the rest of the payload.
+- D4. **The count fills only a new report.** It is read once, when the form is first filled, never on
+  the poll. A saved report (draft or submitted) keeps its own headcount, and a typed value is never
+  overwritten. With no entry for the site and day the field stays empty, to be typed; with entries
+  and nobody on site it starts at 0. A failed read leaves the field to be typed and never stops the
+  report.
+- D5. **The screen says where the number came from**: "From attendance on this phone: 14 on site
+  (2 half day)", under the field, also beside a saved report so a difference shows. The field stays
+  editable and every ADR-036 rule (limits, reason after submit) is unchanged.
+- D6. **The scan stops at 3000** of the user's entry records for the site, newest first: about a month
+  of a 100-worker site. An older day beyond that is typed.
+
+**Consequences.** A supervisor who marked attendance on the phone opens the report with the headcount
+already right, offline. Costs: until #79 PR 2 ships, no phone holds an entry, so in practice the field
+is still typed; attendance recorded by another user or on another phone is not counted, and nor is the
+server's copy; a count read when the report opened does not follow later attendance changes until the
+screen is opened again; the outbox is never pruned, so the scan grows with the phone's history up to
+its limit; and the "File a report" row in `FEATURES.md` stays unticked until mark-all runs on a phone
+against the team project (#58).
 
 ---
 
