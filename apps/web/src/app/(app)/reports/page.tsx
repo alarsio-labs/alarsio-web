@@ -70,6 +70,7 @@ export default async function ReportsPage({
           <select name="status" defaultValue={f.status} className={`${inputClass} mt-1`}>
             <option value="all">All</option>
             <option value="submitted">Not reviewed</option>
+            <option value="rejected">Sent back</option>
             <option value="reviewed">Reviewed</option>
           </select>
         </label>
@@ -106,7 +107,9 @@ export default async function ReportsPage({
                 <span className="flex flex-wrap items-center justify-end gap-2 text-xs">
                   {r.serious_blocker && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Serious blocker</span>}
                   {r.safety_incident && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Safety incident</span>}
-                  <span className="text-neutral-600">{r.status === "reviewed" ? "Reviewed" : "Not reviewed"}</span>
+                  <span className={r.status === "rejected" ? "text-amber-800" : "text-neutral-600"}>
+                    {r.status === "reviewed" ? "Reviewed" : r.status === "rejected" ? "Sent back" : "Not reviewed"}
+                  </span>
                 </span>
               </Link>
             </li>
