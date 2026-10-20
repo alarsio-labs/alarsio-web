@@ -1242,50 +1242,71 @@ entry column for hourly pay, corrections must carry it too.
 
 ---
 
-## ADR-032 · Attendance publishes approved days and site exceptions; wage readers see every approved day
-**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28, PR 3a of 3; columns agreed with Ishant on #61; review: Anuradha)
+## ADR-033 · Attendance sync handlers: replay before permission, the lock answered in the handler
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #28, PR 3b of 3; contract agreed with Nikhil on #13; review: Anuradha)
 
-**Context.** `ARCHITECTURE.md` lists two Attendance views, "approved `attendance_days`" and
-`site_exceptions`, with no columns. Wage Summaries (#61) asked for one row per worker per approved day,
-with corrections applied. Both views are `security_invoker`, so they follow `has_site_access`, and an
-accountant reads only sites where they hold an open assignment (`has_site_access`, ADR-007): a wage period built from the
-view would silently miss every other site. ADR-030 left "how a fixed rejected day shows" to this PR. The
-number: #90 asks to renumber a duplicate ADR-026 and needs ADR-031, so this one is ADR-032.
+**Context.** `sync_push` routes `site_visits`, `attendance_days`, `attendance_entries` and
+`attendance_corrections`, but no attendance handler exists, so all four entities answer
+`retryable_error` / `handler_unavailable`. The lock from ADR-030 raises `PS409`, and `sync_push`
+has no clause for it yet, so a stale phone would retry forever. #13 agreed the handlers are
+`sync_<table>(p_record_id uuid, p_payload jsonb) returns sync_result`, `SECURITY INVOKER`, and
+Daily Reporting's handlers (ADR-022) set the pattern: validate, answer a replay, write under RLS.
+ADR-031 is held for #90 and ADR-032 is taken by #95, so this one is ADR-033.
 
 **Decision.**
-- **D1 · Number.** ADR-032, leaving ADR-031 for #90.
-- **D2 · `approved_attendance_days`** has exactly the columns #61 asked for: `org_id, site_id, worker_id,
-  work_date, status, overtime_hours, approved_at, approved_by`. One row per entry of an `approved` day,
-  all four statuses. `work_date` is `attendance_date`; `approved_at` / `approved_by` are the day's review
-  stamp. Corrections are already applied, because an approved correction writes the entry (ADR-030 D8).
-  More columns later are a `create or replace view` that appends.
-- **D3 · Wage readers see every approved day.** Two SELECT policies, `attendance_days_select_wages`
-  (`status = 'approved' and can_view_wages(org_id)`) and `attendance_entries_select_wages`
-  (`can_view_wages(org_id)` and the entry's day is approved), add to the `has_site_access` ones. The owner
-  and the accountant read every approved day of their organisation; nothing open or rejected is widened,
-  no other role gains anything, no write grant changes. Rejected: leaving RLS alone (the silent
-  undercount) and a `SECURITY DEFINER` wage function reading the tables directly (breaks rule 4).
-- **D4 · `site_exceptions` is one row per exception**, with a `kind`: `geofence_check_in`,
-  `geofence_check_out`, `visit_not_closed` (no check-out, checked in before today, IST),
-  `day_awaiting_review`, `day_rejected`, `correction_pending`. Read from Attendance's own tables only.
-- **D5 · No "attendance missing" kind.** There is no working calendar, so it would fire on every Sunday,
-  holiday and paused site.
-- **D6 · Columns:** `org_id, site_id, exception_date, kind, source_id, worker_id, raised_by, reason,
-  distance_m, changed_since_review, raised_at`. No coordinates. `exception_date` is the day's date, or the
-  IST date of the check-in for a visit; the view has no time window, a screen filters by date.
-- **D7 · A fixed rejected day** shows `changed_since_review = true` when any of its entries has
-  `updated_at > reviewed_at`. No new column.
-- Writing through either view is refused (no write grant; neither view is automatically updatable, so
-  Postgres answers `55000` before it checks the grant).
+- **D1 · The handler answers `PS409` itself.** In `sync_attendance_entries`, the only handler whose
+  writes the lock can refuse, the insert and the update each sit in a block that catches `PS409` and
+  returns `('conflict', 'locked')`; the block rolls the refused write back, so nothing is left.
+  `sync_attendance_corrections` has the same catch defensively, though nothing raises it there today;
+  visits and days cannot reach `PS409`. We do not edit `sync_push` (Nikhil's module). The catches go
+  once his router clause lands.
+- **D2 · A visit push is the whole visit**, check-in always and check-out when there is one, because
+  the outbox keeps only the latest save per record (ADR-022). The handler inserts the check-in if
+  missing, then sets the check-out once. It compares only the fields the payload carries (ADR-021
+  D6), so replaying the check-in after the check-out is `accepted`. It answers two conflicts itself:
+  `checked_out` (the visit already has another check-out) and `different_visit` (this id holds
+  another check-in).
+- **D3 · A second phone is a conflict only when it disagrees.** An entry for the same worker and
+  day under another id (ADR-021 D5) with the same status, overtime and note is `accepted`; with
+  different values it is `conflict` / `duplicate`, and the first writer wins.
+- **D4 · A `23503` that can never resolve is `rejected`.** The handler reads the constraint name
+  (`GET STACKED DIAGNOSTICS`): the site FKs and `attendance_entries_worker_fk` mean "not in this
+  organisation" and are re-raised as `22023`, as in ADR-022 H3. A missing day or entry stays
+  `23503` (`retryable_error` / `missing_parent`), because it can still arrive in the same outbox.
+- **D5 · Replay before permission**, as ADR-022 H6 and Materials (ADR-017). Four `SECURITY DEFINER`
+  matchers (`site_visit_matches`, `attendance_day_matches`, `attendance_entry_matches`,
+  `attendance_correction_matches`), outside the public surface but executable by `authenticated`
+  because the handlers run as the caller, compare only a row the caller wrote and return a boolean.
+  A phone that missed an answer still hears `accepted` after losing the site. An entry is the one
+  row someone else can change after the caller wrote it (another supervisor, or an approved
+  correction), and `recorded_by` does not move, so `attendance_entry_matches` also requires
+  `updated_at = created_at`: it answers only while the entry holds exactly what the caller wrote.
+  Without that, a caller who lost the site could call it through `/rpc` with guessed values and
+  learn what others wrote (found in the security review of this PR).
+- **D6 · An entry update that changes 0 rows is never `accepted`.** The update policy hides an
+  approved day's entries, so the `UPDATE` matches nothing and raises nothing (ADR-030). The handler
+  re-reads the day: `approved` is `conflict` / `locked`, anything else is `42501`. This is the
+  "stale device cannot overwrite an approved day" case from ADR-009.
+- **D7 · The branch is cut from `origin/main`, independent of #95.** The handlers need nothing from
+  the views; only the module-4 note and this list share files, and whichever merges second
+  resolves those small text conflicts.
+- **D8 · The phone's dates and times are read as written, never on the server's clock.**
+  `attendance_date` must be `YYYY-MM-DD`, and `check_in_at` / `check_out_at` ISO 8601 (`22P02`),
+  because a bare cast would take `today`, `now` or `epoch` and read the server's clock (ADR-021 D7).
+  Numbers are cast to their column's precision (coordinates to 6 decimals, overtime to 2), so the
+  value a replay is compared on is the value stored.
 
-**Consequences.** Wage Summaries reads one published view and never re-implements corrections, and an
-accountant's wage run covers every site. A reviewer has one list for the day's loose ends. Costs: an
-accountant with no site assignment can now read every approved day's statuses, overtime and notes in
-their organisation (the payroll job needs them); an approved correction can change a day already inside
-a locked wage period, and the view shows the new value, which #61 must handle; `site_exceptions` grows
-without bound (geofence rows never resolve) until a screen filters by date; `visit_not_closed` depends
-on `now()`, so the same row appears at IST midnight without any write; `changed_since_review` cannot tell
-a real fix from an edit that changed nothing material.
+**Consequences.** Attendance captured offline is accepted end to end on the server, a replay never
+writes, and a stale phone cannot overwrite an approved day. Costs: the `PS409` catch sits in
+`sync_attendance_entries` (twice) and, defensively, in `sync_attendance_corrections` until Nikhil's
+router clause lands (#96, open, adds it; after it merges the catches are redundant but harmless); four definer matchers are executable by `authenticated`, though each speaks
+only about the caller's own rows; the replay of a supervisor's own unanswered entry edit, after they
+lose the site, is `rejected` / `permission_denied` instead of `accepted` (D5); a second phone that marked a
+worker differently hears `conflict` / `duplicate`; a supervisor unassigned while offline cannot
+check out, since check-out is a write under RLS (the ADR-021 cost); the race in D6, a day approved
+between the read and the update, is handled in code but not covered by a test, as the SQL suites
+run on one connection; and order inside the outbox matters only for latency, since an entry that
+arrives before its day retries with backoff and then lands.
 
 ---
 

@@ -108,12 +108,11 @@ old value, the new value and the reason" is ticked: `attendance_review_test.sql`
 stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited,
 except the one review move, or deleted. "Manager approves or rejects a day" stays unticked:
 `review_attendance_day` and the lock (an approved day's entries change 0 rows, a late write raises
-`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist.*
-
-*The published views are in #28 PR 3a (ADR-032): `approved_attendance_days`, which Wage Summaries
-(#61) reads, and `site_exceptions`, the reviewer's list. `attendance_views_test.sql` proves both, and
-that an accountant reads every approved day of their organisation and nothing open or rejected. No
-row above names a view, so none is ticked by this PR. The four sync handlers are PR 3b.*
+`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist. The
+four sync handlers are in #28 PR 3b (ADR-033), which closes #28; the approved-days and
+`site_exceptions` views are #28 PR 3a (#95). `sync_attendance_test.sql` proves the server side of
+offline capture. "Check in and check out; location captured only on that tap" and "Mark everyone
+present in one tap" stay **unticked**, because both need the phone screens (#79).*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -159,9 +158,9 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 
 *The replay and poison-record rows stay unticked until all seven entities are
 wired. ADR-014 ties the no-duplicate guarantee to every handler, and calls for a
-shared handler contract test that does not exist yet. The four Attendance entities
-have no handler, so pushing one returns `retryable_error: handler_unavailable`
-(Attendance's PR 3b, #28). Not yet run against the team Supabase project (#58).*
+shared handler contract test that does not exist yet. All seven entities now have
+handlers (Attendance's in #28 PR 3b, ADR-033), so the rows wait only on that contract
+test. Not yet run against the team Supabase project (#58).*
 
 *Proof so far, in `supabase/tests`, with the real handlers unless stated:*
 - *Whole batch pushed twice, same answer, nothing written the second time:
@@ -171,6 +170,10 @@ have no handler, so pushing one returns `retryable_error: handler_unavailable`
   `sync_report_photos_test`: a photo sent before its report gets
   `retryable_error: missing_parent` and stores nothing, and report plus photo in one
   batch are both accepted.*
+- *Attendance is proven one record at a time (`sync_attendance_test`): a replay
+  writes nothing, a second phone with the same values is accepted, an edit or late
+  entry on an approved day is `conflict: locked`, and a replay after unassignment is
+  accepted.*
 - *One bad record, real handler: the mixed batch in `sync_daily_reports_test`
   stores its two good reports and refuses the bad ones. The mixed batch in
   `materials_ledger_test` has no accepted record, so it is not poison-record proof.*
@@ -181,8 +184,9 @@ have no handler, so pushing one returns `retryable_error: handler_unavailable`
   into its status") and `sender.test.ts` ("applies a mix of verdicts record by
   record").*
 
-*To tick both rows: Attendance's handlers with their own replay and poison tests,
-and one contract test that runs the same checks over all seven handlers.*
+*To tick both rows: one contract test that runs the same checks over all seven handlers.
+Attendance's handlers now have their own replay and poison tests (`sync_attendance_test.sql`
+[3.03] to [7.08] and [8.12]).*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their
