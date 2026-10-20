@@ -27,6 +27,14 @@
         {
           "locationWhenInUsePermission": "Alarsio reads your location once, when you tap Check in or Check out, to record that you are at the site. It does not track you in the background."
         }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "cameraPermission": "Alarsio opens the camera when you tap Take photo, to add a photo to your daily report.",
+          "photosPermission": "Alarsio opens your photos when you tap Choose photo, to add one to your daily report.",
+          "microphonePermission": false
+        }
       ]
     ]
   }
