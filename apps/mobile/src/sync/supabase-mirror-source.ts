@@ -28,7 +28,8 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
   // Sites' published view (ADR-028), never the `sites` table: ARCHITECTURE rule 4.
   sites: {
     table: 'site_details',
-    columns: 'id, name, address, status, latitude, longitude, geofence_radius_m',
+    // org_id: every Attendance payload names the organisation (#79).
+    columns: 'id, org_id, name, address, status, latitude, longitude, geofence_radius_m',
     key: 'id',
   },
   materials: {

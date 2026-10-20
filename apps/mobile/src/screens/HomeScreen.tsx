@@ -3,7 +3,7 @@
 // Owner: Offline Sync (Nikhil). Issues #14, #47, #68. Domain screens arrive in later issues.
 
 import { useEffect, useRef, useState } from 'react';
-import { StyleSheet, Text, View } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { PublicConfigResult } from '../config/public-config';
@@ -29,9 +29,11 @@ export interface HomeScreenProps {
   userId?: string;
   config: PublicConfigResult;
   appVersion: string;
+  /** Opens the Attendance screens (#79). Shown only for a signed-in user. */
+  onOpenAttendance?: () => void;
 }
 
-export function HomeScreen({ openDb, startSync, userId, config, appVersion }: HomeScreenProps) {
+export function HomeScreen({ openDb, startSync, userId, config, appVersion, onOpenAttendance }: HomeScreenProps) {
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [sync, setSync] = useState<SyncStatus | null>(null);
   const handleRef = useRef<SyncHandle | null>(null);
@@ -79,6 +81,12 @@ export function HomeScreen({ openDb, startSync, userId, config, appVersion }: Ho
 
       <Text style={db.kind === 'failed' ? styles.errorText : styles.line}>{dbLine(db)}</Text>
 
+      {userId && onOpenAttendance && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Attendance" onPress={onOpenAttendance} style={styles.button}>
+          <Text style={styles.buttonText}>Attendance</Text>
+        </Pressable>
+      )}
+
       {sync && (
         <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow().catch(() => undefined)} />
       )}
@@ -114,4 +122,14 @@ const styles = StyleSheet.create({
   errorText: { fontSize: 16, color: '#b00020', textAlign: 'center' },
   errorHint: { fontSize: 14, color: '#555', textAlign: 'center' },
   version: { fontSize: 12, color: '#777' },
+  button: {
+    minHeight: 44,
+    minWidth: 160,
+    paddingHorizontal: 16,
+    borderRadius: 8,
+    backgroundColor: '#111',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  buttonText: { color: '#fff', fontSize: 16 },
 });

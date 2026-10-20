@@ -1357,6 +1357,68 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
+## ADR-034 · Attendance on the phone, PR 1: check in and out, offline, with the location read on the tap
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #79, PR 1 of 3; review: Nikhil, because it touches the mirror and the outbox)
+
+**Context.** #79 is the supervisor's side of ADR-021: check in with no signal, mark everyone, fix
+exceptions, check out. It is too big for one PR. PR 1 is check in and check out; PR 2 is the day register
+(mark-all and exceptions); PR 3 adds the approved-days mirror, the read-only approved day and corrections,
+and closes #79. The mirrors already give the phone the assigned sites (with pin, radius and status) and the
+roster by date (ADR-023), but not the site's `org_id`, which every Attendance payload names, and nothing of
+what the server holds for a day. The server cannot take a check-in with no coordinates.
+
+**Decision.**
+- **D1 · Location.** Asked at the first check-in tap, after a screen that says why (once, on the tap, never
+  in the background), then the phone's own prompt, foreground only. One `getCurrentPositionAsync` per tap
+  and a 15 s limit of our own (the library has none). The `LocationProvider` interface has no watch and no
+  background call. If the permission is denied, services are off, there is no fix or it fails, a reason is
+  mandatory and the visit is sent at coordinates **0, 0** with the reason prefixed `Location not shared: `.
+  The server then measures thousands of km, flags it outside and keeps the reason, so it is never silently
+  accepted. Rejected: nullable coordinates with an explicit flag (a migration, an ADR-021 D8 change, a handler
+  and `site_exceptions` change: a PR of its own, listed as a follow-up) and refusing a check-in without
+  location (breaks the issue's AC 6).
+- **D2 · Mark-all offline** (built in PR 2). The phone writes the records itself, as ADR-021 says: one
+  `attendance_days` record, and one `attendance_entries` record per worker from `readRosterOn(site, date)` who
+  has no local entry yet, status `present`, overtime 0, in one local transaction. It never overwrites an
+  exception. Rejected: a bulk record (a new sync entity) and an online-only action.
+- **D3 · The estimate.** The server's haversine on the six-decimal coordinates that are sent, against the
+  mirrored pin and radius, "on the radius is inside". Inside saves at once; outside shows the distance, the
+  limit and the GPS accuracy and saves nothing until a reason is given. The database decides: if the two ever
+  disagree, the verdict `rejected` / `invalid_input` shows as needs attention, and "Add a reason and send again"
+  re-saves the same record id (re-queued, ADR-016). The reason goes on the latest leg of the visit only, because
+  changing an already accepted check-in would be `conflict` / `different_visit` (ADR-033 D2).
+- **D4 · `org_id` on the mirror.** `mirror_sites.org_id`, device migration 5, nullable so a phone keeps the
+  sites it holds; the pull selects it from `site_details` (it was already published) and a row without it fails
+  the whole pull. A site with no `org_id` yet cannot be checked in to, and says "Connect once to refresh your
+  sites". This is Offline Sync's file, changed additively here with Nikhil's review. `listRecords(db, author,
+  entity, { siteId })` is added to `outbox.ts` the same way, so a screen can read its own records back; it
+  never falls back to every user's rows (ADR-020).
+- **D5 · An open visit from an earlier day** shows with its date, can be closed (with the time and place of
+  that tap), and does not block a new check-in (ADR-021 D12).
+- **D6 · Wiring.** `expo-location` (Expo's resolver, SDK 57), the plugin text in `app.json`. The attendance
+  routes cannot reach the sync engine, which the home route starts, so a screen re-reads the outbox every
+  3 s to show a verdict and a saved visit leaves on the next trigger (foreground, reconnect, 60 s). The home
+  screen (`HomeScreen.tsx`, `app/index.tsx`, Offline Sync's) gets an optional Attendance button, shown only to a
+  signed-in user. One tap runs at a time: a second tap while the first is still reading the location or saving
+  does nothing, so a double tap cannot save two visits.
+- **D7 · Words.** A visit says "Saved on this phone, waiting to send" until the record is `synced` (the server's
+  `accepted` verdict), then "On the server"; `failed` is "Could not send yet. Will retry."; `conflict` and
+  `rejected` are both "Needs attention" with a plain reason (#68). No raw code or error text is shown.
+
+**Consequences.** A supervisor can check in and out with no signal, and the only record is an outbox row that
+survives a restart. Costs: a no-location visit stores 0, 0 and a distance of thousands of km in the row and in
+`audit_log`, and the reviewer sees "outside the fence" rather than "no location"; the estimate can differ from
+the server at the exact edge and after a radius change; a visit has one outbox row, so a rejected visit whose
+fault was in the check-in leg gets its reason on the check-out leg and is refused again; the phone does not know
+the role, so an owner or project manager's check-in is sent and comes back `permission_denied`; the phone's
+only knowledge of its own visits is the outbox, so a visit made on another phone, or before a reinstall, is not
+shown; a screen's saved visit waits for the next sync trigger (up to a minute) until the engine is exposed
+through a context; a phone updated offline shows "Connect once to refresh your sites" until one pull; and
+the `FEATURES.md` module 4 row "Check in and check out; location captured only on that tap" stays unticked
+until it runs on a phone against the team project (#58).
+
+---
+
 ## Template — copy this for a new decision
 
 ```

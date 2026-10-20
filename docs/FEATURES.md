@@ -120,6 +120,13 @@ proves the server side of offline capture. "Check in and check out; location cap
 tap" and "Mark everyone present in one tap" stay **unticked**, because both need the phone screens
 (#79).*
 
+*The phone's check-in and check-out are in #79 PR 1 (ADR-034): the sites list, the location permission
+flow, the geofence estimate, the outbox save and the per-record status, with `SiteAttendanceScreen.test.tsx`
+and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check
+out; location captured only on that tap" stays **unticked** on purpose: the tests use a fake location
+provider, and the phone's real permission prompt and GPS have not run on a device against the team project
+(#58). "Mark everyone present in one tap" is PR 2; the read-only approved day and corrections are PR 3.*
+
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
 - [ ] Save as an offline draft

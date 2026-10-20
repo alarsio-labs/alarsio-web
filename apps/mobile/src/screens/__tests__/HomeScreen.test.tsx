@@ -145,4 +145,29 @@ describe('HomeScreen', () => {
     await fireEvent.press(await screen.findByRole('button', { name: 'Sync now' }));
     expect(retryNow).toHaveBeenCalledTimes(1);
   });
+
+  describe('the Attendance entry (#79)', () => {
+    it('opens Attendance for a signed-in user', async () => {
+      const onOpenAttendance = jest.fn();
+      await render(
+        <HomeScreen
+          openDb={openFakeDb}
+          userId={USER}
+          onOpenAttendance={onOpenAttendance}
+          config={goodConfig}
+          appVersion="0.1.0"
+        />,
+      );
+
+      await fireEvent.press(await screen.findByRole('button', { name: 'Attendance' }));
+      expect(onOpenAttendance).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers no Attendance when no user is signed in', async () => {
+      await render(<HomeScreen openDb={openFakeDb} onOpenAttendance={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+
+      await screen.findByText('Device database ready');
+      expect(screen.queryByRole('button', { name: 'Attendance' })).toBeNull();
+    });
+  });
 });

@@ -1,4 +1,5 @@
 import Constants from 'expo-constants';
+import { router } from 'expo-router';
 
 import { useSessionUser } from '../auth/session-user';
 import { readPublicConfig } from '../config/public-config';
@@ -32,6 +33,7 @@ export default function Index() {
       openDb={openAppDb}
       startSync={startSync}
       userId={user?.id}
+      onOpenAttendance={() => router.push('/attendance')}
       config={config}
       appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />

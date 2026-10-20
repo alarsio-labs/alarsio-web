@@ -101,4 +101,16 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       );
     `,
   },
+  {
+    // Issue #79, ADR-034. Every Attendance payload names the site's organisation
+    // (the composite key to sites), and the phone had no way to know it. Nullable:
+    // a phone that already holds a mirror keeps its sites, and the next pull fills
+    // the column. Until then the capture screens say "connect once to refresh".
+    version: 5,
+    name: 'mirror sites org_id',
+    sql: `
+      alter table mirror_sites add column org_id text
+        check (org_id is null or length(org_id) = 36);
+    `,
+  },
 ];

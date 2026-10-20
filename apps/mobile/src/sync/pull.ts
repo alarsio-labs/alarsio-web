@@ -43,6 +43,12 @@ export type PullResult =
 
 export interface MirrorSite {
   id: string;
+  /**
+   * The site's organisation, which every Attendance payload names (#79). Null only
+   * on a phone whose mirror was pulled before device migration 5; the next pull
+   * fills it.
+   */
+  orgId: string | null;
   name: string;
   address: string;
   latitude: number;
@@ -135,9 +141,9 @@ export async function runPull(
       await deleteMirrors(db);
       for (const s of sites) {
         await db.run(
-          `insert into mirror_sites (id, name, address, latitude, longitude, geofence_radius_m, status)
-           values (?, ?, ?, ?, ?, ?, ?)`,
-          [s.id, s.name, s.address, s.latitude, s.longitude, s.geofenceRadiusM, s.status],
+          `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
+           values (?, ?, ?, ?, ?, ?, ?, ?)`,
+          [s.id, s.orgId, s.name, s.address, s.latitude, s.longitude, s.geofenceRadiusM, s.status],
         );
       }
       for (const m of materials) {
@@ -196,15 +202,20 @@ export async function readSites(db: DeviceDb, userId: string): Promise<MirrorSit
   if (!(await ownedBy(db, userId))) return [];
   const rows = await db.all<{
     id: string;
+    org_id: string | null;
     name: string;
     address: string;
     latitude: number;
     longitude: number;
     geofence_radius_m: number;
     status: string;
-  }>(`select id, name, address, latitude, longitude, geofence_radius_m, status from mirror_sites order by name, id`);
+  }>(
+    `select id, org_id, name, address, latitude, longitude, geofence_radius_m, status
+       from mirror_sites order by name, id`,
+  );
   return rows.map((r) => ({
     id: r.id,
+    orgId: r.org_id,
     name: r.name,
     address: r.address,
     latitude: r.latitude,
@@ -342,6 +353,7 @@ function toSite(v: unknown): MirrorSite {
   if (
     !isRow(v) ||
     !isId(v.id) ||
+    !isId(v.org_id) ||
     !isText(v.name) ||
     !isText(v.address) ||
     latitude === undefined ||
@@ -353,6 +365,7 @@ function toSite(v: unknown): MirrorSite {
   }
   return {
     id: v.id.toLowerCase(),
+    orgId: v.org_id.toLowerCase(),
     name: v.name,
     address: v.address,
     latitude,
