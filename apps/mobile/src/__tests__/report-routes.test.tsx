@@ -19,6 +19,7 @@ jest.mock('expo-router', () => ({
   router: { push: jest.fn() },
   useLocalSearchParams: jest.fn(),
 }));
+jest.mock('../reports/photo-device', () => ({ expoPhotoFiles: 'files', pickAndCompress: 'picker' }));
 jest.mock('../screens/ReportSitesScreen', () => ({ ReportSitesScreen: jest.fn(() => null) }));
 jest.mock('../screens/DailyReportScreen', () => ({ DailyReportScreen: jest.fn(() => null) }));
 
@@ -55,7 +56,12 @@ describe('report routes (#81)', () => {
       </SessionUserContext.Provider>,
     );
 
-    expect(props(DailyReportScreen)).toMatchObject({ userId: USER.id, siteId: SITE, date: '2026-10-18' });
+    expect(props(DailyReportScreen)).toMatchObject({
+      userId: USER.id,
+      siteId: SITE,
+      date: '2026-10-18',
+      photos: { files: 'files', pick: 'picker' },
+    });
   });
 
   it('passes no day when the route has none, so the screen opens today', async () => {

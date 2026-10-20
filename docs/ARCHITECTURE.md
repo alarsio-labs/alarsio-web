@@ -110,6 +110,9 @@ A handler is `SECURITY INVOKER`, so it writes under the caller's RLS. It decides
 replay (`accepted`) against `conflict` for its own records. The module that owns
 the table publishes the handler and lists it in its row of the public surface above.
 
+A module may also hand the engine an `afterRun` hook, called after each push for the engine's user. Daily Reporting uses
+it to upload report-photo files once their metadata is accepted (ADR-037). The engine stays ignorant of what the hook does.
+
 The phone also **pulls** what the signed-in user may see (sites, material
 balances, today's roster) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).

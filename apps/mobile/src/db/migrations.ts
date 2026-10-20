@@ -113,4 +113,30 @@ export const deviceMigrations: readonly DeviceMigration[] = [
         check (org_id is null or length(org_id) = 36);
     `,
   },
+  {
+    // Issue #81 PR 2, ADR-037. Daily Reporting's upload queue: the file of a report
+    // photo waits here, in the app's own folder, until its metadata is accepted and
+    // the file is in the report-photos bucket. Owned by its author, like the outbox
+    // (ADR-020). The limits are the bucket's and report_photos' (ADR-013 R4).
+    version: 6,
+    name: 'report photo files',
+    sql: `
+      create table report_photo_files (
+        record_id       text primary key check (length(record_id) = 36),
+        author_id       text not null check (length(author_id) = 36),
+        report_id       text not null check (length(report_id) = 36),
+        local_uri       text not null check (length(local_uri) > 0),
+        storage_path    text not null check (length(storage_path) > 0),
+        content_type    text not null check (content_type in ('image/jpeg', 'image/png', 'image/webp')),
+        size_bytes      integer not null check (size_bytes between 1 and 10485760),
+        state           text not null default 'waiting' check (state in ('waiting', 'uploaded', 'refused')),
+        attempts        integer not null default 0 check (attempts >= 0),
+        next_attempt_at text,
+        created_at      text not null,
+        updated_at      text not null
+      );
+      create index report_photo_files_author on report_photo_files (author_id, state, created_at);
+      create index report_photo_files_report on report_photo_files (author_id, report_id, created_at);
+    `,
+  },
 ];

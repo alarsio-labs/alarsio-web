@@ -9,6 +9,9 @@ import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
+import type { PickResult } from '../reports/photo-device';
+import { photoErrorText, PhotoError, photoStatusText, PHOTO_LIMITS } from '../reports/photo';
+import { addPhoto, listPhotos, type PhotoFiles, type StoredPhoto } from '../reports/photo-store';
 import {
   dayLabel,
   fieldsOf,
@@ -35,13 +38,18 @@ export interface DailyReportScreenProps {
   now?: () => Date;
   /** How often the screen re-reads the outbox to show the server's answer. 0 turns it off. */
   pollMs?: number;
+  /** The camera, gallery and app folder (#81 PR 2). Without them the screen has no photo section. */
+  photos?: {
+    files: PhotoFiles;
+    pick: (source: 'camera' | 'library') => Promise<PickResult>;
+  };
 }
 
 type Load =
   | { kind: 'loading' }
   | { kind: 'failed' }
   | { kind: 'missing' }
-  | { kind: 'ready'; site: MirrorSite; stored: StoredReport | null };
+  | { kind: 'ready'; site: MirrorSite; stored: StoredReport | null; photoList: StoredPhoto[] };
 
 const toneStyle: Record<ReportTone, { color: string }> = {
   wait: { color: '#8a5a00' },
@@ -56,6 +64,7 @@ export function DailyReportScreen({
   date,
   now = () => new Date(),
   pollMs = 3000,
+  photos,
 }: DailyReportScreenProps) {
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
@@ -95,8 +104,9 @@ export function DailyReportScreen({
     try {
       const site = (await readSites(db, userId)).find((s) => s.id === siteId.toLowerCase());
       const stored = site ? await findReport(db, userId, site.id, day) : null;
+      const photoList = stored && photos ? await listPhotos(db, userId, stored.recordId) : [];
       if (!alive.current) return;
-      const read = JSON.stringify([site ?? null, stored]);
+      const read = JSON.stringify([site ?? null, stored, photoList]);
       if (read === snapshot.current) return;
       snapshot.current = read;
       if (!site) {
@@ -107,13 +117,13 @@ export function DailyReportScreen({
         filled.current = true;
         setForm(fieldsOf(stored?.report ?? null));
       }
-      setLoad({ kind: 'ready', site, stored });
+      setLoad({ kind: 'ready', site, stored, photoList });
     } catch {
       snapshot.current = '';
       // A fixed sentence: the error can name files (ADR-029).
       if (alive.current) setLoad({ kind: 'failed' });
     }
-  }, [db, userId, siteId, day]);
+  }, [db, userId, siteId, day, photos]);
 
   useEffect(() => {
     // First read as soon as the database is open, then on a slow tick so a verdict shows.
@@ -140,6 +150,33 @@ export function DailyReportScreen({
       await refresh();
     } catch (error) {
       if (alive.current) setMessage(reportErrorText(error));
+    } finally {
+      busy.current = false;
+    }
+  }
+
+  // One tap at a time, like save: a second tap while the camera is open would add a second photo.
+  async function addFrom(source: 'camera' | 'library') {
+    if (busy.current || !db || !photos || load.kind !== 'ready' || !load.stored) return;
+    busy.current = true;
+    try {
+      const picked = await photos.pick(source);
+      if (!alive.current) return;
+      if (picked.kind === 'cancelled') return;
+      if (picked.kind === 'denied') {
+        setMessage("Allow access in your phone's settings to add a photo.");
+        return;
+      }
+      if (picked.kind === 'failed') {
+        setMessage(photoErrorText(null));
+        return;
+      }
+      await addPhoto(db, userId, load.stored, picked.uri, photos.files, now());
+      if (!alive.current) return;
+      setMessage(null);
+      await refresh();
+    } catch (error) {
+      if (alive.current) setMessage(photoErrorText(error));
     } finally {
       busy.current = false;
     }
@@ -247,6 +284,30 @@ export function DailyReportScreen({
           </Field>
         )}
 
+        {photos && (
+          <View style={styles.photos}>
+            <Text style={styles.label}>Photos</Text>
+            {!stored && <Text style={styles.line}>Save the report first, then add photos.</Text>}
+            {load.photoList.map((p, i) => {
+              const shown = photoStatusText(p.outbox ?? 'pending', p.reason, p.state);
+              return (
+                <Text key={p.recordId} style={[styles.status, toneStyle[shown.tone]]} accessibilityLiveRegion="polite">
+                  {`Photo ${i + 1} · ${shown.text}`}
+                </Text>
+              );
+            })}
+            {stored && load.photoList.length >= PHOTO_LIMITS.perReport && (
+              <Text style={styles.line}>{photoErrorText(new PhotoError('too_many'))}</Text>
+            )}
+            {stored && load.photoList.length < PHOTO_LIMITS.perReport && (
+              <View style={styles.buttons}>
+                <Button label="Take photo" secondary onPress={() => void addFrom('camera')} />
+                <Button label="Choose photo" secondary onPress={() => void addFrom('library')} />
+              </View>
+            )}
+          </View>
+        )}
+
         {message && (
           <Text style={styles.error} accessibilityLiveRegion="polite">
             {message}
@@ -313,6 +374,7 @@ const styles = StyleSheet.create({
   status: { fontSize: 16, fontWeight: '600' },
   error: { fontSize: 16, color: '#b00020' },
   field: { gap: 4 },
+  photos: { gap: 8 },
   label: { fontSize: 16, color: '#111' },
   input: { minHeight: 44, borderWidth: 1, borderColor: '#888', borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
   multiline: { minHeight: 88, paddingVertical: 8, textAlignVertical: 'top' },
