@@ -11,6 +11,7 @@ import {
   countByStatus,
   countUnsent,
   listAttention,
+  listRecords,
   enqueue,
   getStatus,
   MAX_BATCH,
@@ -541,6 +542,54 @@ describe('outbox', () => {
       expect(await row(db, 2)).toMatchObject({ status: 'rejected' });
       expect(await row(db, 3)).toMatchObject({ status: 'conflict' });
       expect(await claimBatch(db, USER_B, at(1))).toEqual([]); // B still backing off
+    });
+  });
+
+  describe('listRecords: a capture screen reads its own records back (#79)', () => {
+    const SITE_A = '51000000-0000-4000-8000-000000000001';
+    const SITE_B = '51000000-0000-4000-8000-000000000002';
+    const visit = (n: number, siteId: string, authorId = USER_A): NewOutboxEntry => ({
+      entity: 'site_visits',
+      recordId: ID(n),
+      authorId,
+      payload: { site_id: siteId, n },
+    });
+
+    it('returns only this author, this entity and (when asked) this site, newest first', async () => {
+      await enqueue(db, visit(1, SITE_A), T0);
+      await enqueue(db, visit(2, SITE_B), T0);
+      await enqueue(db, visit(3, SITE_A), T0);
+      await enqueue(db, visit(4, SITE_A, USER_B), T0);
+      await enqueue(db, { ...entry(5), payload: { site_id: SITE_A } }, T0); // another entity
+
+      const mine = await listRecords(db, USER_A, 'site_visits', { siteId: SITE_A });
+      expect(mine.map((r) => r.recordId)).toEqual([ID(3), ID(1)]);
+      expect(mine[0]).toMatchObject({ entity: 'site_visits', status: 'pending', reason: null, payload: { site_id: SITE_A, n: 3 } });
+
+      expect((await listRecords(db, USER_A, 'site_visits')).map((r) => r.recordId)).toEqual([ID(3), ID(2), ID(1)]);
+    });
+
+    it('carries the status and reason the verdict left', async () => {
+      await enqueue(db, visit(1, SITE_A), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [{ ...verdict(1, 'conflict', 'checked_out'), entity: 'site_visits' }], T0);
+
+      expect(await listRecords(db, USER_A, 'site_visits')).toEqual([
+        expect.objectContaining({ recordId: ID(1), status: 'conflict', reason: 'checked_out' }),
+      ]);
+    });
+
+    it("never falls back to every user's records", async () => {
+      await enqueue(db, visit(1, SITE_A, USER_B), T0);
+      expect(await listRecords(db, '', 'site_visits')).toEqual([]);
+      expect(await listRecords(db, USER_A, 'site_visits')).toEqual([]);
+    });
+
+    it('keeps a synced record, which is how a restarted app finds its open visit', async () => {
+      await enqueue(db, visit(1, SITE_A), T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(db, [{ ...verdict(1, 'accepted'), entity: 'site_visits' }], T0);
+      expect(await listRecords(db, USER_A, 'site_visits')).toHaveLength(1);
     });
   });
 
