@@ -178,14 +178,19 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [ ] A repeated push creates no duplicate
-- [ ] One bad record does not block the rest of its batch
+- [x] A repeated push creates no duplicate
+- [x] One bad record does not block the rest of its batch
 
-*The replay and poison-record rows stay unticked until all seven entities are
-wired. ADR-014 ties the no-duplicate guarantee to every handler, and calls for a
-shared handler contract test that does not exist yet. All seven entities now have
-handlers (Attendance's in #28 PR 3b, ADR-033), so the rows wait only on that contract
-test. Not yet run against the team Supabase project (#58).*
+*The replay and poison-record rows are ticked by the handler contract test (#107, ADR-014):
+`sync_contract_test.sql` runs the same checks over all seven handlers through `sync_push`.
+Each entity's record pushed twice is accepted twice and stored once; a whole batch of all
+seven pushed twice writes nothing the second time; an empty record (the missing-fields case)
+between two good ones is rejected with a reason and leaves no row, while both good ones are
+stored; and a single record with each field broken in turn gets a fixed code with no database
+detail in the response. ADR-014 tied the no-duplicate guarantee to every handler, and all
+seven now have one (Attendance's in #28 PR 3b, ADR-033). A bad record of any other kind is
+checked one record at a time, not inside a batch. It has not run against the team Supabase
+project (#58).*
 
 *Proof so far, in `supabase/tests`, with the real handlers unless stated:*
 - *Whole batch pushed twice, same answer, nothing written the second time:
@@ -209,9 +214,8 @@ test. Not yet run against the team Supabase project (#58).*
   into its status") and `sender.test.ts` ("applies a mix of verdicts record by
   record").*
 
-*To tick both rows: one contract test that runs the same checks over all seven handlers.
-Attendance's handlers now have their own replay and poison tests (`sync_attendance_test.sql`
-[3.03] to [7.08] and [8.12]).*
+*Attendance's handlers also have their own replay and poison tests (`sync_attendance_test.sql`
+[3.03] to [7.08] and [8.12]); the contract test above covers all seven handlers alike.*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their

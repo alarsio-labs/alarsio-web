@@ -490,6 +490,16 @@ clause matches exactly `PS409`, not the `PS` class: nothing else may use it, and
 router's own `PS001` stays separate. It is a new migration
 (`20261027100000_sync_push_locked_conflict.sql`), since the first one had merged.
 
+**Amended (#107, 2026-10-20).** The shared handler contract test this ADR called for now
+exists: `supabase/tests/sync_contract_test.sql`. Through `sync_push`, for each of the seven
+handlers, it checks that the handler has the fixed shape; that a record pushed twice is
+accepted twice and stored once, and a whole batch pushed twice writes nothing the second
+time; that a bad record between two good ones is rejected with a reason, leaves no row, and
+does not stop the good ones being stored; and that every verdict is a fixed code with no
+database detail. It adds no table, column or function. Handler-specific rules stay in each
+module's own suite. A handler that fails a check there is a bug in its module, not a reason
+to loosen the suite.
+
 ---
 
 ## ADR-016 · The device outbox: one row per record, dirty edits, backoff, recovery
