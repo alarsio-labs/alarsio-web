@@ -24,7 +24,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Attendance & Site Presence** | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` | Sites, Workforce |
 | **Daily Reporting** | `daily_reports`, `daily_report_revisions`, `report_photos` | Sites, Attendance |
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
-| **Wage Summaries** | `wage_periods`, `wage_lines` | Attendance, Workforce |
+| **Wage Summaries** | `wage_periods`, `wage_lines`, `wage_line_days`, `wage_adjustments`, `wage_period_reopens` (ADR-035) | Identity, Sites, Attendance, Workforce |
 | **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials and Workforce views for the mirrors |
 | **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters` | Identity |
 
@@ -44,7 +44,7 @@ list, publish it deliberately and add it here in the same PR.
 | Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`, and refuse a day the caller recorded or a correction they proposed; ADR-030, ADR-040) · `sync_site_visits` · `sync_attendance_days` · `sync_attendance_entries` · `sync_attendance_corrections` (sync handlers; ADR-033) | `approved_attendance_days` (one row per entry of an approved day, corrections applied; owner and accountant read every site of their org; ADR-032) · `site_exceptions` (what needs a reviewer's look, no coordinates; ADR-032) |
 | Daily Reporting | `review_daily_report(report_id, note)` · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
-| Wage Summaries | `calculate_wage_period` · `lock_wage_period` · `reopen_wage_period` | `wage_summary` |
+| Wage Summaries | `calculate_wage_period(period_id)` · `lock_wage_period(period_id)` · `reopen_wage_period(period_id, reason)` (owner only) · `wage_period_attendance_changes(period_id)` (all `SECURITY DEFINER`; `can_view_wages`, and `is_org_owner` for reopen; ADR-035) | `wage_summary` · `wage_summary_by_site` (owner and accountant only; ADR-035) |
 | Offline Sync | `sync_push(batch)` · types `sync_verdict` and `sync_result`, which every handler returns | — |
 | Audit & Guards | `write_audit` · `enforce_rate_limit(key, limit, window)` | — |
 

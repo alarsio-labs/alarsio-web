@@ -1367,6 +1367,71 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
+## ADR-035 · Wage Summaries: a snapshot per period, one day per worker per date, locked means frozen
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish and Ishant (issue #61; proposals 1-9 posted by Ishant 2026-10-19, Manish's answers on the same issue; review: Anuradha)
+
+**Context.** Issue #61 left five decisions open (leave, overtime, hourly workers, rounding, overlap), and Ishant
+proposed nine answers against what Attendance stores: a status, `overtime_hours` 0 to 8, no hours-worked column
+(ADR-021), and `approved_attendance_days` (ADR-032). Checking them against that view found two things the proposals
+did not cover: one worker can have an approved entry at two sites on the same date (entries are unique per site,
+date and worker, and a worker may be open at several sites), and an approved correction, or a day approved late,
+changes what the view shows for a date inside a locked period (ADR-032 consequences).
+
+**Decision.**
+- **D1 · Leave is unpaid.** `leave` and `absent` pay 0. A paid leave day is an adjustment with a reason.
+- **D2 · Payable days are per worker per date, capped at 1.** `present` is 1, `half_day` 0.5, summed across sites and
+  capped at 1 on a date, the earlier site (by site id) using the day first. Overtime hours add across sites.
+- **D3 · Hourly workers use a standard 8-hour day.** `present` is 8 h, `half_day` 4 h, times the hourly rate. No Attendance
+  column is added (ADR-030: it would have to flow through corrections). The 8 is `wage_standard_day_hours()`.
+- **D4 · Overtime is hours x hourly basis x 2.** The basis is day rate / 8 for a daily worker, the rate for an hourly one.
+  The 2 is `wage_overtime_multiplier()`, fixed in the MVP. **The 2 has not been checked against state rules.**
+  Overtime is hours beyond the normal day (beyond 4 on a half day); Attendance does not define it, so this is the definition.
+- **D5 · The rate is the one in force that day**, `worker_rate_on(worker, work_date)`. A payable day with no rate is
+  "no rate", never 0, and blocks `lock_wage_period`. A `leave` or `absent` day needs no rate.
+- **D6 · Rounding.** Each day's amount is kept unrounded; a line's pay and overtime are each rounded once, to the paisa
+  (`numeric(12,2)`), and the total is pay + overtime + adjustments. The export prints the same figures as the screen (one
+  formatter, summed in whole paise).
+- **D7 · Periods of one organisation do not overlap**, by an exclusion constraint on `daterange(start, end, '[]')`
+  (needs `btree_gist`). A week is 7 days from any start; a month is a whole calendar month.
+- **D8 · A period is per organisation**, one line per worker, with a per-site breakdown of recorded days and overtime hours
+  (`wage_summary_by_site`). Amounts live on the worker line.
+- **D9 · Pay type** is fixed once a worker has a rate (ADR-011 W11), so the basis of every past rate is known.
+- **D10 · A locked period is a snapshot.** `wage_line_days` keeps, per worker, site and date, the status and hours
+  Attendance published, the rate and the day's amounts. A locked period never re-reads the view; a trigger refuses any
+  write to its lines, days or adjustments, the table owner included. `lock_wage_period` recalculates first, so the
+  snapshot is the view at the moment of the lock.
+- **D11 · Attendance changing after the lock is reported, never applied.** `wage_period_attendance_changes(period)`
+  compares the snapshot with the live view: `changed` (a correction or a rate) and `approved_after_lock` (a day approved
+  after the lock). The difference is paid as an **adjustment with a reason in the next open period**, or the owner
+  reopens. Attendance does not refuse corrections for locked dates: it cannot read `wage_periods` (dependencies point
+  down), and the record would stay wrong.
+- **D12 · Who.** `owner` and `accountant` (`can_view_wages`) create periods, calculate, lock and add adjustments. Only
+  the `owner` reopens, with a reason of 1-500 characters; an accountant gets `42501`, the same as anyone else. A project
+  manager and a supervisor read zero rows of every wage table and view.
+- **D13 · Tables.** `ARCHITECTURE.md` named `wage_periods` and `wage_lines`; the issue's "adjustment and reopen history"
+  and the per-day snapshot add `wage_line_days`, `wage_adjustments` and `wage_period_reopens`. Adjustments and reopens
+  are append-only for every writer. Lines and days are computed by `SECURITY DEFINER` functions that check the caller;
+  no client can write them. Nothing is ever deleted.
+- **SQLSTATEs.** `42501` not permitted (also for a period that does not exist); `55000` the period is locked, is not
+  locked (reopen, changes), or has payable days with no rate; `22023` a blank or over-long reopen reason; `23514` a bad
+  period shape, a zero amount or a bad adjustment reason; `23P01` an overlapping period; `23503` an adjustment for a
+  worker with no line.
+
+**Consequences.** Wage Summaries reads one published view and one published function and never re-implements
+corrections, and a locked wage run can be reproduced for any date. Costs: a worker with no entry and one marked absent
+both pay 0 and the summary cannot tell them apart; an hourly worker who works 6 hours must be marked `half_day`, or is
+paid 8; a worker with no attendance in a period has no line, so no adjustment can be added for them in it; the cap gives
+a day to the first site by id, which is arbitrary but stable; a correction after a lock needs a person to notice the
+report and add an adjustment, nothing is paid automatically; `btree_gist` is created in `public`; the web export writes
+its own minimal `.xlsx` (no library); and the overtime multiplier of 2 is unverified. Two reads are worth a reviewer's
+eye: Wage Summaries reads `workers` (code, name, `pay_type`) directly, as the issue's tables list and ADR-011 W10 grants,
+because `worker_roster` is scoped by site assignment and would show an unassigned accountant nothing (the definer
+functions bypass RLS but filter on the period's organisation); if Workforce publishes an organisation-wide worker view,
+`wage_summary` and `wage_compute_days` should switch to it. Overtime hours are not capped across sites (each entry is 0 to 8 h and they add, so two sites on one date can pay
+up to 16 h at 2x); only the day is capped. A period can be locked while some of its days are still open or in the
+future: only a payable day with no rate blocks the lock, and a day approved later shows as `approved_after_lock`
+(D11). And `wage_lines` and `wage_line_days` are a derived snapshot,
+upserted while a period is a draft and frozen once locked; only `wage_adjustments` and `wage_period_reopens` are ledgers.
 ## ADR-040 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #80 AC 3; the web screen is PR #100; review: Anuradha)
 

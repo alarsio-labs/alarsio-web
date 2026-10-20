@@ -17,7 +17,7 @@ Status: `⬜ not started` · `🟡 in progress` · `✅ done` · `⛔ blocked`
 | 4 | **Attendance & Site Presence** | Manish | 🟡 | `site_visits`, `attendance_days`, `attendance_entries`, `attendance_corrections` |
 | 5 | **Daily Reporting** | Anuradha | 🟡 | `daily_reports`, `daily_report_revisions`, `report_photos` |
 | 6 | **Materials & Inventory** | Nikhil | 🟡 | `materials`, `material_transactions` |
-| 7 | **Wage Summaries** | Ishant + Manish | ⬜ | `wage_periods`, `wage_lines` |
+| 7 | **Wage Summaries** | Ishant + Manish | 🟡 | `wage_periods`, `wage_lines`, `wage_line_days`, `wage_adjustments`, `wage_period_reopens` |
 | 8 | **Offline Sync** | Nikhil | 🟡 | device SQLite outbox, `sync_push` |
 | 9 | **Audit, Retention & Guards** | Anuradha | 🟡 | `audit_log`, `purge_log`, `rate_limit_counters` |
 
@@ -192,10 +192,17 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 (#82, after the pull in #71), so a supervisor cannot record stock from the phone yet.*
 
 ### 7 · Wage Summaries
-- [ ] Weekly or monthly period, using **approved attendance only**
+- [x] Weekly or monthly period, using **approved attendance only**
 - [ ] Shows rate, payable days, overtime, adjustments, total — nothing hidden
 - [ ] Export to CSV and Excel, matching what the app shows
-- [ ] Accountant locks a period; **only the owner reopens**, with a reason
+- [x] Accountant locks a period; **only the owner reopens**, with a reason
+
+*The database side is ADR-035 and `wages_test.sql`: periods, calculation from `approved_attendance_days`, `worker_rate_on` and the worker's pay type,
+lock, reopen with history, adjustments, and zero rows for a project manager and a supervisor.
+The pages are `/wages` and `/wages/[period]`. "Shows rate, payable days, overtime, adjustments, total" stays unticked
+until it is seen on a screen against the team project (#58), and so does the export row: `lib/wages/summary.test.ts`
+proves the CSV and Excel carry the screen's figures to the paisa (the Excel file is read back by `read-excel-file`),
+but no file has been opened in Excel itself yet.*
 
 ### 8 · Offline Sync
 - [ ] Every field write saves locally first, with a device-generated id
