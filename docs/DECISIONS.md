@@ -480,6 +480,16 @@ per record costs a little per record, capped by the 100-record limit; and
 `sync_push` depends on `enforce_rate_limit` (#32): if that function is ever removed
 or renamed, every push fails instead of running unlimited.
 
+**Amended (#28, 2026-10-20).** A handler's exception map has one more row: SQLSTATE
+`PS409`, raised by a lock trigger when a phone writes to a record a manager has
+already approved (Attendance's approved-day lock, agreed on #13), is answered
+`conflict` / `locked`. The server keeps its version, and the phone shows the record
+for review (ADR-009). Without the row it fell through to `retryable_error` /
+`server_error`, and a stale phone would have retried the same record for ever. The
+clause matches exactly `PS409`, not the `PS` class: nothing else may use it, and the
+router's own `PS001` stays separate. It is a new migration
+(`20261027100000_sync_push_locked_conflict.sql`), since the first one had merged.
+
 ---
 
 ## ADR-016 · The device outbox: one row per record, dirty edits, backoff, recovery
