@@ -4,7 +4,11 @@ import { useLocalSearchParams } from 'expo-router';
 
 import { useSessionUser } from '../../auth/session-user';
 import { openAppDb } from '../../lib/app-db';
+import { expoPhotoFiles, pickAndCompress } from '../../reports/photo-device';
 import { DailyReportScreen } from '../../screens/DailyReportScreen';
+
+// Module-level, so the reference is stable across renders (the screen's effect depends on it).
+const photos = { files: expoPhotoFiles, pick: pickAndCompress };
 
 export default function DailyReportRoute() {
   const user = useSessionUser();
@@ -12,6 +16,12 @@ export default function DailyReportRoute() {
   if (!user || typeof siteId !== 'string') return null;
   // The screen checks the day itself and falls back to today (D2).
   return (
-    <DailyReportScreen openDb={openAppDb} userId={user.id} siteId={siteId} date={typeof date === 'string' ? date : undefined} />
+    <DailyReportScreen
+      openDb={openAppDb}
+      userId={user.id}
+      siteId={siteId}
+      date={typeof date === 'string' ? date : undefined}
+      photos={photos}
+    />
   );
 }

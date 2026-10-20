@@ -150,6 +150,12 @@ an offline draft" stays unticked until it runs on a phone against the team proje
 Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled,
 which waits for the phone to record attendance (#79).*
 
+*The phone takes report photos in #105 (ADR-037). "Photos optional, and never blocking submission" was already
+ticked for the database; `photo-store.test.ts`, `photo-upload.test.ts` and `DailyReportPhotos.test.tsx` now prove the
+phone side: a photo is compressed and saved with no network, the report saves and submits whatever the photos' state,
+the file uploads only after its metadata is accepted and only under its author's session, and "On the server" is shown
+only once the file is up. Not run on a phone or against the team project (#58), where the bucket policy is checked.*
+
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
 - [x] Record opening balance, receipt, usage, adjustment

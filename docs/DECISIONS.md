@@ -1469,6 +1469,49 @@ is not built.
 
 ---
 
+## ADR-037 · Report photos on the phone: compress to JPEG, metadata through the outbox, the file after it is accepted
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #105, part 2 of #81; review: Manish, and Nikhil for the engine hook)
+
+**Context.** The server side of photos has existed since #35 and #63: `report_photos` rows, `sync_report_photos`
+(ADR-022 H7) and the private `report-photos` bucket, where Storage takes a file only at the exact path of a metadata
+row its uploader made (ADR-013 R8). The phone had nothing to take, keep or send a photo. A photo must never block its
+report, must work with no signal, and must not go out under another user's session on a shared phone (ADR-020).
+
+**Decision.**
+- P1. **Compress on the phone to a JPEG,** long side at most 1600 px, quality 0.7, with `expo-image-manipulator`. The
+  picker takes images only, one at a time, with no cropping (`expo-image-picker`). So every stored photo is
+  `image/jpeg` and `.jpg`, and a small photo is re-encoded, never enlarged. Over 10 MB after compressing is refused.
+- P2. **Metadata first, file after.** A photo is an outbox record of entity `report_photos`, saved after its report so
+  the report is sent first (ADR-016). Its `storage_path` is `<org>/<site>/<report>/<photo>.jpg`, lower case, built from
+  the report's own org and site, as `report_photos_path_shape` requires. Before the report arrives the handler answers
+  `retryable_error` / `missing_parent` and the outbox retries.
+- P3. **An upload queue owned by Daily Reporting:** device migration 6, `report_photo_files`, one row per photo with
+  its author, local file in the app's own folder (`Paths.document`), path, size, a state (`waiting`, `uploaded`,
+  `refused`) and a backoff. It is additive and touches no other table.
+- P4. **The sync engine calls a hook after each run** (`afterRun`, a generic option in Offline Sync's `engine.ts`), and
+  the app passes Daily Reporting's uploader. The engine knows nothing about photos. The hook runs for the engine's user
+  only, never while signed out, and its failures never reach the run's result. The uploader sends a photo only when its
+  metadata is `synced`, reads the session once, refuses if it is not the author's, and sends that session's token (as
+  the push does, ADR-020). An object that already exists is a replay and counts as uploaded. A 4xx other than 401, 408
+  and 429 is terminal (`refused`); anything else retries with the outbox's backoff. A missing local file is `refused`.
+- P5. **The limits are checked on the phone too:** ten photos a report and 10 MB each (ADR-013 R4). A photo may be added
+  to a submitted or even a reviewed report (ADR-013 R8) and is never changed or removed.
+- P6. **No caption yet** (`caption` is always null), and no way to remove an unsent photo.
+- P7. **"On the server" only once the file itself is uploaded.** A synced record whose file still waits says "Photo
+  waiting to upload" (ADR-009).
+
+**Consequences.** A supervisor can take and queue photos with no signal, and a photo can never stop its report. Costs:
+a photo's file is sent by a hook in Offline Sync's engine, so Nikhil owns that one option; the upload runs only when a
+sync run runs (every minute, on reconnect and on foreground), so a photo can wait a minute after its metadata is
+accepted; a refused photo stays on the phone with its file until someone clears it, since there is no removal yet; the
+phone keeps the kept copy until the upload succeeds, so a phone that never reconnects holds up to ten 10 MB files per
+report in its app folder; the 4xx rule treats an unknown refusal as final, so a wrongly refused photo is not retried;
+the JPEG re-encode drops EXIF, which is intended but also loses the original's capture time; and the
+`Paths.document` folder is not cleared when a user signs out, so a photo of user A that was never uploaded stays on
+the phone until A signs in again (the queue row is A's, so B never sees or sends it).
+
+---
+
 ## Template — copy this for a new decision
 
 ```
