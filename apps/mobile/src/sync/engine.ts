@@ -95,6 +95,12 @@ export interface SyncEngineOptions {
   mirrorSource?: MirrorSource;
   /** The clock for the pull interval, in ms. Tests pass their own. */
   now?: () => number;
+  /**
+   * Work that belongs to another module and should follow each run, such as
+   * Daily Reporting's photo uploader (#81). Called after the push, for this
+   * engine's user, and never while signed out. Its failures stay out of the run.
+   */
+  afterRun?: (db: DeviceDb, userId: string) => Promise<void>;
 }
 
 /**
@@ -121,7 +127,7 @@ function boundTo(transport: SyncTransport, userId: string): SyncTransport {
 export function startSyncEngine(
   db: DeviceDb,
   rawTransport: SyncTransport,
-  { userId, mirrorSource, now = Date.now }: SyncEngineOptions,
+  { userId, mirrorSource, now = Date.now, afterRun }: SyncEngineOptions,
   env: SyncEnv = realSyncEnv,
 ): SyncHandle {
   const transport = boundTo(rawTransport, userId);
@@ -182,6 +188,9 @@ export function startSyncEngine(
       result = localFailure();
     }
     await refreshCounts();
+    // After the push, so what the push just got accepted is what the hook sees.
+    // Its message can name files and hosts, so a failure is dropped, not shown.
+    if (afterRun && result.kind !== 'signed_out') await afterRun(db, userId).catch(() => undefined);
     // Pull after the push, so the server balance already includes what was sent.
     if (mirrorSource && result.kind !== 'signed_out' && pullDue()) {
       forcePull = false;

@@ -20,6 +20,15 @@ const MESSAGES = {
   material_exists: "This site already has a material with that name.",
   material_forbidden: "Only an owner or project manager can change materials.",
   material_not_found: "That material was not found, or you cannot change it.",
+  site_name: "Enter a site name of 1 to 120 characters.",
+  site_address: "Enter an address of 1 to 500 characters.",
+  site_latitude: "Enter the latitude as a decimal from -90 to 90, for example 18.5204.",
+  site_longitude: "Enter the longitude as a decimal from -180 to 180, for example 73.8567.",
+  site_radius: "Enter the geofence radius as a whole number of metres from 50 to 2000.",
+  site_status: "Choose planned, active, paused or completed. A site is archived with the Archive button.",
+  site_exists: "A site with that name already exists in this organisation. Archived sites keep their names.",
+  site_forbidden: "Only an owner or project manager can change sites.",
+  site_not_allowed: "You are not allowed to change this site. It may be archived.",
   generic: "Something went wrong. Try again."
 } as const;
 

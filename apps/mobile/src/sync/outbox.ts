@@ -335,6 +335,55 @@ export async function listAttention(db: DeviceDb, authorId: string, limit = 50):
   }));
 }
 
+/** A record as the phone holds it, with where it stands with the server. */
+export interface OutboxRecord {
+  entity: SyncEntity;
+  recordId: string;
+  payload: Payload;
+  status: OutboxStatus;
+  reason: string | null;
+  updatedAt: string;
+}
+
+/**
+ * One user's records of one entity, newest first, for a capture screen to read
+ * back what it saved (#79). `synced` rows are included: they stay until a cleanup
+ * rule is decided (ADR-016), and a restarted app finds its open visit through them.
+ * `siteId` keeps the rows whose payload names that `site_id`. Without an author
+ * there is no list: this never falls back to every user's records (ADR-020).
+ */
+export async function listRecords(
+  db: DeviceDb,
+  authorId: string,
+  entity: SyncEntity,
+  { siteId, limit = 200 }: { siteId?: string; limit?: number } = {},
+): Promise<OutboxRecord[]> {
+  if (!authorId) return [];
+  const rows = await db.all<{
+    entity: SyncEntity;
+    record_id: string;
+    payload: string;
+    status: OutboxStatus;
+    reason: string | null;
+    updated_at: string;
+  }>(
+    `select entity, record_id, payload, status, reason, updated_at from outbox
+      where author_id = ? and entity = ?
+        and (? is null or json_extract(payload, '$.site_id') = ?)
+      order by seq desc
+      limit ?`,
+    [authorId.toLowerCase(), entity, siteId ?? null, siteId ?? null, Math.max(1, limit)],
+  );
+  return rows.map((r) => ({
+    entity: r.entity,
+    recordId: r.record_id,
+    payload: JSON.parse(r.payload) as Payload,
+    status: r.status,
+    reason: r.reason,
+    updatedAt: r.updated_at,
+  }));
+}
+
 /**
  * "Sync now": makes this user's failed records due at once instead of waiting
  * out their backoff (ADR-016's manual retry). Conflict and rejected records stay
