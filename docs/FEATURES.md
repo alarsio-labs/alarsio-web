@@ -108,8 +108,12 @@ old value, the new value and the reason" is ticked: `attendance_review_test.sql`
 stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited,
 except the one review move, or deleted. "Manager approves or rejects a day" stays unticked:
 `review_attendance_day` and the lock (an approved day's entries change 0 rows, a late write raises
-`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist. The
-approved-days and `site_exceptions` views and the four sync handlers are PR 3.*
+`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist.*
+
+*The published views are in #28 PR 3a (ADR-032): `approved_attendance_days`, which Wage Summaries
+(#61) reads, and `site_exceptions`, the reviewer's list. `attendance_views_test.sql` proves both, and
+that an accountant reads every approved day of their organisation and nothing open or rejected. No
+row above names a view, so none is ticked by this PR. The four sync handlers are PR 3b.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -157,7 +161,7 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 wired. ADR-014 ties the no-duplicate guarantee to every handler, and calls for a
 shared handler contract test that does not exist yet. The four Attendance entities
 have no handler, so pushing one returns `retryable_error: handler_unavailable`
-(Attendance's PR 3, #28). Not yet run against the team Supabase project (#58).*
+(Attendance's PR 3b, #28). Not yet run against the team Supabase project (#58).*
 
 *Proof so far, in `supabase/tests`, with the real handlers unless stated:*
 - *Whole batch pushed twice, same answer, nothing written the second time:
