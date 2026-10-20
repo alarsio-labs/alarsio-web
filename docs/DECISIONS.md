@@ -1367,7 +1367,7 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
-## ADR-034 · Web review of attendance: one list, one detail page, no new write, and a self-review gap the database does not close
+## ADR-039 · Web review of attendance: one list, one detail page, no new write, and a self-review gap the database does not close
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish and Anuradha (issue #80; reviewer: Ishant)
 
 **Context.** The database side of Attendance review is on `main` (ADR-030, ADR-032) but no screen
@@ -1378,7 +1378,7 @@ they recorded". `review_attendance_day` and `review_attendance_correction` check
 today because the role sets are disjoint (`can_record_on_site` is `supervisor`, `can_review_site` is
 `owner` / `project_manager`, one membership per person per organisation), but an owner may change a
 member's role, so a supervisor made a project manager can review days they recorded.
-ADR-031 is held for #90, so this one is ADR-034.
+ADR-031 is held for #90 and ADR-034 to ADR-038 are taken, so this one is ADR-039.
 
 **Decision.**
 - **W1 · Routes.** `/attendance?org=` is the list and `/attendance/[id]?org=` the day (its id is the
@@ -1410,7 +1410,7 @@ ADR-031 is held for #90, so this one is ADR-034.
 - **W8 · AC 3 in this PR is presentation.** The day's Approve / Reject form is drawn only when the viewer
   neither recorded the day nor any of its entries, and a correction's only when the viewer did not propose
   it; otherwise the page says someone else must review. The database check is **not** part of this PR.
-  The follow-up is PR #101 (ADR-035): a migration that makes both functions answer `42501` for a self-recorded day or a
+  The follow-up is PR #101 (ADR-040): a migration that makes both functions answer `42501` for a self-recorded day or a
   self-proposed correction, with SQL tests, as its own PR for Attendance's owner.
 - **W9 · Where decided.** Corrections are decided on the day's page, one small form each, not on a page of
   their own.

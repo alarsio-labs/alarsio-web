@@ -34,6 +34,8 @@ describe("messageFor", () => {
       expect(messageFor(code)).not.toBe(messageFor("made_up"));
     }
     expect(messageFor("attendance_reason_required")).toBe("Enter a reason of 1 to 500 characters to reject.");
+  });
+
   it("has its own message for each sites code", () => {
     const codes = [
       "site_name",

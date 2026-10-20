@@ -6,7 +6,7 @@ export type Decision = "approve" | "reject";
 
 // True when the viewer wrote the day or any of its entries. A person holds one
 // role per organisation, so this is false for every reviewer unless an owner
-// changed their role after they recorded; the database does not check it (ADR-034).
+// changed their role after they recorded; the database does not check it (ADR-039; PR #101 adds the database check, ADR-040).
 export function recordedByViewer(v: { dayRecordedBy: string; entryRecorders: readonly string[]; viewerId: string }): boolean {
   return v.dayRecordedBy === v.viewerId || v.entryRecorders.includes(v.viewerId);
 }
