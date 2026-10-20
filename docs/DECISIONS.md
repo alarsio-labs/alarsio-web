@@ -490,6 +490,16 @@ clause matches exactly `PS409`, not the `PS` class: nothing else may use it, and
 router's own `PS001` stays separate. It is a new migration
 (`20261027100000_sync_push_locked_conflict.sql`), since the first one had merged.
 
+**Amended (#107, 2026-10-20).** The shared handler contract test this ADR called for now
+exists: `supabase/tests/sync_contract_test.sql`. Through `sync_push`, for each of the seven
+handlers, it checks that the handler has the fixed shape; that a record pushed twice is
+accepted twice and stored once, and a whole batch pushed twice writes nothing the second
+time; that a bad record between two good ones is rejected with a reason, leaves no row, and
+does not stop the good ones being stored; and that every verdict is a fixed code with no
+database detail. It adds no table, column or function. Handler-specific rules stay in each
+module's own suite. A handler that fails a check there is a bug in its module, not a reason
+to loosen the suite.
+
 ---
 
 ## ADR-016 · The device outbox: one row per record, dirty edits, backoff, recovery
@@ -1418,6 +1428,201 @@ ones cut, and they may need review (the page says which cap was hit); an excepti
 opened; the list shows no per-day entry counts; the decision logic in
 `lib/attendance` and the two actions (mocked client) have unit tests, but no test renders a page or the
 form, and none has been driven against a real Supabase project.
+## ADR-034 · Sites web, part 1: list, create, edit, status and archive, with no new database surface
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #78, PR 1 of 2; review: Ishant)
+
+**Context.** The Sites tables, policies and `archive_site()` are merged (ADR-007) but no screen
+exists, so a site can be made only in SQL. #78 also asks to assign and remove supervisors, which
+needs member names. `profiles` is readable only by its own user and Identity has not yet published a
+member-names view (on no branch on 2026-10-20), so #78 is split: this PR is everything that needs no
+names; PR 2 is assignment, after Identity's view.
+
+**Decision.**
+- W1. Routes: `/sites?org=` (list), `/sites/new?org=` and `/sites/[id]?org=` (edit, status, archive).
+  `/sites` joins `SIGNED_IN_ONLY`. A viewer is let in only when Identity's `can_manage_sites(org)` is
+  true; the dashboard shows the link to `owner` and `project_manager` only. This is presentation; RLS
+  and `archive_site` repeat the check.
+- W2. The pages write only through the existing grants: `sites` insert of six columns (the grant also allows `status`, which is not sent), update of five
+  detail columns, update of `status` alone, and `archive_site()`. No migration, no new view.
+- W3. The insert does not read its row back. `has_site_access` is `STABLE`, so `insert(...).select()`
+  would evaluate `sites_select` on a row its snapshot cannot see. A created site returns to the list.
+  A new site is `planned` (the column default); the create form has no status field.
+- W4. Status is a separate action from the details, so a status move cannot overwrite a concurrent edit
+  and the audit row shows one changed column. `archived` is refused in code and by `sites_update`'s
+  WITH CHECK. Edits and status moves filter on `id` and `org_id`; 0 rows reads as `site_not_allowed`.
+- W5. Archive has a confirm step: a server-rendered view (`?confirm=archive`) that says what it does,
+  with a POST button. Visiting it changes nothing. It calls `archive_site()` only.
+- W6. Coordinates are plain decimals read to 15 places and rounded to the 6 the column keeps; the
+  range is judged after rounding, as the database does. Radius is a whole number, 50 to 2000. Text is
+  trimmed and counted in characters. All of it is checked in code first to give a specific message; the
+  database CHECKs stay the boundary.
+- W7. "Find on map" is a Google Maps link built from validated numbers, `rel="noopener noreferrer"`.
+  Coordinates leave the app only when someone clicks it.
+- W8. The pages read no Identity table (ADR-025 W3), so the heading shows no organisation name.
+- W9. Errors map by SQLSTATE to fixed codes in `lib/messages.ts` (`42501` forbidden, `23505` name
+  taken, anything else generic).
+
+**Consequences.** Owners and project managers can set up and retire sites without SQL, and the
+Attendance, Reporting and Materials screens finally have sites to point at. Costs: assignment is not
+possible from the web until PR 2, so a supervisor still gets a site through SQL; two managers editing
+one site at once is last-write-wins (`updated_at` is not in the grant); an error on create or edit
+returns to a form with its values cleared, as the Materials form does; archiving needs two clicks and
+cannot be undone; a manager with several organisations sees no organisation name on these pages;
+the "not read back" rule (W3) rests on reading the function's volatility, not on a test against a
+real project; and the pages themselves are covered by unit tests of the actions and input rules only,
+not run against a real Supabase project.
+## ADR-034 · Attendance on the phone, PR 1: check in and out, offline, with the location read on the tap
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #79, PR 1 of 3; review: Nikhil, because it touches the mirror and the outbox)
+
+**Context.** #79 is the supervisor's side of ADR-021: check in with no signal, mark everyone, fix
+exceptions, check out. It is too big for one PR. PR 1 is check in and check out; PR 2 is the day register
+(mark-all and exceptions); PR 3 adds the approved-days mirror, the read-only approved day and corrections,
+and closes #79. The mirrors already give the phone the assigned sites (with pin, radius and status) and the
+roster by date (ADR-023), but not the site's `org_id`, which every Attendance payload names, and nothing of
+what the server holds for a day. The server cannot take a check-in with no coordinates.
+
+**Decision.**
+- **D1 · Location.** Asked at the first check-in tap, after a screen that says why (once, on the tap, never
+  in the background), then the phone's own prompt, foreground only. One `getCurrentPositionAsync` per tap
+  and a 15 s limit of our own (the library has none). The `LocationProvider` interface has no watch and no
+  background call. If the permission is denied, services are off, there is no fix or it fails, a reason is
+  mandatory and the visit is sent at coordinates **0, 0** with the reason prefixed `Location not shared: `.
+  The server then measures thousands of km, flags it outside and keeps the reason, so it is never silently
+  accepted. Rejected: nullable coordinates with an explicit flag (a migration, an ADR-021 D8 change, a handler
+  and `site_exceptions` change: a PR of its own, listed as a follow-up) and refusing a check-in without
+  location (breaks the issue's AC 6).
+- **D2 · Mark-all offline** (built in PR 2). The phone writes the records itself, as ADR-021 says: one
+  `attendance_days` record, and one `attendance_entries` record per worker from `readRosterOn(site, date)` who
+  has no local entry yet, status `present`, overtime 0, in one local transaction. It never overwrites an
+  exception. Rejected: a bulk record (a new sync entity) and an online-only action.
+- **D3 · The estimate.** The server's haversine on the six-decimal coordinates that are sent, against the
+  mirrored pin and radius, "on the radius is inside". Inside saves at once; outside shows the distance, the
+  limit and the GPS accuracy and saves nothing until a reason is given. The database decides: if the two ever
+  disagree, the verdict `rejected` / `invalid_input` shows as needs attention, and "Add a reason and send again"
+  re-saves the same record id (re-queued, ADR-016). The reason goes on the latest leg of the visit only, because
+  changing an already accepted check-in would be `conflict` / `different_visit` (ADR-033 D2).
+- **D4 · `org_id` on the mirror.** `mirror_sites.org_id`, device migration 5, nullable so a phone keeps the
+  sites it holds; the pull selects it from `site_details` (it was already published) and a row without it fails
+  the whole pull. A site with no `org_id` yet cannot be checked in to, and says "Connect once to refresh your
+  sites". This is Offline Sync's file, changed additively here with Nikhil's review. `listRecords(db, author,
+  entity, { siteId })` is added to `outbox.ts` the same way, so a screen can read its own records back; it
+  never falls back to every user's rows (ADR-020).
+- **D5 · An open visit from an earlier day** shows with its date, can be closed (with the time and place of
+  that tap), and does not block a new check-in (ADR-021 D12).
+- **D6 · Wiring.** `expo-location` (Expo's resolver, SDK 57), the plugin text in `app.json`. The attendance
+  routes cannot reach the sync engine, which the home route starts, so a screen re-reads the outbox every
+  3 s to show a verdict and a saved visit leaves on the next trigger (foreground, reconnect, 60 s). The home
+  screen (`HomeScreen.tsx`, `app/index.tsx`, Offline Sync's) gets an optional Attendance button, shown only to a
+  signed-in user. One tap runs at a time: a second tap while the first is still reading the location or saving
+  does nothing, so a double tap cannot save two visits.
+- **D7 · Words.** A visit says "Saved on this phone, waiting to send" until the record is `synced` (the server's
+  `accepted` verdict), then "On the server"; `failed` is "Could not send yet. Will retry."; `conflict` and
+  `rejected` are both "Needs attention" with a plain reason (#68). No raw code or error text is shown.
+
+**Consequences.** A supervisor can check in and out with no signal, and the only record is an outbox row that
+survives a restart. Costs: a no-location visit stores 0, 0 and a distance of thousands of km in the row and in
+`audit_log`, and the reviewer sees "outside the fence" rather than "no location"; the estimate can differ from
+the server at the exact edge and after a radius change; a visit has one outbox row, so a rejected visit whose
+fault was in the check-in leg gets its reason on the check-out leg and is refused again; the phone does not know
+the role, so an owner or project manager's check-in is sent and comes back `permission_denied`; the phone's
+only knowledge of its own visits is the outbox, so a visit made on another phone, or before a reinstall, is not
+shown; a screen's saved visit waits for the next sync trigger (up to a minute) until the engine is exposed
+through a context; a phone updated offline shows "Connect once to refresh your sites" until one pull; and
+the `FEATURES.md` module 4 row "Check in and check out; location captured only on that tap" stays unticked
+until it runs on a phone against the team project (#58).
+
+---
+
+## ADR-036 · Daily report on the phone, PR 1: drafts and submits through the outbox, a reason for every change after submit
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #81, spec on the issue; review: Manish)
+
+**Context.** The server side of offline filing has been in place since #63 (ADR-022), but no screen on the
+phone saved a report, so "Save as an offline draft" and "File a report" stayed unticked. The phone needs the
+site's `org_id` for every report payload (ADR-022 H3), which the mirror gains in #102 (device migration 5);
+this PR is stacked on it. Four things were open: where a draft lives, which day a report is for, when an edit
+needs a reason, and what the screen may say before the server answers.
+
+**Decision.**
+- D1. **Drafts go through the outbox too**, as `daily_reports` with status `draft`. No local draft table and no
+  device migration. A draft reaches the server, where only its author can see it (ADR-013 R1), and is later
+  submitted under the same record id, which the handler already treats as an update. The phone keeps one record
+  per author, site and IST day, and finds it again through `listRecords`, so a restarted app reopens the same
+  report.
+- D2. **The day is the phone's IST day.** The screen opens today's report. Earlier reports of this user that are
+  still drafts, or that the server refused or kept its own version of (except a reviewed one, which is final), are
+  listed under "Not finished" (at most ten) and open on their own day. A day in the future, or one that is not a calendar day, opens today.
+- D3. **The phone repeats the database's limits before saving,** and writes nothing when one fails: headcount a
+  whole number 0–1000, work done 4000, blockers 2000, plan 2000, reason 500 (ADR-013 R4). Text is counted in code
+  points, as `char_length` counts it, not UTF-16 units. A submit needs headcount and non-blank work done. A
+  serious blocker needs blocker text on a draft too, because `daily_reports_serious_blocker_explained` has no
+  status condition. The server stays the boundary.
+- D4. **Once submitted on this phone, every change needs a reason**, sent as `edit_reason`. The phone cannot tell
+  whether the server already holds the submitted version (it may be in flight), and the handler's insert never
+  reads `edit_reason`, so a reason sent ahead of the first submit is harmless. Save draft is gone after Submit,
+  since a report cannot go back to draft. A change that changes nothing is refused on the phone. A report the
+  server answered `conflict` / `reviewed` is read-only (ADR-013 R5).
+- D5. **"Submitted" only for a submitted report the server accepted** (ADR-009). Waiting rows say "Saved on this
+  phone, waiting to send"; a synced draft says "Draft on the server, only you can see it"; `conflict` and
+  `rejected` say "Needs attention" with one fixed sentence per code (`reviewed`, `duplicate`,
+  `different_report`, `invalid_input`, `invalid_state`, `permission_denied`), and the shared wording otherwise.
+  No raw error text (ADR-029).
+- D6. **A serious blocker or a safety incident shows a banner before submit** saying the report will be flagged
+  to managers. In-app only (ADR-013 R3).
+- D7. **Headcount is typed for now.** Pre-filling it from the day's attendance entries waits for the phone's
+  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then.
+
+**Consequences.** A supervisor can save, finish and submit a report with no signal, and the only record is an
+outbox row that survives a restart. Costs: every draft save is also sent, so the server holds the author's
+drafts and `audit_log` records each one (ADR-013 already notes the owner can read draft text there); a second
+supervisor's report for the same site and day is answered `conflict` / `duplicate` and has to be sorted out by a
+manager, since the phone cannot see the other report; a reason is asked for an edit the server may never have
+seen, and is then dropped by the insert; the phone knows only its own outbox, so a report filed on another phone
+or before a reinstall is not shown, and a second report for that day would be a duplicate; a lookup scans at most
+400 of the user's reports per site, newest first; photos are #81 PR 2; and the time-to-submit telemetry in the PRD
+is not built.
+
+---
+
+## ADR-037 · Report photos on the phone: compress to JPEG, metadata through the outbox, the file after it is accepted
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #105, part 2 of #81; review: Manish, and Nikhil for the engine hook)
+
+**Context.** The server side of photos has existed since #35 and #63: `report_photos` rows, `sync_report_photos`
+(ADR-022 H7) and the private `report-photos` bucket, where Storage takes a file only at the exact path of a metadata
+row its uploader made (ADR-013 R8). The phone had nothing to take, keep or send a photo. A photo must never block its
+report, must work with no signal, and must not go out under another user's session on a shared phone (ADR-020).
+
+**Decision.**
+- P1. **Compress on the phone to a JPEG,** long side at most 1600 px, quality 0.7, with `expo-image-manipulator`. The
+  picker takes images only, one at a time, with no cropping (`expo-image-picker`). So every stored photo is
+  `image/jpeg` and `.jpg`, and a small photo is re-encoded, never enlarged. Over 10 MB after compressing is refused.
+- P2. **Metadata first, file after.** A photo is an outbox record of entity `report_photos`, saved after its report so
+  the report is sent first (ADR-016). Its `storage_path` is `<org>/<site>/<report>/<photo>.jpg`, lower case, built from
+  the report's own org and site, as `report_photos_path_shape` requires. Before the report arrives the handler answers
+  `retryable_error` / `missing_parent` and the outbox retries.
+- P3. **An upload queue owned by Daily Reporting:** device migration 6, `report_photo_files`, one row per photo with
+  its author, local file in the app's own folder (`Paths.document`), path, size, a state (`waiting`, `uploaded`,
+  `refused`) and a backoff. It is additive and touches no other table.
+- P4. **The sync engine calls a hook after each run** (`afterRun`, a generic option in Offline Sync's `engine.ts`), and
+  the app passes Daily Reporting's uploader. The engine knows nothing about photos. The hook runs for the engine's user
+  only, never while signed out, and its failures never reach the run's result. The uploader sends a photo only when its
+  metadata is `synced`, reads the session once, refuses if it is not the author's, and sends that session's token (as
+  the push does, ADR-020). An object that already exists is a replay and counts as uploaded. A 4xx other than 401, 408
+  and 429 is terminal (`refused`); anything else retries with the outbox's backoff. A missing local file is `refused`.
+- P5. **The limits are checked on the phone too:** ten photos a report and 10 MB each (ADR-013 R4). A photo may be added
+  to a submitted or even a reviewed report (ADR-013 R8) and is never changed or removed.
+- P6. **No caption yet** (`caption` is always null), and no way to remove an unsent photo.
+- P7. **"On the server" only once the file itself is uploaded.** A synced record whose file still waits says "Photo
+  waiting to upload" (ADR-009).
+
+**Consequences.** A supervisor can take and queue photos with no signal, and a photo can never stop its report. Costs:
+a photo's file is sent by a hook in Offline Sync's engine, so Nikhil owns that one option; the upload runs only when a
+sync run runs (every minute, on reconnect and on foreground), so a photo can wait a minute after its metadata is
+accepted; a refused photo stays on the phone with its file until someone clears it, since there is no removal yet; the
+phone keeps the kept copy until the upload succeeds, so a phone that never reconnects holds up to ten 10 MB files per
+report in its app folder; the 4xx rule treats an unknown refusal as final, so a wrongly refused photo is not retried;
+the JPEG re-encode drops EXIF, which is intended but also loses the original's capture time; and the
+`Paths.document` folder is not cleared when a user signs out, so a photo of user A that was never uploaded stays on
+the phone until A signs in again (the queue row is A's, so B never sees or sends it).
 
 ---
 

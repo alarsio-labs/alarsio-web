@@ -25,9 +25,11 @@ const T0 = new Date('2026-10-20T08:00:00.000Z');
 const ID = (prefix: string, n: number) => `${prefix}-0000-4000-8000-${String(n).padStart(12, '0')}`;
 const SITE_1 = ID('51000000', 1);
 const SITE_2 = ID('51000000', 2);
+const ORG = '0a0a0a0a-0000-4000-8000-0000000000a1';
 
 const site = (id: string, name = 'Site', status = 'active') => ({
   id,
+  org_id: ORG,
   name,
   address: 'Pune',
   status,
@@ -107,6 +109,36 @@ describe('pull (#49)', () => {
     expect(await mirrorInfo(old)).toBeNull();
   });
 
+  it('device migration 5 adds org_id to the sites mirror and keeps the sites a phone already holds (#79)', async () => {
+    const old = await openTestDeviceDb();
+    await prepareDeviceDb(old, deviceMigrations.slice(0, 4));
+    // A mirror pulled before migration 5: no org_id column yet.
+    await old.run(
+      `insert into mirror_sites (id, name, address, latitude, longitude, geofence_radius_m, status)
+       values (?, 'Kothrud', 'Pune', 18.52, 73.85, 200, 'active')`,
+      [SITE_1],
+    );
+    await old.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [USER_A, T0.toISOString()]);
+
+    await prepareDeviceDb(old, deviceMigrations);
+
+    expect(await readUserVersion(old)).toBe(deviceMigrations.length);
+    // The site is still there, so the supervisor can still see it offline, but
+    // it has no org_id until the next pull, and the screens say so.
+    expect(await readSites(old, USER_A)).toEqual([expect.objectContaining({ id: SITE_1, orgId: null })]);
+  });
+
+  it('a pull row without org_id fails the whole pull and leaves the old mirror whole (#79)', async () => {
+    const { source, state } = fakeSource(oneOfEach());
+    await runPull(db, source, { now: () => T0 });
+
+    const { org_id: _dropped, ...withoutOrg } = site(SITE_1);
+    state.data = { ...oneOfEach(), sites: [withoutOrg] };
+
+    expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'bad_row:sites' });
+    expect((await readSites(db, USER_A))[0]).toMatchObject({ id: SITE_1, orgId: ORG });
+  });
+
   it("stores the signed-in user's sites, materials and roster, and reads them back", async () => {
     const { source } = fakeSource(oneOfEach());
 
@@ -114,7 +146,16 @@ describe('pull (#49)', () => {
 
     expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString() });
     expect(await readSites(db, USER_A)).toEqual([
-      { id: SITE_1, name: 'Kothrud', address: 'Pune', latitude: 18.52, longitude: 73.85, geofenceRadiusM: 200, status: 'active' },
+      {
+        id: SITE_1,
+        orgId: ORG,
+        name: 'Kothrud',
+        address: 'Pune',
+        latitude: 18.52,
+        longitude: 73.85,
+        geofenceRadiusM: 200,
+        status: 'active',
+      },
     ]);
     expect(await readMaterials(db, USER_A, SITE_1)).toEqual([
       { id: ID('a1000000', 1), siteId: SITE_1, name: 'Material 1', unit: 'bag', thresholdMilli: 5000, balanceMilli: 10000 },
