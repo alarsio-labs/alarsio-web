@@ -74,6 +74,12 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Site status: planned, active, paused, completed, archived
 - [x] An archived site is read-only
 
+*Web screens for the first, third and fourth rows (list, create, edit, status, archive behind a confirm
+step) are in #78 PR 1 (ADR-034). The ticks above come from the database suites and are unchanged: the
+screens are covered by unit tests of their actions and input rules, and have not been run against a real
+Supabase project. Assigning and unassigning supervisors from the web is #78 PR 2, which waits for
+Identity's member-names view.*
+
 *Sites also publishes the read-only views other modules read it through: `site_geofence` (ADR-021)
 and `site_directory` (ADR-025), plus `site_details` (#49, ADR-028), which the phone's offline mirror
 will read once #71 stops reading `sites` directly. No row is ticked for it: it adds no user feature.*
