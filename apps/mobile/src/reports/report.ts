@@ -61,7 +61,6 @@ export type ReportErrorCode =
   | 'reason_required'
   | 'reason_too_long'
   | 'already_submitted'
-  | 'no_changes'
   | 'different_report'
   | 'no_org'
   | 'bad_date'
@@ -114,21 +113,13 @@ export function needsReason(previous: Report | null): boolean {
   return previous?.status === 'submitted';
 }
 
-function sameContent(a: Report, b: Report): boolean {
-  return (
-    a.status === b.status &&
-    a.headcount === b.headcount &&
-    a.workDone === b.workDone &&
-    a.blockers === b.blockers &&
-    a.seriousBlocker === b.seriousBlocker &&
-    a.safetyIncident === b.safetyIncident &&
-    a.nextDayPlan === b.nextDayPlan
-  );
-}
-
 /**
  * Builds the report to save from the form, refusing what the database would
  * refuse. `previous` is this user's saved version of the same report, if any.
+ * A submitted report may be sent again unchanged with a reason: the phone cannot
+ * know a manager sent it back until it pushes, and a reason alone answers a
+ * send-back (ADR-042 D4, D7). On a report the server holds as submitted, the same
+ * content is a replay and changes nothing.
  */
 export function buildReport(
   site: ReportSite,
@@ -171,7 +162,6 @@ export function buildReport(
   };
 
   if (needsReason(previous)) {
-    if (previous && sameContent(previous, report)) throw new ReportError('no_changes');
     const why = (reason ?? '').trim();
     if (why === '') throw new ReportError('reason_required');
     if (charCount(why) > REPORT_LIMITS.reason) throw new ReportError('reason_too_long');
@@ -293,6 +283,7 @@ export type ReportTone = 'wait' | 'ok' | 'attention';
 // The handler's codes (ADR-022 H5) and sync_push's mapping, said for a report.
 const REPORT_REASONS: Record<string, string> = {
   reviewed: 'A manager already reviewed this report, so it was not changed.',
+  sent_back: 'A manager sent this report back. Edit it if needed and give a reason to resubmit it.',
   duplicate: 'Another report for this site and day is already on the server. Ask your manager.',
   different_report: 'The server holds a different report under this record. Ask your manager.',
   invalid_input: "Something in this report isn't valid. Check it and send again.",
@@ -352,8 +343,6 @@ export function reportErrorText(error: unknown): string {
         return `Keep the reason to ${REPORT_LIMITS.reason} characters or fewer.`;
       case 'already_submitted':
         return 'This report is submitted. Change it and give a reason instead.';
-      case 'no_changes':
-        return 'Nothing has changed, so there is nothing to send.';
       case 'different_report':
         return 'This report belongs to another site or day.';
       case 'no_org':

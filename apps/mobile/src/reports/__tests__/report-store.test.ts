@@ -150,6 +150,34 @@ describe('report store (#81)', () => {
     expect(await outboxRows(db)).toEqual(before);
   });
 
+  it('resends a sent-back report with only a reason, under the same id (#114, ADR-042)', async () => {
+    const recordId = await saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', {}, T);
+    await serverAnswers(db, USER_A, [verdict(recordId, 'accepted')]);
+    // The phone learns of the send-back when it pushes again: here, an edit.
+    await saveReport(db, USER_A, SITE_1, TODAY, fields({ headcount: '14' }), 'submitted', { reason: 'Late' }, at(20));
+    await serverAnswers(db, USER_A, [verdict(recordId, 'conflict', 'sent_back')], at(25));
+
+    // Nothing else changed: the count was right. A reason alone answers it.
+    await expect(saveReport(db, USER_A, SITE_1, TODAY, fields({ headcount: '14' }), 'submitted', {}, at(30))).rejects.toMatchObject({
+      code: 'reason_required',
+    });
+    await saveReport(db, USER_A, SITE_1, TODAY, fields({ headcount: '14' }), 'submitted', { reason: '14 is right' }, at(40));
+    expect(await getStatus(db, 'daily_reports', recordId)).toEqual({ status: 'pending', reason: null });
+    const [row] = await outboxRows(db);
+    expect(JSON.parse(row?.payload ?? '{}')).toMatchObject({ status: 'submitted', headcount: 14, edit_reason: '14 is right' });
+  });
+
+  it('resends an accepted report unchanged with a reason, before the phone knows it was sent back', async () => {
+    // The usual case: the last answer was accepted, and the author saw the send-back on the web.
+    const recordId = await saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', {}, T);
+    await serverAnswers(db, USER_A, [verdict(recordId, 'accepted')]);
+
+    await saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', { reason: '12 is right' }, at(20));
+    expect(await getStatus(db, 'daily_reports', recordId)).toEqual({ status: 'pending', reason: null });
+    const [row] = await outboxRows(db);
+    expect(JSON.parse(row?.payload ?? '{}')).toMatchObject({ status: 'submitted', headcount: 12, edit_reason: '12 is right' });
+  });
+
   it('lets a refused report be fixed and sent again under the same id', async () => {
     const recordId = await saveReport(db, USER_A, SITE_1, TODAY, fields(), 'draft', {}, T);
     await serverAnswers(db, USER_A, [verdict(recordId, 'rejected', 'invalid_input')]);

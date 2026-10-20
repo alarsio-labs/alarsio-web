@@ -196,10 +196,11 @@ describe('report model (#81)', () => {
       expect(code(() => buildReport(SITE, DAY, fields(), 'draft', { previous: submitted() }))).toBe('already_submitted');
     });
 
-    it('says there is nothing to send when nothing changed', () => {
-      expect(code(() => buildReport(SITE, DAY, fields(), 'submitted', { previous: submitted(), reason: 'x' }))).toBe(
-        'no_changes',
-      );
+    it('sends a submitted report again unchanged, but only with a reason (ADR-042 D4, D7)', () => {
+      // The phone cannot know a manager sent it back; a reason alone answers a send-back.
+      const answer = buildReport(SITE, DAY, fields(), 'submitted', { previous: submitted(), reason: 'It was right' });
+      expect(buildPayload(answer)).toMatchObject({ status: 'submitted', edit_reason: 'It was right' });
+      expect(code(() => buildReport(SITE, DAY, fields(), 'submitted', { previous: submitted() }))).toBe('reason_required');
     });
 
     it('refuses a change to another site or day under the same report', () => {
@@ -245,6 +246,7 @@ describe('report model (#81)', () => {
 
     it.each([
       ['conflict', 'reviewed', /manager already reviewed/],
+      ['conflict', 'sent_back', /sent this report back.*reason/],
       ['conflict', 'duplicate', /another report for this site and day/i],
       ['conflict', 'different_report', /different report/],
       ['rejected', 'invalid_input', /isn't valid/],
@@ -272,7 +274,6 @@ describe('report model (#81)', () => {
         'reason_required',
         'reason_too_long',
         'already_submitted',
-        'no_changes',
         'different_report',
         'no_org',
         'bad_date',
