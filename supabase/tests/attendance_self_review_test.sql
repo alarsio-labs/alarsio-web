@@ -67,9 +67,11 @@ select public.test_org('a'), w, public.test_site('a1'), public.test_u('a01'), pu
 --   -9 e  approved  Ravi, Sita, Arun by a03       (the correction day)
 --  -10 f  approved  Ravi by a03
 --  -11 g  open      Ravi by a03
+--  -12 h  open      Ravi by a03, then EDITED by a04 (recorded_by stays a03; see section 3)
+--  -13 i  open      no entries at all (mark_all_present and sync_attendance_days can make one)
 insert into public.attendance_days (org_id, site_id, attendance_date, recorded_by)
 select public.test_org('a'), public.test_site('a1'), current_date - d, public.test_u('a03')
-  from generate_series(5, 11) as d;
+  from generate_series(5, 13) as d;
 
 insert into public.attendance_entries (org_id, site_id, attendance_date, worker_id, status, overtime_hours, recorded_by) values
   (public.test_org('a'), public.test_site('a1'), current_date - 5,  public.test_w('01'), 'present', 0, public.test_u('a03')),
@@ -82,7 +84,8 @@ insert into public.attendance_entries (org_id, site_id, attendance_date, worker_
   (public.test_org('a'), public.test_site('a1'), current_date - 9,  public.test_w('02'), 'present', 0, public.test_u('a03')),
   (public.test_org('a'), public.test_site('a1'), current_date - 9,  public.test_w('03'), 'present', 0, public.test_u('a03')),
   (public.test_org('a'), public.test_site('a1'), current_date - 10, public.test_w('01'), 'present', 0, public.test_u('a03')),
-  (public.test_org('a'), public.test_site('a1'), current_date - 11, public.test_w('01'), 'present', 0, public.test_u('a03'));
+  (public.test_org('a'), public.test_site('a1'), current_date - 11, public.test_w('01'), 'present', 0, public.test_u('a03')),
+  (public.test_org('a'), public.test_site('a1'), current_date - 12, public.test_w('01'), 'present', 0, public.test_u('a03'));
 
 -- Fixture states are set by the superuser so they do not depend on the function under test.
 create function public.test_force_review(p_day uuid, p_status text, p_by uuid, p_reason text default null)
@@ -153,6 +156,17 @@ begin
   perform test_assert(r = 'ok:1', '[0.02] (setup) C2 proposed by a04, got ' || r);
   r := test_propose(test_u('a03'), test_c(3), '03');
   perform test_assert(r = 'ok:1', '[0.03] (setup) C3 proposed by a03, got ' || r);
+
+  -- a04, still a supervisor of A1, changes Ravi's entry on day -12 that a03 recorded.
+  -- Any supervisor on the site may edit an open day's entry, and recorded_by does not move.
+  r := test_try(test_u('a04'), format(
+    'update public.attendance_entries set status = ''absent'' where site_id = %L and attendance_date = current_date - 12',
+    test_site('a1')));
+  perform test_assert(r = 'ok:1', '[0.04] (setup) a04 edits an entry on day -12, got ' || r);
+  perform test_assert(
+    (select recorded_by from public.attendance_entries
+      where site_id = test_site('a1') and attendance_date = current_date - 12) = test_u('a03'),
+    '[0.05] (setup) the edit did not move recorded_by');
 end $$;
 
 -- ============================================ 1. before any role change (the baseline)
@@ -210,6 +224,13 @@ begin
   perform test_assert(test_corr(1) = 'pending|-' and test_corr(3) = 'pending|-', '[2.11] C1 and C3 are still pending');
   perform test_assert(test_ent(9, '01') = 'present' and test_ent(9, '03') = 'present', '[2.12] the entries were not changed');
 
+  -- A day the reviewer opened that has no entries at all: the opener branch stands alone.
+  r := test_review_day(test_u('a03'), test_day(13), true);
+  perform test_assert(r = '42501', '[2.12b] the opener cannot approve a day with no entries, got ' || r);
+  r := test_review_day(test_u('a03'), test_day(13), false, 'Nobody came');
+  perform test_assert(r = '42501', '[2.12c] the opener cannot reject a day with no entries, got ' || r);
+  perform test_assert(test_day_status(13) = 'open|-', '[2.12d] the day with no entries is unchanged');
+
   perform test_assert((select count(*) from audit_log where id > w) = 0, '[2.13] the refused calls left no audit row');
 
   -- A correction proposed by someone else, on a day a03 recorded, is not covered by this rule.
@@ -245,6 +266,15 @@ begin
   r := test_review_corr(test_u('a04'), test_c(3), false, 'Not needed');
   perform test_assert(r = 'ok:1', '[3.07] a reviewer may reject a correction proposed by another, got ' || r);
   perform test_assert(test_corr(3) = 'rejected|' || test_u('a04'), '[3.08] C3 is rejected by a04');
+
+  -- KNOWN GAP, pinned so it is on record (ADR-040 consequences). Recording means the
+  -- recorded_by column, which an edit never moves. a04 changed Ravi's entry on day -12 and
+  -- did not record it, so a04 may review the day. Closing this needs an updated_by-style
+  -- column on attendance_entries or a read of audit_log, and either is a decision of its
+  -- own. If a later change makes this refuse, change this case on purpose.
+  r := test_review_day(test_u('a04'), test_day(12), true);
+  perform test_assert(r = 'ok:1', '[3.09] KNOWN GAP: a reviewer who only edited an entry may approve the day, got ' || r);
+  perform test_assert(test_day_status(12) = 'approved|' || test_u('a04'), '[3.10] day -12 is approved by a04');
 end $$;
 
 -- ============================================ 4. the rest still work

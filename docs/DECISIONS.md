@@ -1395,6 +1395,18 @@ those days, and if they are the only reviewer, the owner must; an entry a review
 day for them, even if a colleague opened it; the check reads `attendance_entries` on every day review (an
 indexed lookup on site and date); and it binds only the recorder's own account, so a person with two
 accounts is not stopped, which no database rule can do.
+
+**Known gap: an edit is not recording.** `attendance_entries.recorded_by` never moves on an update, and
+any supervisor assigned to the site may edit another supervisor's entry on a day that is not approved. If
+supervisor A opens a day and records it, B changes several entries, and B is later made a project manager,
+B may review that day even though B wrote some of its figures. Closing it needs an `updated_by`-style column
+on `attendance_entries`, or a read of `audit_log`, which another module owns; either is a decision of its own
+and is not in this change. `attendance_self_review_test.sql` [3.09] pins today's behaviour, so the gap is on
+record and a later fix changes that case on purpose. A day the reviewer opened that has no entries is
+refused ([2.12b]), so the opener rule stands on its own.
+
+---
+
 ## ADR-034 · Sites web, part 1: list, create, edit, status and archive, with no new database surface
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #78, PR 1 of 2; review: Ishant)
 
