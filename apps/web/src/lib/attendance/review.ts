@@ -43,7 +43,8 @@ export type CleanReason = { ok: true; reason: string | null } | { ok: false; err
 // of the same length. The database repeats both rules.
 export function cleanReason(decision: Decision, v: unknown): CleanReason {
   const reason = typeof v === "string" ? v.trim() : "";
-  if (reason.length > MAX_REASON) return { ok: false, error: "attendance_reason_long" };
+  // The database counts characters (code points), not UTF-16 units, so an emoji is one.
+  if ([...reason].length > MAX_REASON) return { ok: false, error: "attendance_reason_long" };
   if (reason.length === 0) {
     return decision === "reject" ? { ok: false, error: "attendance_reason_required" } : { ok: true, reason: null };
   }

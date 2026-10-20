@@ -72,11 +72,12 @@ export function buildRows(days: readonly DayInput[], exceptions: readonly Except
 
   return [...acc.entries()].map(([key, a]) => {
     const day = dayByKey.get(key) ?? null;
+    // A date with only a geofence or not-closed flag and no day has nothing to
+    // approve and no way to clear the flag, so it is under "All" only. A waiting
+    // correction always counts.
     const needsReview =
-      day === null ||
-      day.status === "open" ||
-      (day.status === "rejected" && a.changed) ||
-      a.pending > 0;
+      a.pending > 0 ||
+      (day !== null && (day.status === "open" || (day.status === "rejected" && a.changed)));
     return {
       key,
       siteId: a.siteId,

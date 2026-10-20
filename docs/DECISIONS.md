@@ -1383,9 +1383,10 @@ ADR-031 is held for #90, so this one is ADR-034.
   W1) and worker names from `worker_roster`, de-duplicated by worker. Membership is checked with
   `is_org_member`, and whether to draw the buttons with `can_review_site`.
 - **W4 · Needs review** is the default filter: a day that is `open`, or `rejected` and edited since
-  (`changed_since_review`, ADR-032 D7), or has a pending correction, or an exception-only row. A geofence
-  or not-closed exception on an already approved day does not count, because those rows never resolve
-  (ADR-032 consequence). Rows are newest date first; within a date, flagged rows, then rows waiting,
+  (`changed_since_review`, ADR-032 D7), or has a pending correction. A geofence or not-closed exception
+  on an approved day does not count, because those rows never resolve (ADR-032 consequence), and nor does
+  a date that has only such a flag and no day at all: it has nothing to approve and no way to clear the
+  flag, so it shows under "All" only. Rows are newest date first; within a date, flagged rows, then rows waiting,
   then site name.
 - **W5 · Time.** "Today", the default range and every timestamp are Asia/Kolkata and say IST (ADR-021),
   unlike the reports pages, which are UTC. The default range is the 31 days ending today, and the longest
@@ -1399,7 +1400,7 @@ ADR-031 is held for #90, so this one is ADR-034.
 - **W8 · AC 3 in this PR is presentation.** The day's Approve / Reject form is drawn only when the viewer
   neither recorded the day nor any of its entries, and a correction's only when the viewer did not propose
   it; otherwise the page says someone else must review. The database check is **not** part of this PR.
-  The follow-up is a migration that makes both functions answer `42501` for a self-recorded day or a
+  The follow-up is PR #101 (ADR-035): a migration that makes both functions answer `42501` for a self-recorded day or a
   self-proposed correction, with SQL tests, as its own PR for Attendance's owner.
 - **W9 · Where decided.** Corrections are decided on the day's page, one small form each, not on a page of
   their own.
@@ -1409,11 +1410,12 @@ the report review makes the two screens feel alike. Costs: until the follow-up m
 "nobody reviews a day they recorded" is true only by role separation and by the hidden buttons, and a
 promoted supervisor who posts the form by hand is accepted; an accountant can open `/attendance` and read
 approved days (ADR-032 D3) but never sees a control; the list reads all days of a 31-day window (capped at
-1000, a cap that 20 sites do not reach) and up to 1000 exceptions; the site, the dates and
-open / rejected / approved are filtered in the database, but "Needs review" and "All" are applied after
-the read, so when a cap is reached the oldest rows are the ones cut, and they may need review (the page
-says so); an exception-only row cannot be opened; a flagged visit that never gets a day stays in
-"Needs review" for 31 days; the list shows no per-day entry counts; the decision logic in
+1000, a cap that 20 sites do not reach) and two ordered exception queries of up to 1000 rows each (waiting
+corrections and sent-back days apart from geofence and not-closed flags, so a flood of flags cannot push a
+waiting correction out); the site, the dates and open / rejected / approved are filtered in the database,
+but "Needs review" and "All" are applied after the read, so when a cap is reached the oldest rows are the
+ones cut, and they may need review (the page says which cap was hit); an exception-only row cannot be
+opened; the list shows no per-day entry counts; the decision logic in
 `lib/attendance` and the two actions (mocked client) have unit tests, but no test renders a page or the
 form, and none has been driven against a real Supabase project.
 

@@ -77,6 +77,10 @@ describe("cleanReason", () => {
   it("counts the trimmed length", () => {
     expect(cleanReason("reject", ` ${"a".repeat(500)} `)).toEqual({ ok: true, reason: "a".repeat(500) });
   });
+  it("counts characters as the database does, so an emoji is one, not two", () => {
+    expect(cleanReason("reject", "😀".repeat(500))).toEqual({ ok: true, reason: "😀".repeat(500) });
+    expect(cleanReason("reject", "😀".repeat(501))).toEqual({ ok: false, error: "attendance_reason_long" });
+  });
 });
 
 describe("reviewErrorCode", () => {

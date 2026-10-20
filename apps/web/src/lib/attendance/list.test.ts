@@ -26,7 +26,12 @@ describe("buildRows", () => {
   it("makes an exception-only row, with no day id, for a flag with no day", () => {
     const rows = buildRows([], [x({ kind: "visit_not_closed" })]);
     expect(rows).toHaveLength(1);
-    expect(rows[0]).toMatchObject({ dayId: null, dayStatus: null, flags: ["visit_not_closed"], needsReview: true });
+    expect(rows[0]).toMatchObject({ dayId: null, dayStatus: null, flags: ["visit_not_closed"], needsReview: false });
+  });
+
+  it("still needs review for a waiting correction whose day is not in the list", () => {
+    const rows = buildRows([], [x({ kind: "correction_pending" })]);
+    expect(rows[0]).toMatchObject({ dayId: null, pendingCorrections: 1, needsReview: true });
   });
 
   it("does not make a row from the day-status exceptions alone", () => {
@@ -91,8 +96,8 @@ describe("filterRows", () => {
     expect(ids("rejected")).toEqual(["r"]);
     expect(ids("approved")).toEqual(["a"]);
   });
-  it("keeps exception-only rows for needs_review and all, and nowhere else", () => {
-    expect(ids("needs_review")).toEqual(["none", "o"]);
+  it("shows exception-only rows under all and nowhere else, since nothing on them can be cleared", () => {
+    expect(ids("needs_review")).toEqual(["o"]);
     expect(ids("all")).toEqual(["a", "none", "o", "r"]);
   });
 });

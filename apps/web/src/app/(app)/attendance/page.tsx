@@ -10,9 +10,13 @@ import { isDayRow, isExceptionRow } from "@/lib/attendance/rows";
 import { inputClass } from "@/components/form";
 
 // 31 days of 20 sites is 620 days, so the day cap is never reached at the scale
-// the product is built for. Exceptions are many per day, so their cap can be.
+// the product is built for. Geofence and not-closed rows are many per day, so their
+// cap can be. They are read apart from the rows a review depends on (a waiting
+// correction, an edited rejected day), so a full flood of geofence rows can never
+// push those out, and each query is ordered, so a cap cuts the oldest rows.
 const DAY_LIMIT = 1000;
-const EXCEPTION_LIMIT = 1000;
+const REVIEW_EXCEPTION_LIMIT = 1000;
+const FLAG_EXCEPTION_LIMIT = 1000;
 
 export default async function AttendancePage({
   searchParams
@@ -40,36 +44,51 @@ export default async function AttendancePage({
     .gte("attendance_date", f.from)
     .lte("attendance_date", f.to)
     .order("attendance_date", { ascending: false })
+    .order("id")
     .limit(DAY_LIMIT);
   // day_awaiting_review repeats an open day, so it is never read.
-  let exceptions = supabase
-    .from("site_exceptions")
-    .select("site_id, exception_date, kind, source_id, worker_id, reason, distance_m, changed_since_review")
-    .eq("org_id", org)
-    .neq("kind", "day_awaiting_review")
-    .gte("exception_date", f.from)
-    .lte("exception_date", f.to)
-    .limit(EXCEPTION_LIMIT);
+  const exceptionQuery = (kinds: string[], limit: number) =>
+    supabase
+      .from("site_exceptions")
+      .select("site_id, exception_date, kind, source_id, worker_id, reason, distance_m, changed_since_review")
+      .eq("org_id", org)
+      .in("kind", kinds)
+      .gte("exception_date", f.from)
+      .lte("exception_date", f.to)
+      .order("exception_date", { ascending: false })
+      .order("source_id")
+      .limit(limit);
+  let reviewExceptions = exceptionQuery(["correction_pending", "day_rejected"], REVIEW_EXCEPTION_LIMIT);
+  let flagExceptions = exceptionQuery(["geofence_check_in", "geofence_check_out", "visit_not_closed"], FLAG_EXCEPTION_LIMIT);
   if (f.site) {
     days = days.eq("site_id", f.site);
-    exceptions = exceptions.eq("site_id", f.site);
+    reviewExceptions = reviewExceptions.eq("site_id", f.site);
+    flagExceptions = flagExceptions.eq("site_id", f.site);
   }
   if (f.status === "open" || f.status === "rejected" || f.status === "approved") days = days.eq("status", f.status);
 
   // Membership through Identity's published predicate, not its tables.
-  const [{ data: isMember }, { data: siteData }, { data: dayData }, { data: exceptionData }] = await Promise.all([
+  const [{ data: isMember }, { data: siteData }, { data: dayData }, { data: reviewData }, { data: flagData }] = await Promise.all([
     supabase.rpc("is_org_member", { p_org_id: org }),
     supabase.from("site_directory").select("id, name, status").eq("org_id", org).order("name"),
     days,
-    exceptions
+    reviewExceptions,
+    flagExceptions
   ]);
   if (isMember !== true) redirect("/dashboard");
 
   const sites = rows(siteData, isSiteRow);
   const siteName = new Map(sites.map((s) => [s.id, s.name]));
   const dayRows = rows(dayData, isDayRow);
-  const exceptionRows = rows(exceptionData, isExceptionRow);
-  const list = sortRows(filterRows(buildRows(dayRows, exceptionRows), f.status), siteName);
+  const reviewRows = rows(reviewData, isExceptionRow);
+  const flagRows = rows(flagData, isExceptionRow);
+  const list = sortRows(filterRows(buildRows(dayRows, [...reviewRows, ...flagRows]), f.status), siteName);
+  // Say which cap was hit, and that the oldest rows are the ones cut.
+  const capped = [
+    dayRows.length === DAY_LIMIT && `${DAY_LIMIT} days`,
+    reviewRows.length === REVIEW_EXCEPTION_LIMIT && `${REVIEW_EXCEPTION_LIMIT} waiting corrections and sent-back days`,
+    flagRows.length === FLAG_EXCEPTION_LIMIT && `${FLAG_EXCEPTION_LIMIT} geofence and not-closed flags`
+  ].filter((c): c is string => typeof c === "string");
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
@@ -145,8 +164,10 @@ export default async function AttendancePage({
           })}
         </ul>
       )}
-      {(dayRows.length === DAY_LIMIT || exceptionRows.length === EXCEPTION_LIMIT) && (
-        <p className="mt-3 text-sm text-neutral-600">Showing the first {DAY_LIMIT}. Narrow the filters to see the rest.</p>
+      {capped.length > 0 && (
+        <p className="mt-3 text-sm text-neutral-600">
+          Showing only the newest {capped.join(", ")}; older ones are left out. Narrow the dates or the site to see them.
+        </p>
       )}
     </main>
   );
