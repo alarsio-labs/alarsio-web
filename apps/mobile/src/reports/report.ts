@@ -260,6 +260,29 @@ export function fieldsOf(r: Report | null): ReportFields {
   };
 }
 
+/** The day's attendance on this phone, as Attendance's readHeadcount answers it (#109). */
+export interface DayAttendance {
+  onSite: number;
+  halfDay: number;
+}
+
+/**
+ * The form a report opens with. A saved report keeps its own values; a new one
+ * starts with the headcount from the day's attendance when the phone holds any,
+ * and empty otherwise, to be typed (ADR-038 D4).
+ */
+export function openingFields(saved: Report | null, attendance: DayAttendance | null): ReportFields {
+  const fields = fieldsOf(saved);
+  if (saved === null && attendance !== null) fields.headcount = String(attendance.onSite);
+  return fields;
+}
+
+/** Where the pre-filled number came from, said under the field (ADR-038 D5). */
+export function headcountHint(a: DayAttendance): string {
+  const half = a.halfDay > 0 ? ` (${a.halfDay} half day)` : '';
+  return `From attendance on this phone: ${a.onSite} on site${half}`;
+}
+
 /** A serious blocker or a safety incident flags the report to managers (ADR-013 R3). */
 export function isFlagged(f: Pick<ReportFields, 'seriousBlocker' | 'safetyIncident'>): boolean {
   return f.seriousBlocker || f.safetyIncident;
