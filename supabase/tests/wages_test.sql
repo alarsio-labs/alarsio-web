@@ -103,11 +103,12 @@ select public.test_entry('a1', 9, '03', 'present', 1);
 select public.test_entry('a1', 8, '03', 'half_day');
 select public.test_entry('a1', 7, '03', 'absent');
 select public.test_entry('a1', 5, '03', 'leave');
--- Latha: present at both sites on -9 and -8 (the cap: 1 day, not 2).
+-- Latha: present at both sites on -9 and -8 (the cap: 1 day, not 2), with 5 h overtime at each
+-- site on -8 (the cap: 8 h paid, not 10).
 select public.test_entry('a1', 9, '04', 'present');
 select public.test_entry('a2', 9, '04', 'present');
-select public.test_entry('a1', 8, '04', 'present');
-select public.test_entry('a2', 8, '04', 'present');
+select public.test_entry('a1', 8, '04', 'present', 5);
+select public.test_entry('a2', 8, '04', 'present', 5);
 -- Mala (no rate): present on -9, leave on -8.
 select public.test_entry('a1', 9, '05', 'present');
 select public.test_entry('a1', 8, '05', 'leave');
@@ -234,6 +235,13 @@ begin
         and c.relname in ('wage_summary', 'wage_summary_by_site')
         and 'security_invoker=true' = any (c.reloptions)) = 2,
     '[1.10] both wage views are security_invoker');
+  perform test_assert(test_cols('worker_pay_basis') = 'id,org_id,code,full_name,pay_type'
+                  and exists (select 1 from pg_class c where c.oid = 'public.worker_pay_basis'::regclass
+                                 and 'security_invoker=true' = any (c.reloptions))
+                  and has_table_privilege('authenticated', 'public.worker_pay_basis', 'select')
+                  and not has_table_privilege('authenticated', 'public.worker_pay_basis', 'insert,update,delete')
+                  and not has_table_privilege('anon', 'public.worker_pay_basis', 'select'),
+    '[1.10b] worker_pay_basis has exactly the five columns, is security_invoker, readable by authenticated only');
   perform test_assert(not has_table_privilege('anon', 'public.wage_summary', 'select')
                   and has_table_privilege('authenticated', 'public.wage_summary', 'select')
                   and not has_table_privilege('authenticated', 'public.wage_summary', 'insert,update,delete'),
@@ -329,8 +337,8 @@ begin
     '[3.12] Sita: the rate change mid-period is honoured per day (800, 800, 1000, 1000), got ' || test_line(test_u('a05'), '02'));
   perform test_assert(test_line(test_u('a05'), '03') = '1.50|1200.00|1.00|200.00|0.00|1400.00|0',
     '[3.13] Hari (hourly): present 8 h + half day 4 h at 100, 1 h overtime at 2 x, got ' || test_line(test_u('a05'), '03'));
-  perform test_assert(test_line(test_u('a05'), '04') = '2.00|1200.00|0.00|0.00|0.00|1200.00|0',
-    '[3.14] Latha: present at two sites on one date is 1 day, got ' || test_line(test_u('a05'), '04'));
+  perform test_assert(test_line(test_u('a05'), '04') = '2.00|1200.00|8.00|1200.00|0.00|2400.00|0',
+    '[3.14] Latha: present at two sites on one date is 1 day, and 5 h + 5 h overtime pays 8 h (600 / 8 x 2 x 8), got ' || test_line(test_u('a05'), '04'));
   perform test_assert(test_line(test_u('a05'), '05') = '1.00|0.00|0.00|0.00|0.00|0.00|1',
     '[3.15] Mala: a present day with no rate shows as no rate, never a rupee amount, got ' || test_line(test_u('a05'), '05'));
   perform test_assert(test_line(test_u('a05'), '06') = '2.00|1666.66|2.00|416.67|0.00|2083.33|0',
@@ -379,6 +387,11 @@ begin
                   and test_count(test_u('a03'), 'select 1 from public.wage_line_days') = '0'
                   and test_count(test_u('a02'), 'select 1 from public.wage_periods') = '0',
     '[4.08] a project manager and a supervisor read none of the base tables either');
+  perform test_assert(test_count(test_u('a05'), 'select 1 from public.worker_pay_basis') = '6'
+                  and test_count(test_u('a07'), 'select 1 from public.worker_pay_basis') = '6'
+                  and test_count(test_u('b01'), 'select 1 from public.worker_pay_basis') = '1'
+                  and test_count(null, 'select 1 from public.worker_pay_basis') = '42501',
+    '[4.08a] worker_pay_basis gives each organisation its own workers, an unassigned accountant included, and anon nothing');
   perform test_assert(test_count(test_u('a02'), 'select 1 from public.wage_adjustments') = '0'
                   and test_count(test_u('a03'), 'select 1 from public.wage_adjustments') = '0'
                   and test_count(test_u('a02'), 'select 1 from public.wage_period_reopens') = '0'
@@ -424,6 +437,10 @@ begin
 
   r := test_adjust(test_u('a05'), test_period_id(), '01', 0, 'nothing');
   perform test_assert(r = '23514', '[5.05] a zero adjustment is refused, got ' || r);
+  r := test_adjust(test_u('a05'), test_period_id(), '01', 1000000.01, 'too big');
+  perform test_assert(r = '23514', '[5.06a] an adjustment above 10 lakh is refused, got ' || r);
+  r := test_adjust(test_u('a05'), test_period_id(), '01', -1000000.01, 'too big');
+  perform test_assert(r = '23514', '[5.06b] and so is a recovery above 10 lakh, got ' || r);
   r := test_adjust(test_u('a05'), test_period_id(), '01', 50, '   ');
   perform test_assert(r = '23514', '[5.06] a blank reason is refused, got ' || r);
   r := test_adjust(test_u('a05'), test_period_id(), '01', 50, repeat('x', 501));
@@ -464,6 +481,12 @@ begin
   perform test_assert(r = '42501', '[6.02] a supervisor cannot lock, got ' || r);
   r := test_lock(test_u('b01'), test_period_id());
   perform test_assert(r = '42501', '[6.03] another organisation cannot lock, got ' || r);
+
+  -- A period that has not ended cannot be locked (its end date is today or later).
+  r := test_lock(test_u('a05'), (select id from public.wage_periods where org_id = test_org('a') and start_date = current_date - 3));
+  perform test_assert(r = '55000', '[6.03b] a period still running cannot be locked, got ' || r);
+  perform test_assert((select status from public.wage_periods where org_id = test_org('a') and start_date = current_date - 3) = 'draft',
+    '[6.03c] it stays a draft');
 
   -- Mala has a payable day and no rate: locking is blocked (decision 5).
   r := test_lock(test_u('a05'), test_period_id());

@@ -150,7 +150,7 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
     orgColumn: "org_id",
     columns: [
       "id", "org_id", "period_id", "worker_id", "site_id", "work_date", "status", "overtime_hours", "payable_days",
-      "rate", "day_amount", "overtime_amount"
+      "rate", "day_amount", "overtime_amount", "payable_overtime_hours"
     ]
   },
   {

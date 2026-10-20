@@ -7,6 +7,8 @@ import type { MessageCode } from "../messages";
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 const AMOUNT = /^-?\d{1,10}(\.\d{1,2})?$/;
 const MAX_REASON = 500;
+// Matches the CHECK on wage_adjustments.amount (ten lakh rupees either way).
+export const MAX_ADJUSTMENT = 1_000_000;
 
 type Fail = { ok: false; code: MessageCode };
 
@@ -45,7 +47,7 @@ export type AdjustmentInput = { amount: number; reason: string };
 export function cleanAdjustmentInput(raw: { amount: unknown; reason: unknown }): { ok: true; value: AdjustmentInput } | Fail {
   if (typeof raw.amount !== "string" || !AMOUNT.test(raw.amount.trim())) return { ok: false, code: "wage_amount" };
   const amount = Number(raw.amount.trim());
-  if (amount === 0) return { ok: false, code: "wage_amount" };
+  if (amount === 0 || Math.abs(amount) > MAX_ADJUSTMENT) return { ok: false, code: "wage_amount" };
   if (typeof raw.reason !== "string") return { ok: false, code: "wage_reason" };
   const reason = raw.reason.trim();
   // Characters, not UTF-16 units: the database counts char_length.
