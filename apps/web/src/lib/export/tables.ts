@@ -128,6 +128,41 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
     orgColumn: "org_id",
     columns: ["id", "org_id", "site_id", "material_id", "kind", "quantity", "reason", "occurred_on", "recorded_by", "created_at"]
   },
+  // Wage Summaries
+  {
+    table: "wage_periods",
+    orgColumn: "org_id",
+    columns: [
+      "id", "org_id", "period_type", "start_date", "end_date", "status", "calculated_at",
+      "locked_at", "locked_by", "created_by", "created_at"
+    ]
+  },
+  {
+    table: "wage_lines",
+    orgColumn: "org_id",
+    columns: [
+      "id", "org_id", "period_id", "worker_id", "pay_type", "payable_days", "overtime_hours", "rate_from", "rate_to",
+      "pay_amount", "overtime_amount", "no_rate_days", "calculated_at"
+    ]
+  },
+  {
+    table: "wage_line_days",
+    orgColumn: "org_id",
+    columns: [
+      "id", "org_id", "period_id", "worker_id", "site_id", "work_date", "status", "overtime_hours", "payable_days",
+      "rate", "day_amount", "overtime_amount"
+    ]
+  },
+  {
+    table: "wage_adjustments",
+    orgColumn: "org_id",
+    columns: ["id", "org_id", "period_id", "worker_id", "amount", "reason", "created_by", "created_at"]
+  },
+  {
+    table: "wage_period_reopens",
+    orgColumn: "org_id",
+    columns: ["id", "org_id", "period_id", "reopened_by", "reopened_at", "reason", "locked_at", "locked_by"]
+  },
   // Audit, Retention & Guards (owner-only read policy, ADR-012)
   {
     table: "audit_log",

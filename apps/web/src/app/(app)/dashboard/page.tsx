@@ -73,6 +73,9 @@ export default async function DashboardPage({
                   {(m.role === "owner" || m.role === "project_manager") && (
                     <Link href={`/materials?org=${m.orgId}`} className="text-sm underline">Materials</Link>
                   )}
+                  {(m.role === "owner" || m.role === "accountant") && (
+                    <Link href={`/wages?org=${m.orgId}`} className="text-sm underline">Wages</Link>
+                  )}
                   {m.role === "owner" && (
                     <Link href={`/team?org=${m.orgId}`} className="text-sm underline">Team</Link>
                   )}
