@@ -170,4 +170,23 @@ describe('HomeScreen', () => {
       expect(screen.queryByRole('button', { name: 'Attendance' })).toBeNull();
     });
   });
+
+  describe('the Daily report entry (#81)', () => {
+    it('opens Daily report for a signed-in user', async () => {
+      const onOpenReports = jest.fn();
+      await render(
+        <HomeScreen openDb={openFakeDb} userId={USER} onOpenReports={onOpenReports} config={goodConfig} appVersion="0.1.0" />,
+      );
+
+      await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
+      expect(onOpenReports).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers no Daily report when no user is signed in', async () => {
+      await render(<HomeScreen openDb={openFakeDb} onOpenReports={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+
+      await screen.findByText('Device database ready');
+      expect(screen.queryByRole('button', { name: 'Daily report' })).toBeNull();
+    });
+  });
 });

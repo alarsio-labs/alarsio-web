@@ -78,6 +78,17 @@ describe('home route wiring', () => {
     expect(router.push).toHaveBeenCalledWith('/attendance');
   });
 
+  it('opens the Daily report route for a signed-in user (#81)', async () => {
+    await render(
+      <SessionUserContext.Provider value={USER}>
+        <Index />
+      </SessionUserContext.Provider>,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
+    expect(router.push).toHaveBeenCalledWith('/reports');
+  });
+
   it('starts no engine when no user is signed in', async () => {
     await render(<Index />);
 

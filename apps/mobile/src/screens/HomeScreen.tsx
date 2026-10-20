@@ -31,9 +31,19 @@ export interface HomeScreenProps {
   appVersion: string;
   /** Opens the Attendance screens (#79). Shown only for a signed-in user. */
   onOpenAttendance?: () => void;
+  /** Opens the Daily report screens (#81). Shown only for a signed-in user. */
+  onOpenReports?: () => void;
 }
 
-export function HomeScreen({ openDb, startSync, userId, config, appVersion, onOpenAttendance }: HomeScreenProps) {
+export function HomeScreen({
+  openDb,
+  startSync,
+  userId,
+  config,
+  appVersion,
+  onOpenAttendance,
+  onOpenReports,
+}: HomeScreenProps) {
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [sync, setSync] = useState<SyncStatus | null>(null);
   const handleRef = useRef<SyncHandle | null>(null);
@@ -84,6 +94,12 @@ export function HomeScreen({ openDb, startSync, userId, config, appVersion, onOp
       {userId && onOpenAttendance && (
         <Pressable accessibilityRole="button" accessibilityLabel="Attendance" onPress={onOpenAttendance} style={styles.button}>
           <Text style={styles.buttonText}>Attendance</Text>
+        </Pressable>
+      )}
+
+      {userId && onOpenReports && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Daily report" onPress={onOpenReports} style={styles.button}>
+          <Text style={styles.buttonText}>Daily report</Text>
         </Pressable>
       )}
 

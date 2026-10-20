@@ -34,6 +34,7 @@ export default function Index() {
       startSync={startSync}
       userId={user?.id}
       onOpenAttendance={() => router.push('/attendance')}
+      onOpenReports={() => router.push('/reports')}
       config={config}
       appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />
