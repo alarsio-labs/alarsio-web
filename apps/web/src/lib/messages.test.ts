@@ -21,6 +21,21 @@ describe("messageFor", () => {
     expect(messageFor("material_exists")).toBe("This site already has a material with that name.");
   });
 
+  it("has a message for each attendance review code, and none of them is the generic one", () => {
+    const codes = [
+      "attendance_forbidden",
+      "attendance_reason_required",
+      "attendance_reason_long",
+      "attendance_day_final",
+      "attendance_correction_stale"
+    ];
+    for (const code of codes) {
+      expect(messageFor(code)).not.toBeNull();
+      expect(messageFor(code)).not.toBe(messageFor("made_up"));
+    }
+    expect(messageFor("attendance_reason_required")).toBe("Enter a reason of 1 to 500 characters to reject.");
+  });
+
   it("never returns an inherited property for a crafted code", () => {
     for (const code of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
       expect(messageFor(code)).toBe("Something went wrong. Try again.");

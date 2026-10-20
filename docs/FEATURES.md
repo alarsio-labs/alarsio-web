@@ -108,7 +108,7 @@ old value, the new value and the reason" is ticked: `attendance_review_test.sql`
 stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited,
 except the one review move, or deleted. "Manager approves or rejects a day" stays unticked:
 `review_attendance_day` and the lock (an approved day's entries change 0 rows, a late write raises
-`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist.*
+`PS409`) are tested, but the row is a manager's action; its web screen is #80 (ADR-034, below).*
 
 *The published views are in #28 PR 3a (ADR-032): `approved_attendance_days`, which Wage Summaries
 (#61) reads, and `site_exceptions`, the reviewer's list. `attendance_views_test.sql` proves both, and
@@ -119,6 +119,14 @@ row above names a view, so none is ticked by it.*
 proves the server side of offline capture. "Check in and check out; location captured only on that
 tap" and "Mark everyone present in one tap" stay **unticked**, because both need the phone screens
 (#79).*
+
+*The web review is #80 (ADR-034): `/attendance` lists what needs a look and `/attendance/[id]` shows a
+day with its entries, exceptions and corrections, where an owner or project manager approves or rejects
+it and each pending correction through the two published functions. Unit tests and action tests with a
+mocked client prove the filters, the ordering, the rules for drawing a button (not the page itself), the
+reason rules and the SQLSTATE messages. "Manager approves or rejects a day" stays **unticked**: the screen has not been driven against a
+real Supabase project, and "nobody reviews a day they recorded" is enforced only by hidden buttons until
+a follow-up migration adds the check to both functions.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
