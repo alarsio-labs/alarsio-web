@@ -6,7 +6,7 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { saveReport } from '../../reports/report-store';
 import type { SyncResultRow } from '../../sync/entities';
-import { applyVerdicts, claimBatch } from '../../sync/outbox';
+import { applyVerdicts, claimBatch, enqueue } from '../../sync/outbox';
 import { DailyReportScreen } from '../DailyReportScreen';
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
@@ -249,6 +249,89 @@ describe('DailyReportScreen (#81)', () => {
 
       await screen.findByText(/This site is not on this phone/);
       expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
+    });
+  });
+
+  describe('headcount from the day’s attendance on this phone (#109)', () => {
+    const worker = (n: number) => `90000000-0000-4000-8000-${String(n).padStart(12, '0')}`;
+    let entryN = 0;
+
+    /** An attendance entry the user saved on this phone, as Attendance's sync handler reads it. */
+    async function seedEntry(user: string, n: number, status: string, date = TODAY) {
+      entryN += 1;
+      await enqueue(
+        db,
+        {
+          entity: 'attendance_entries',
+          recordId: `aaaaaaaa-0000-4000-8000-${String(entryN).padStart(12, '0')}`,
+          authorId: user,
+          payload: { org_id: ORG, site_id: SITE, attendance_date: date, worker_id: worker(n), status, overtime_hours: 0, note: null },
+        },
+        NOW,
+      );
+    }
+
+    const reportRows = async () =>
+      (await outboxRows(db)).filter((r) => (JSON.parse(r.payload) as Record<string, unknown>).report_date !== undefined);
+
+    it('fills a new report with the number on site, says where it came from, and leaves it editable', async () => {
+      await seedSite(db, USER_A);
+      for (let n = 1; n <= 12; n += 1) await seedEntry(USER_A, n, 'present');
+      await seedEntry(USER_A, 13, 'half_day');
+      await seedEntry(USER_A, 14, 'half_day');
+      await seedEntry(USER_A, 15, 'absent');
+      await seedEntry(USER_A, 16, 'leave');
+      await show();
+
+      await screen.findByText('From attendance on this phone: 14 on site (2 half day)');
+      const field = screen.getByLabelText('Headcount');
+      expect(field.props.value).toBe('14');
+      expect(field.props.editable).toBe(true);
+
+      await type('Headcount', '13');
+      expect(screen.getByLabelText('Headcount').props.value).toBe('13');
+    });
+
+    it('submits the pre-filled number as the headcount', async () => {
+      await seedSite(db, USER_A);
+      await seedEntry(USER_A, 1, 'present');
+      await seedEntry(USER_A, 2, 'present');
+      await show();
+      await screen.findByText('From attendance on this phone: 2 on site');
+      await type('Work done', 'Brickwork on the east wall');
+      await press('Submit');
+
+      await screen.findByText('Saved on this phone, waiting to send');
+      const [row] = await reportRows();
+      expect(JSON.parse(row!.payload)).toMatchObject({ status: 'submitted', headcount: 2 });
+    });
+
+    it('leaves the headcount to be typed when the phone holds no attendance for the day', async () => {
+      await seedSite(db, USER_A);
+      await seedEntry(USER_A, 1, 'present', '2026-10-19');
+      await show();
+
+      expect((await screen.findByLabelText('Headcount')).props.value).toBe('');
+      expect(screen.queryByText(/From attendance on this phone/)).toBeNull();
+    });
+
+    it("keeps a saved report's own headcount, and shows the attendance number beside it", async () => {
+      await seedSite(db, USER_A);
+      await saveReport(db, USER_A, { id: SITE, orgId: ORG }, TODAY, { ...FULL, headcount: '12' }, 'draft', {}, NOW);
+      for (let n = 1; n <= 14; n += 1) await seedEntry(USER_A, n, 'present');
+      await show();
+
+      await screen.findByText('From attendance on this phone: 14 on site');
+      expect(screen.getByLabelText('Headcount').props.value).toBe('12');
+    });
+
+    it("gives user B nothing from user A's attendance on a shared phone", async () => {
+      await seedSite(db, USER_B);
+      await seedEntry(USER_A, 1, 'present');
+      await show(USER_B);
+
+      expect((await screen.findByLabelText('Headcount')).props.value).toBe('');
+      expect(screen.queryByText(/From attendance on this phone/)).toBeNull();
     });
   });
 

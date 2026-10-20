@@ -157,8 +157,15 @@ tested. The pages need a run against a real project.*
 `DailyReportScreen.test.tsx` prove a draft is saved to the outbox with no network, found again as
 typed after the app reopens, and never shown as submitted before the server accepts it. "Save as
 an offline draft" stays unticked until it runs on a phone against the team project (#58), as
-Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled,
-which waits for the phone to record attendance (#79).*
+Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled
+(next note).*
+
+*The headcount pre-fill is in #109 (ADR-038). `headcount.test.ts`, `report.test.ts` and
+`DailyReportScreen.test.tsx` prove a new report opens with the number of the user's own workers present
+or on a half day for that site and day, says where it came from, keeps a saved report's own number,
+counts nothing of another user's or a rejected entry, and is typed when the phone holds no attendance.
+"File a report" stays **unticked**: no phone screen writes attendance entries until #79 PR 2
+(mark-all, ADR-034 D2), and it has not run on a phone against the team project (#58).*
 
 *The phone takes report photos in #105 (ADR-037). "Photos optional, and never blocking submission" was already
 ticked for the database; `photo-store.test.ts`, `photo-upload.test.ts` and `DailyReportPhotos.test.tsx` now prove the
