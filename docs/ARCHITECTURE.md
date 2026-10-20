@@ -117,6 +117,8 @@ The phone also **pulls** what the signed-in user may see (sites, material
 balances, today's roster) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).
 The sites mirror carries each site's `org_id`, which every Attendance payload names (ADR-034).
+On the phone, one module reads another's outbox records only through a function the owner publishes in its own
+folder: Daily Reporting pre-fills a report's headcount through Attendance's `readHeadcount` (ADR-038).
 
 ## Data export
 
