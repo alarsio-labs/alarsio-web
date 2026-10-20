@@ -4,6 +4,7 @@ import { router } from 'expo-router';
 import Index from '../app/index';
 import { SessionUserContext } from '../auth/session-user';
 import type { DeviceDb } from '../db/device-db';
+import { runPhotoUploads } from '../reports/photo-upload';
 import { startSyncEngine, type SyncHandle } from '../sync/engine';
 
 // This file is not under src/app, so expo-router does not take it for a route.
@@ -23,6 +24,9 @@ jest.mock('../lib/supabase', () => ({ getSupabase: () => ({}) }));
 jest.mock('../sync/supabase-transport', () => ({ supabaseTransport: () => 'transport' }));
 jest.mock('../sync/supabase-mirror-source', () => ({ supabaseMirrorSource: () => 'mirror-source' }));
 jest.mock('../sync/engine', () => ({ startSyncEngine: jest.fn() }));
+// The photo adapters are native; the wiring only has to hand them to the uploader.
+jest.mock('../reports/photo-device', () => ({ expoPhotoFiles: 'files', supabasePhotoStorage: () => 'storage' }));
+jest.mock('../reports/photo-upload', () => ({ runPhotoUploads: jest.fn(async () => ({ uploaded: 0, refused: 0, retry: 0 })) }));
 // expo-router's own dependencies are not transformed by Jest, and only its navigator needs them.
 jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
@@ -64,7 +68,24 @@ describe('home route wiring', () => {
 
     expect(await screen.findByText('All your records are on the server')).toBeTruthy();
     expect(startSyncEngine).toHaveBeenCalledTimes(1);
-    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', { userId: USER.id, mirrorSource: 'mirror-source' });
+    expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', {
+      userId: USER.id,
+      mirrorSource: 'mirror-source',
+      afterRun: expect.any(Function),
+    });
+  });
+
+  it("uploads report photos after each run for the signed-in user only (#81)", async () => {
+    await render(
+      <SessionUserContext.Provider value={USER}>
+        <Index />
+      </SessionUserContext.Provider>,
+    );
+    await screen.findByText('All your records are on the server');
+
+    const options = jest.mocked(startSyncEngine).mock.calls[0]![2];
+    await options.afterRun!(mockDb, USER.id);
+    expect(runPhotoUploads).toHaveBeenCalledWith(mockDb, USER.id, 'storage', 'files');
   });
 
   it('opens the Attendance route for a signed-in user (#79)', async () => {

@@ -7,6 +7,8 @@ import type { DeviceDb } from '../db/device-db';
 import { openAppDb } from '../lib/app-db';
 import { getSupabase } from '../lib/supabase';
 import { HomeScreen } from '../screens/HomeScreen';
+import { expoPhotoFiles, supabasePhotoStorage } from '../reports/photo-device';
+import { runPhotoUploads } from '../reports/photo-upload';
 import { startSyncEngine } from '../sync/engine';
 import { supabaseMirrorSource } from '../sync/supabase-mirror-source';
 import { supabaseTransport } from '../sync/supabase-transport';
@@ -21,6 +23,10 @@ const startSync = config.ok
       return startSyncEngine(db, supabaseTransport(supabase), {
         userId,
         mirrorSource: supabaseMirrorSource(supabase),
+        // Daily Reporting's photo files go up after each run, once their metadata is accepted (#81).
+        afterRun: async (database, uid) => {
+          await runPhotoUploads(database, uid, supabasePhotoStorage(supabase), expoPhotoFiles);
+        },
       });
     }
   : undefined;
