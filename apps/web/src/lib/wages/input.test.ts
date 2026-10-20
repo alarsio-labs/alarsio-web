@@ -60,6 +60,13 @@ describe("cleanAdjustmentInput", () => {
     }
   });
 
+  it("refuses an amount above ten lakh rupees either way, and accepts exactly ten lakh", () => {
+    expect(cleanAdjustmentInput({ amount: "1000000", reason: "x" }).ok).toBe(true);
+    expect(cleanAdjustmentInput({ amount: "-1000000.00", reason: "x" }).ok).toBe(true);
+    expect(cleanAdjustmentInput({ amount: "1000000.01", reason: "x" })).toEqual({ ok: false, code: "wage_amount" });
+    expect(cleanAdjustmentInput({ amount: "-1000000.01", reason: "x" })).toEqual({ ok: false, code: "wage_amount" });
+  });
+
   it("refuses a blank or over-long reason", () => {
     expect(cleanAdjustmentInput({ amount: "5", reason: "   " })).toEqual({ ok: false, code: "wage_reason" });
     expect(cleanAdjustmentInput({ amount: "5", reason: "x".repeat(501) })).toEqual({ ok: false, code: "wage_reason" });

@@ -14,10 +14,11 @@ function tablesInMigrations(): Map<string, string[]> {
   const tables = new Map<string, string[]>();
   for (const file of readdirSync(MIGRATIONS).filter((f) => f.endsWith(".sql")).sort()) {
     const sql = readFileSync(MIGRATIONS + file, "utf8").replaceAll("\r\n", "\n");
-    // This parser knows only "create table": a migration that changes a table's
-    // columns afterwards must teach it, not slip past it.
-    expect(sql, `${file} alters a table's columns; extend tables.test.ts to read it`).not.toMatch(
-      /alter\s+table[^;]*\b(add|drop|rename)\s+column\b/i
+    // This parser knows "create table" and "alter table ... add column" (the column goes
+    // last, as in Postgres). A migration that drops or renames a column must teach it, not
+    // slip past it.
+    expect(sql, `${file} drops or renames a column; extend tables.test.ts to read it`).not.toMatch(
+      /alter\s+table[^;]*\b(drop|rename)\s+column\b/i
     );
     expect(sql, `${file} drops or renames a table; extend tables.test.ts to read it`).not.toMatch(
       /\bdrop\s+table\b|alter\s+table[^;]*\brename\s+to\b/i
@@ -31,6 +32,11 @@ function tablesInMigrations(): Map<string, string[]> {
         if (col && !NOT_A_COLUMN.has(col)) columns.push(col);
       }
       tables.set(table, columns);
+    }
+    for (const [, table = "", column = ""] of sql.matchAll(
+      /alter\s+table\s+public\.([a-z_][a-z0-9_]*)\s+add\s+column\s+([a-z_][a-z0-9_]*)/gi
+    )) {
+      tables.get(table)?.push(column);
     }
   }
   return tables;

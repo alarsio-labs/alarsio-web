@@ -5,6 +5,7 @@ import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { Field, Notice, buttonClass, inputClass } from "@/components/form";
 import { readPeriod, readSummaryRows } from "@/lib/wages/read";
+import { formatIst } from "@/lib/wages/time";
 import { formatRupees, summaryTable, NUMERIC_COLUMNS } from "@/lib/wages/summary";
 import { addAdjustment, calculatePeriod, lockPeriod, reopenPeriod } from "../actions";
 
@@ -74,6 +75,8 @@ export default async function WagePeriodPage({
     locked ? supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId }) : Promise.resolve({ data: null })
   ]);
   const table = summary ? summaryTable(summary.rows) : null;
+  // PostgREST stops a function that returns a set at 1000 rows without saying so.
+  const changesMayBeCut = Array.isArray(changeResult.data) && changeResult.data.length >= 1000;
   const changes: Change[] = Array.isArray(changeResult.data)
     ? changeResult.data.map(toChange).filter((c): c is Change => c !== null)
     : [];
@@ -94,7 +97,7 @@ export default async function WagePeriodPage({
         </span>
       </h1>
       <p className="mt-2 text-sm text-neutral-600">
-        Approved attendance only. {period.calculated_at ? `Calculated ${period.calculated_at.slice(0, 16).replace("T", " ")} UTC.` : "Not calculated yet."}
+        Approved attendance only. {period.calculated_at ? `Calculated ${formatIst(period.calculated_at) ?? "at an unknown time"} IST.` : "Not calculated yet."}
       </p>
 
       {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
@@ -206,6 +209,13 @@ export default async function WagePeriodPage({
       {locked && (
         <section className="mt-10">
           <h2 className="text-lg font-medium">Attendance changed after the lock</h2>
+          {changesMayBeCut && (
+            <div className="mt-3">
+              <Notice kind="error">
+                This list shows the first 1000 changes and may be incomplete. Ask the owner to reopen the period and recalculate it.
+              </Notice>
+            </div>
+          )}
           {changes.length === 0 ? (
             <p className="mt-2 text-sm text-neutral-600">Attendance still matches what this period was locked with.</p>
           ) : (

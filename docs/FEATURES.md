@@ -197,8 +197,10 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 - [ ] Export to CSV and Excel, matching what the app shows
 - [x] Accountant locks a period; **only the owner reopens**, with a reason
 
-*The database side is ADR-035 and `wages_test.sql`: periods, calculation from `approved_attendance_days`, `worker_rate_on` and the worker's pay type,
-lock, reopen with history, adjustments, and zero rows for a project manager and a supervisor.
+*The database side is ADR-035 and `wages_test.sql`: periods, calculation from `approved_attendance_days`, `worker_rate_on` and the
+worker's pay type (read through Workforce's `worker_pay_basis`), lock (only after the period has ended), reopen with history,
+adjustments (at most 10 lakh rupees either way), overtime capped at 8 paid hours a date across sites, and zero rows for a
+project manager and a supervisor. No row's wording changed with the review follow-ups (#111), so none is ticked or unticked by them.
 The pages are `/wages` and `/wages/[period]`. "Shows rate, payable days, overtime, adjustments, total" stays unticked
 until it is seen on a screen against the team project (#58), and so does the export row: `lib/wages/summary.test.ts`
 proves the CSV and Excel carry the screen's figures to the paisa (the Excel file is read back by `read-excel-file`),

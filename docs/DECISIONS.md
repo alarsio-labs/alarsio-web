@@ -1380,7 +1380,9 @@ changes what the view shows for a date inside a locked period (ADR-032 consequen
 **Decision.**
 - **D1 · Leave is unpaid.** `leave` and `absent` pay 0. A paid leave day is an adjustment with a reason.
 - **D2 · Payable days are per worker per date, capped at 1.** `present` is 1, `half_day` 0.5, summed across sites and
-  capped at 1 on a date, the earlier site (by site id) using the day first. Overtime hours add across sites.
+  capped at 1 on a date, the earlier site (by site id) using the day first. Overtime hours add across sites and are
+  capped at 8 paid hours a date (`wage_max_overtime_hours()`), the earlier site again first; the hours as recorded are
+  kept beside the hours paid.
 - **D3 · Hourly workers use a standard 8-hour day.** `present` is 8 h, `half_day` 4 h, times the hourly rate. No Attendance
   column is added (ADR-030: it would have to flow through corrections). The 8 is `wage_standard_day_hours()`.
 - **D4 · Overtime is hours x hourly basis x 2.** The basis is day rate / 8 for a daily worker, the rate for an hourly one.
@@ -1393,8 +1395,8 @@ changes what the view shows for a date inside a locked period (ADR-032 consequen
   formatter, summed in whole paise).
 - **D7 · Periods of one organisation do not overlap**, by an exclusion constraint on `daterange(start, end, '[]')`
   (needs `btree_gist`). A week is 7 days from any start; a month is a whole calendar month.
-- **D8 · A period is per organisation**, one line per worker, with a per-site breakdown of recorded days and overtime hours
-  (`wage_summary_by_site`). Amounts live on the worker line.
+- **D8 · A period is per organisation**, one line per worker, with a per-site breakdown of the days and overtime hours
+  paid (`wage_summary_by_site`). Amounts live on the worker line.
 - **D9 · Pay type** is fixed once a worker has a rate (ADR-011 W11), so the basis of every past rate is known.
 - **D10 · A locked period is a snapshot.** `wage_line_days` keeps, per worker, site and date, the status and hours
   Attendance published, the rate and the day's amounts. A locked period never re-reads the view; a trigger refuses any
@@ -1408,30 +1410,40 @@ changes what the view shows for a date inside a locked period (ADR-032 consequen
 - **D12 · Who.** `owner` and `accountant` (`can_view_wages`) create periods, calculate, lock and add adjustments. Only
   the `owner` reopens, with a reason of 1-500 characters; an accountant gets `42501`, the same as anyone else. A project
   manager and a supervisor read zero rows of every wage table and view.
-- **D13 · Tables.** `ARCHITECTURE.md` named `wage_periods` and `wage_lines`; the issue's "adjustment and reopen history"
-  and the per-day snapshot add `wage_line_days`, `wage_adjustments` and `wage_period_reopens`. Adjustments and reopens
-  are append-only for every writer. Lines and days are computed by `SECURITY DEFINER` functions that check the caller;
-  no client can write them. Nothing is ever deleted.
+- **D13 · Tables and one Workforce view.** `ARCHITECTURE.md` named `wage_periods` and `wage_lines`; the issue's
+  "adjustment and reopen history" and the per-day snapshot add `wage_line_days`, `wage_adjustments` and
+  `wage_period_reopens`. Adjustments and reopens are append-only for every writer. Lines and days are computed by
+  `SECURITY DEFINER` functions that check the caller; no client can write them. Nothing is ever deleted. Wage Summaries
+  reads Workforce through `worker_rate_on` and a new published view, `worker_pay_basis` (`id, org_id, code, full_name,
+  pay_type`, `security_invoker`), never the private `workers` table. `worker_roster` could not serve: it is one row per
+  assignment and follows site access, so an accountant with no assignment reads nothing from it. The view belongs to
+  Workforce (Ishant) and is listed in `ARCHITECTURE.md`.
+- **D14 · A period is locked only after it has ended.** `lock_wage_period` refuses (`55000`) while the period's end date
+  is today or later in Asia/Kolkata, so no later approval lands outside a snapshot of a week that was still running. A
+  day approved after the lock for a date inside it still shows as `approved_after_lock` (D11). Open days before the end
+  date are not checked: Wages cannot see them (it reads approved attendance only), so managers finish their approvals
+  first.
 - **SQLSTATEs.** `42501` not permitted (also for a period that does not exist); `55000` the period is locked, is not
   locked (reopen, changes), or has payable days with no rate; `22023` a blank or over-long reopen reason; `23514` a bad
   period shape, a zero amount or a bad adjustment reason; `23P01` an overlapping period; `23503` an adjustment for a
-  worker with no line.
+  worker with no line. An adjustment is at most 10,00,000 rupees either way, so a line total always fits
+  `numeric(12,2)`.
 
-**Consequences.** Wage Summaries reads one published view and one published function and never re-implements
-corrections, and a locked wage run can be reproduced for any date. Costs: a worker with no entry and one marked absent
-both pay 0 and the summary cannot tell them apart; an hourly worker who works 6 hours must be marked `half_day`, or is
-paid 8; a worker with no attendance in a period has no line, so no adjustment can be added for them in it; the cap gives
-a day to the first site by id, which is arbitrary but stable; a correction after a lock needs a person to notice the
-report and add an adjustment, nothing is paid automatically; `btree_gist` is created in `public`; the web export writes
-its own minimal `.xlsx` (no library); and the overtime multiplier of 2 is unverified. Two reads are worth a reviewer's
-eye: Wage Summaries reads `workers` (code, name, `pay_type`) directly, as the issue's tables list and ADR-011 W10 grants,
-because `worker_roster` is scoped by site assignment and would show an unassigned accountant nothing (the definer
-functions bypass RLS but filter on the period's organisation); if Workforce publishes an organisation-wide worker view,
-`wage_summary` and `wage_compute_days` should switch to it. Overtime hours are not capped across sites (each entry is 0 to 8 h and they add, so two sites on one date can pay
-up to 16 h at 2x); only the day is capped. A period can be locked while some of its days are still open or in the
-future: only a payable day with no rate blocks the lock, and a day approved later shows as `approved_after_lock`
-(D11). And `wage_lines` and `wage_line_days` are a derived snapshot,
-upserted while a period is a draft and frozen once locked; only `wage_adjustments` and `wage_period_reopens` are ledgers.
+**Consequences.** Wage Summaries reads one published Attendance view, one Workforce view and one Workforce function, and
+never re-implements corrections, and a locked wage run can be reproduced for any date. Costs: a worker with no entry and
+one marked absent both pay 0 and the summary cannot tell them apart; an hourly worker who works 6 hours must be marked
+`half_day`, or is paid 8; a worker with no attendance in a period has no line, so no adjustment can be added for them in
+it; the caps give a day and the first 8 overtime hours to the first site by id, which is arbitrary but stable; a correction
+after a lock needs a person to notice the report and add an adjustment, nothing is paid automatically; a draft
+recalculation only upserts, so it relies on an approved day never leaving `approved_attendance_days` (true today: ADR-030);
+`btree_gist` is created in `public`; the web export writes its own minimal `.xlsx` (no library); the after-lock report
+shows at most 1000 changes and says so; and the overtime multiplier of 2 is unverified, which is why this ADR stays
+Proposed until it is checked against the state rules and Ishant agrees on #61. `wage_lines` and `wage_line_days` are a
+derived snapshot, upserted while a period is a draft and frozen once locked; only `wage_adjustments` and
+`wage_period_reopens` are ledgers.
+
+---
+
 ## ADR-040 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #80 AC 3; the web screen is PR #100; review: Anuradha)
 
