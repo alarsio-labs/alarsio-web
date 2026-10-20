@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { LocationProvider, PermissionState, PositionResult } from '../../attendance/location';
 import type { DeviceDb } from '../../db/device-db';
@@ -13,6 +13,11 @@ jest.mock('expo-crypto', () => {
   let n = 0;
   return { randomUUID: () => `cccccccc-0000-4000-8000-${String((n += 1)).padStart(12, '0')}` };
 });
+
+// A cold CI runner (no transform cache, sql.js starting up) needs more than Jest's 5 s for the
+// first test and RNTL's 1 s for a button to appear. Both are limits on waiting, not on speed.
+jest.setTimeout(30_000);
+configure({ asyncUtilTimeout: 8_000 });
 
 const USER_A = '11111111-0000-4000-8000-00000000000a';
 const USER_B = '22222222-0000-4000-8000-00000000000b';
@@ -78,7 +83,7 @@ describe('SiteAttendanceScreen (#79)', () => {
     clock = NOW;
   });
 
-  const show = async (location: LocationProvider, userId = USER_A, pollMs = 25) =>
+  const show = async (location: LocationProvider, userId = USER_A, pollMs = 50) =>
     render(
       <SiteAttendanceScreen
         openDb={() => Promise.resolve(db)}
@@ -99,7 +104,7 @@ describe('SiteAttendanceScreen (#79)', () => {
       const location = fakeLocation({});
       await show(location);
       await screen.findByRole('button', { name: 'Check in' });
-      await new Promise((r) => setTimeout(r, 80)); // a few polls
+      await new Promise((r) => setTimeout(r, 250)); // a few polls
 
       expect(location.calls).toEqual({ getPermission: 0, requestPermission: 0, readPosition: 0 });
     });

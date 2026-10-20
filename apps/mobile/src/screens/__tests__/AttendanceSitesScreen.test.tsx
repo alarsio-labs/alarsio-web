@@ -1,10 +1,14 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { AttendanceSitesScreen } from '../AttendanceSitesScreen';
+
+// See SiteAttendanceScreen.test.tsx: a cold CI runner is slower than the defaults.
+jest.setTimeout(30_000);
+configure({ asyncUtilTimeout: 8_000 });
 
 const USER_A = '11111111-0000-4000-8000-00000000000a';
 const USER_B = '22222222-0000-4000-8000-00000000000b';
