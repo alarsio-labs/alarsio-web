@@ -1367,6 +1367,46 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
+## ADR-040 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #80 AC 3; the web screen is PR #100; review: Anuradha)
+
+**Context.** `review_attendance_day` and `review_attendance_correction` (ADR-030 D5) checked only
+`can_review_site`. "Nobody reviews a day they recorded" held because recorders (`supervisor`) and
+reviewers (`owner`, `project_manager`) are different roles, and one person has one role per
+organisation. An owner can change a member's role (`grant update (role) on memberships`), so a supervisor
+made a project manager could approve or reject days they recorded, and nothing in the database said no.
+The web pages hide the controls (ADR-039 W8), which is presentation only.
+
+**Decision.**
+- **S1 · The check is in the two functions**, right after the permission check, so it answers before any
+  state rule (a blank reason, "an approved day cannot be rejected") and before the no-op for an already
+  decided record. It is `42501`, the same as "not yours", so the web messages and the router are unchanged.
+- **S2 · A day** is refused to a caller who opened it (`attendance_days.recorded_by`) or who recorded any
+  of its entries (`attendance_entries.recorded_by`, same site and date).
+- **S3 · A correction** is refused to its proposer (`proposed_by`), also when it is already decided.
+  It is **not** refused for a day the caller recorded: that is a different act on a different row, and the
+  day was approved by someone else. This matches the web page, which tests the same two things.
+- **S4 · No new column, table, grant or role.** The two functions are replaced (`create or replace`) with
+  their bodies plus the check; grants and `SECURITY DEFINER` / `search_path` are unchanged.
+
+**Consequences.** The rule is now a database fact, so a hand-made call by a promoted supervisor fails and
+leaves no audit row. Costs: a person who recorded on a site and is later made a reviewer can never review
+those days, and if they are the only reviewer, the owner must; an entry a reviewer recorded blocks the whole
+day for them, even if a colleague opened it; the check reads `attendance_entries` on every day review (an
+indexed lookup on site and date); and it binds only the recorder's own account, so a person with two
+accounts is not stopped, which no database rule can do.
+
+**Known gap: an edit is not recording.** `attendance_entries.recorded_by` never moves on an update, and
+any supervisor assigned to the site may edit another supervisor's entry on a day that is not approved. If
+supervisor A opens a day and records it, B changes several entries, and B is later made a project manager,
+B may review that day even though B wrote some of its figures. Closing it needs an `updated_by`-style column
+on `attendance_entries`, or a read of `audit_log`, which another module owns; either is a decision of its own
+and is not in this change. `attendance_self_review_test.sql` [3.09] pins today's behaviour, so the gap is on
+record and a later fix changes that case on purpose. A day the reviewer opened that has no entries is
+refused ([2.12b]), so the opener rule stands on its own.
+
+---
+
 ## ADR-039 · Web review of attendance: one list, one detail page, no new write, and a self-review gap the database does not close
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish and Anuradha (issue #80; reviewer: Ishant)
 
