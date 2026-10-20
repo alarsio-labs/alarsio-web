@@ -50,6 +50,17 @@ export async function readPeriod(supabase: SupabaseClient, periodId: string, org
   return toPeriod(data);
 }
 
+/** The organisation's periods, newest first, for the list page. */
+export async function readPeriods(supabase: SupabaseClient, orgId: string): Promise<Period[]> {
+  const { data } = await supabase
+    .from("wage_periods")
+    .select("id, org_id, period_type, start_date, end_date, status, calculated_at, locked_at")
+    .eq("org_id", orgId)
+    .order("start_date", { ascending: false })
+    .limit(200);
+  return Array.isArray(data) ? data.map(toPeriod).filter((p): p is Period => p !== null) : [];
+}
+
 // 1000 is PostgREST's default row cap. An organisation has 2 to 20 sites; a period with
 // more workers than this is read in pages of this size so the screen and the export
 // never silently stop at the cap.

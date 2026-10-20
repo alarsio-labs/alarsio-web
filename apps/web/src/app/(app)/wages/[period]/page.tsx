@@ -65,16 +65,18 @@ export default async function WagePeriodPage({
   if (canView !== true) redirect("/dashboard");
   if (!period) redirect(`/wages?org=${org}&error=wage_not_found`);
 
-  const summary = await readSummaryRows(supabase, periodId);
-  const table = summary ? summaryTable(summary.rows) : null;
   const locked = period.status === "locked";
 
-  // After a lock: where Attendance now differs from the snapshot (ADR-032, ADR-035 D11).
-  let changes: Change[] = [];
-  if (locked) {
-    const { data } = await supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId });
-    changes = Array.isArray(data) ? data.map(toChange).filter((c): c is Change => c !== null) : [];
-  }
+  // The summary and, after a lock, where Attendance now differs from the snapshot
+  // (ADR-032, ADR-035 D11) do not depend on each other, so they are read together.
+  const [summary, changeResult] = await Promise.all([
+    readSummaryRows(supabase, periodId),
+    locked ? supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId }) : Promise.resolve({ data: null })
+  ]);
+  const table = summary ? summaryTable(summary.rows) : null;
+  const changes: Change[] = Array.isArray(changeResult.data)
+    ? changeResult.data.map(toChange).filter((c): c is Change => c !== null)
+    : [];
   const names = new Map((summary?.rows ?? []).map((r) => [r.worker_id, `${r.worker_code} ${r.worker_name ?? ""}`.trim()]));
 
   const error = messageFor(query.error);

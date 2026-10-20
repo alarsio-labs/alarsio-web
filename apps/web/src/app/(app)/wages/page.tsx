@@ -4,21 +4,8 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { readPeriods } from "@/lib/wages/read";
 import { createPeriod } from "./actions";
-
-type PeriodRow = { id: string; period_type: string; start_date: string; end_date: string; status: string };
-
-function toPeriod(v: unknown): PeriodRow | null {
-  if (typeof v !== "object" || v === null) return null;
-  const r = v as Record<string, unknown>;
-  if (
-    typeof r.id !== "string" || typeof r.period_type !== "string" || typeof r.start_date !== "string" ||
-    typeof r.end_date !== "string" || typeof r.status !== "string"
-  ) {
-    return null;
-  }
-  return { id: r.id, period_type: r.period_type, start_date: r.start_date, end_date: r.end_date, status: r.status };
-}
 
 export default async function WagesPage({
   searchParams
@@ -37,19 +24,12 @@ export default async function WagesPage({
 
   // can_view_wages (owner, accountant) is the predicate every wage table uses. RLS
   // filters every read either way; this only keeps other roles off the page.
-  const [{ data: orgRow }, { data: canView }, { data: periodData }] = await Promise.all([
+  const [{ data: orgRow }, { data: canView }, periods] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", org).maybeSingle(),
     supabase.rpc("can_view_wages", { p_org_id: org }),
-    supabase
-      .from("wage_periods")
-      .select("id, period_type, start_date, end_date, status")
-      .eq("org_id", org)
-      .order("start_date", { ascending: false })
-      .limit(200)
+    readPeriods(supabase, org)
   ]);
   if (!orgRow || canView !== true) redirect("/dashboard");
-
-  const periods = Array.isArray(periodData) ? periodData.map(toPeriod).filter((p): p is PeriodRow => p !== null) : [];
   const error = messageFor(params.error);
 
   return (
