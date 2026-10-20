@@ -1419,6 +1419,56 @@ until it runs on a phone against the team project (#58).
 
 ---
 
+## ADR-036 · Daily report on the phone, PR 1: drafts and submits through the outbox, a reason for every change after submit
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #81, spec on the issue; review: Manish)
+
+**Context.** The server side of offline filing has been in place since #63 (ADR-022), but no screen on the
+phone saved a report, so "Save as an offline draft" and "File a report" stayed unticked. The phone needs the
+site's `org_id` for every report payload (ADR-022 H3), which the mirror gains in #102 (device migration 5);
+this PR is stacked on it. Four things were open: where a draft lives, which day a report is for, when an edit
+needs a reason, and what the screen may say before the server answers.
+
+**Decision.**
+- D1. **Drafts go through the outbox too**, as `daily_reports` with status `draft`. No local draft table and no
+  device migration. A draft reaches the server, where only its author can see it (ADR-013 R1), and is later
+  submitted under the same record id, which the handler already treats as an update. The phone keeps one record
+  per author, site and IST day, and finds it again through `listRecords`, so a restarted app reopens the same
+  report.
+- D2. **The day is the phone's IST day.** The screen opens today's report. Earlier reports of this user that are
+  still drafts, or that the server refused or kept its own version of (except a reviewed one, which is final), are
+  listed under "Not finished" (at most ten) and open on their own day. A day in the future, or one that is not a calendar day, opens today.
+- D3. **The phone repeats the database's limits before saving,** and writes nothing when one fails: headcount a
+  whole number 0–1000, work done 4000, blockers 2000, plan 2000, reason 500 (ADR-013 R4). Text is counted in code
+  points, as `char_length` counts it, not UTF-16 units. A submit needs headcount and non-blank work done. A
+  serious blocker needs blocker text on a draft too, because `daily_reports_serious_blocker_explained` has no
+  status condition. The server stays the boundary.
+- D4. **Once submitted on this phone, every change needs a reason**, sent as `edit_reason`. The phone cannot tell
+  whether the server already holds the submitted version (it may be in flight), and the handler's insert never
+  reads `edit_reason`, so a reason sent ahead of the first submit is harmless. Save draft is gone after Submit,
+  since a report cannot go back to draft. A change that changes nothing is refused on the phone. A report the
+  server answered `conflict` / `reviewed` is read-only (ADR-013 R5).
+- D5. **"Submitted" only for a submitted report the server accepted** (ADR-009). Waiting rows say "Saved on this
+  phone, waiting to send"; a synced draft says "Draft on the server, only you can see it"; `conflict` and
+  `rejected` say "Needs attention" with one fixed sentence per code (`reviewed`, `duplicate`,
+  `different_report`, `invalid_input`, `invalid_state`, `permission_denied`), and the shared wording otherwise.
+  No raw error text (ADR-029).
+- D6. **A serious blocker or a safety incident shows a banner before submit** saying the report will be flagged
+  to managers. In-app only (ADR-013 R3).
+- D7. **Headcount is typed for now.** Pre-filling it from the day's attendance entries waits for the phone's
+  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then.
+
+**Consequences.** A supervisor can save, finish and submit a report with no signal, and the only record is an
+outbox row that survives a restart. Costs: every draft save is also sent, so the server holds the author's
+drafts and `audit_log` records each one (ADR-013 already notes the owner can read draft text there); a second
+supervisor's report for the same site and day is answered `conflict` / `duplicate` and has to be sorted out by a
+manager, since the phone cannot see the other report; a reason is asked for an edit the server may never have
+seen, and is then dropped by the insert; the phone knows only its own outbox, so a report filed on another phone
+or before a reinstall is not shown, and a second report for that day would be a duplicate; a lookup scans at most
+400 of the user's reports per site, newest first; photos are #81 PR 2; and the time-to-submit telemetry in the PRD
+is not built.
+
+---
+
 ## Template — copy this for a new decision
 
 ```

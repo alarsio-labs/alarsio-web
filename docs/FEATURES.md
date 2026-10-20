@@ -141,8 +141,14 @@ edit history and photos, and calls `review_daily_report`. This is the surface fo
 tested. The pages need a run against a real project.*
 
 *Server side of offline filing is in place (#63, ADR-022): `sync_daily_reports` and
-`sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
-as an offline draft" is ticked when the phone's report screen ships.*
+`sync_report_photos` take a report, its edits and its photos from `sync_push`.*
+
+*The phone's report screens are in #81 PR 1 (ADR-036). `report-store.test.ts` and
+`DailyReportScreen.test.tsx` prove a draft is saved to the outbox with no network, found again as
+typed after the app reopens, and never shown as submitted before the server accepts it. "Save as
+an offline draft" stays unticked until it runs on a phone against the team project (#58), as
+Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled,
+which waits for the phone to record attendance (#79).*
 
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
