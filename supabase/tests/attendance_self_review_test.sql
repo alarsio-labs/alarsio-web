@@ -1,5 +1,5 @@
 -- Attendance & Site Presence: nobody reviews a day they recorded, and nobody reviews a
--- correction they proposed (#80 AC 3, ADR-035). review_attendance_day and
+-- correction they proposed (#80 AC 3, ADR-040). review_attendance_day and
 -- review_attendance_correction answer 42501, the same as for a caller who may not review
 -- at all.
 --

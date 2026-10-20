@@ -1,5 +1,5 @@
 -- Attendance & Site Presence: nobody reviews a day they recorded, or a correction they
--- proposed. Owner: Manish. Issue #80 AC 3, decision in ADR-035.
+-- proposed. Owner: Manish. Issue #80 AC 3, decision in ADR-040.
 --
 -- review_attendance_day() and review_attendance_correction() (20261025120000) checked
 -- only can_review_site. That held because recorders (supervisor) and reviewers (owner,

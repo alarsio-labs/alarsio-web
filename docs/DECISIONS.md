@@ -1357,7 +1357,7 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
-## ADR-035 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
+## ADR-040 · Nobody reviews a day they recorded or a correction they proposed, checked in the review functions
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #80 AC 3; the web screen is PR #100; review: Anuradha)
 
 **Context.** `review_attendance_day` and `review_attendance_correction` (ADR-030 D5) checked only
@@ -1365,7 +1365,7 @@ arrives before its day retries with backoff and then lands.
 reviewers (`owner`, `project_manager`) are different roles, and one person has one role per
 organisation. An owner can change a member's role (`grant update (role) on memberships`), so a supervisor
 made a project manager could approve or reject days they recorded, and nothing in the database said no.
-The web pages hide the controls (ADR-034 W8), which is presentation only.
+The web pages hide the controls (ADR-039 W8), which is presentation only.
 
 **Decision.**
 - **S1 · The check is in the two functions**, right after the permission check, so it answers before any

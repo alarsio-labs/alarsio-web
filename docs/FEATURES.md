@@ -120,7 +120,7 @@ proves the server side of offline capture. "Check in and check out; location cap
 tap" and "Mark everyone present in one tap" stay **unticked**, because both need the phone screens
 (#79).*
 
-*Nobody reviews a day they recorded or a correction they proposed (#80 AC 3, ADR-035): both review
+*Nobody reviews a day they recorded or a correction they proposed (#80 AC 3, ADR-040): both review
 functions answer `42501`. `attendance_self_review_test.sql` makes a supervisor a project manager and
 proves the refusals and that other reviewers still work. "Manager approves or rejects a day" stays
 **unticked**: the web screen (PR #100) has not been driven against a real Supabase project.*
