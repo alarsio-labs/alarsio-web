@@ -114,7 +114,7 @@ old value, the new value and the reason" is ticked: `attendance_review_test.sql`
 stamps the old value, stores the new one and a mandatory reason, and never lets the row be edited,
 except the one review move, or deleted. "Manager approves or rejects a day" stays unticked:
 `review_attendance_day` and the lock (an approved day's entries change 0 rows, a late write raises
-`PS409`) are tested, but the row is a manager's action and the web screen (#80) does not exist.*
+`PS409`) are tested, but the row is a manager's action; its web screen is #80 (ADR-039, below).*
 
 *The published views are in #28 PR 3a (ADR-032): `approved_attendance_days`, which Wage Summaries
 (#61) reads, and `site_exceptions`, the reviewer's list. `attendance_views_test.sql` proves both, and
@@ -130,6 +130,13 @@ tap" and "Mark everyone present in one tap" stay **unticked**, because both need
 functions answer `42501`. `attendance_self_review_test.sql` makes a supervisor a project manager and
 proves the refusals and that other reviewers still work. "Manager approves or rejects a day" stays
 **unticked**: the web screen (PR #100) has not been driven against a real Supabase project.*
+*The web review is #80 (ADR-039): `/attendance` lists what needs a look and `/attendance/[id]` shows a
+day with its entries, exceptions and corrections, where an owner or project manager approves or rejects
+it and each pending correction through the two published functions. Unit tests and action tests with a
+mocked client prove the filters, the ordering, the rules for drawing a button (not the page itself), the
+reason rules and the SQLSTATE messages. "Manager approves or rejects a day" stays **unticked**: the screen has not been driven against a
+real Supabase project, and "nobody reviews a day they recorded" is enforced only by hidden buttons until
+a follow-up migration adds the check to both functions.*
 *The phone's check-in and check-out are in #79 PR 1 (ADR-034): the sites list, the location permission
 flow, the geofence estimate, the outbox save and the per-record status, with `SiteAttendanceScreen.test.tsx`
 and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check

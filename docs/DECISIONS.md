@@ -1407,6 +1407,67 @@ refused ([2.12b]), so the opener rule stands on its own.
 
 ---
 
+## ADR-039 · Web review of attendance: one list, one detail page, no new write, and a self-review gap the database does not close
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish and Anuradha (issue #80; reviewer: Ishant)
+
+**Context.** The database side of Attendance review is on `main` (ADR-030, ADR-032) but no screen
+uses it, so a day stays `open` until someone calls the functions by hand. Issue #80 asks for the
+manager's screen, shaped like the daily-report review (ADR-025), and says "nobody reviews a day
+they recorded". `review_attendance_day` and `review_attendance_correction` check only
+`can_review_site`; they never compare `recorded_by` or `proposed_by` with the caller. The rule holds
+today because the role sets are disjoint (`can_record_on_site` is `supervisor`, `can_review_site` is
+`owner` / `project_manager`, one membership per person per organisation), but an owner may change a
+member's role, so a supervisor made a project manager can review days they recorded.
+ADR-031 is held for #90 and ADR-034 to ADR-038 are taken, so this one is ADR-039.
+
+**Decision.**
+- **W1 · Routes.** `/attendance?org=` is the list and `/attendance/[id]?org=` the day (its id is the
+  day's id), as `/reports`. `/attendance` joins `SIGNED_IN_ONLY`, and the dashboard links to it for
+  `owner` and `project_manager` only.
+- **W2 · No new write, no migration.** The pages write only through `review_attendance_day` and
+  `review_attendance_correction`, and never through `.from(...)`. They add no table, view, policy or grant.
+- **W3 · What a row is.** One row per (site, date): the day when there is one, plus a row for a date that
+  has flagged exceptions and no day (a visit with no attendance opened), which has no link. Reads are
+  `attendance_days`, `site_exceptions`, and on the day page `attendance_entries` and
+  `attendance_corrections`, all under the viewer's RLS; site names come from `site_directory` (ADR-025
+  W1) and worker names from `worker_roster`, de-duplicated by worker. Membership is checked with
+  `is_org_member`, and whether to draw the buttons with `can_review_site`.
+- **W4 · Needs review** is the default filter: a day that is `open`, or `rejected` and edited since
+  (`changed_since_review`, ADR-032 D7), or has a pending correction. A geofence or not-closed exception
+  on an approved day does not count, because those rows never resolve (ADR-032 consequence), and nor does
+  a date that has only such a flag and no day at all: it has nothing to approve and no way to clear the
+  flag, so it shows under "All" only. Rows are newest date first; within a date, flagged rows, then rows waiting,
+  then site name.
+- **W5 · Time.** "Today", the default range and every timestamp are Asia/Kolkata and say IST (ADR-021),
+  unlike the reports pages, which are UTC. The default range is the 31 days ending today, and the longest
+  is 31, because a day left unreviewed for ten days is exactly what a manager must see.
+- **W6 · Reason.** One form per decision with Approve and Reject buttons and one reason box. A reject with a
+  blank reason, and any reason over 500 characters after trimming, is refused before the database is
+  called; an approve may carry a note. Errors are fixed messages chosen by SQLSTATE
+  (`42501`, `22023`, `55000` with separate texts for a day and a correction); `28000` goes back to sign-in.
+- **W7 · No names of people.** A day or correction by the viewer says "you"; others say nothing
+  (ADR-025 W7).
+- **W8 · AC 3 in this PR is presentation.** The day's Approve / Reject form is drawn only when the viewer
+  neither recorded the day nor any of its entries, and a correction's only when the viewer did not propose
+  it; otherwise the page says someone else must review. The database check is **not** part of this PR.
+  The follow-up is PR #101 (ADR-040): a migration that makes both functions answer `42501` for a self-recorded day or a
+  self-proposed correction, with SQL tests, as its own PR for Attendance's owner.
+- **W9 · Where decided.** Corrections are decided on the day's page, one small form each, not on a page of
+  their own.
+
+**Consequences.** A manager can see what needs a look and decide it, and the same wording and layout as
+the report review makes the two screens feel alike. Costs: until the follow-up migration lands, AC 3's
+"nobody reviews a day they recorded" is true only by role separation and by the hidden buttons, and a
+promoted supervisor who posts the form by hand is accepted; an accountant can open `/attendance` and read
+approved days (ADR-032 D3) but never sees a control; the list reads all days of a 31-day window (capped at
+1000, a cap that 20 sites do not reach) and two ordered exception queries of up to 1000 rows each (waiting
+corrections and sent-back days apart from geofence and not-closed flags, so a flood of flags cannot push a
+waiting correction out); the site, the dates and open / rejected / approved are filtered in the database,
+but "Needs review" and "All" are applied after the read, so when a cap is reached the oldest rows are the
+ones cut, and they may need review (the page says which cap was hit); an exception-only row cannot be
+opened; the list shows no per-day entry counts; the decision logic in
+`lib/attendance` and the two actions (mocked client) have unit tests, but no test renders a page or the
+form, and none has been driven against a real Supabase project.
 ## ADR-034 · Sites web, part 1: list, create, edit, status and archive, with no new database surface
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #78, PR 1 of 2; review: Ishant)
 

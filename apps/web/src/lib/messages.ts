@@ -12,6 +12,12 @@ const MESSAGES = {
   org_failed: "Could not create the organisation. Try again.",
   review_forbidden: "You cannot review this report.",
   review_note_long: "Keep the review note to 1000 characters or fewer.",
+  attendance_forbidden: "You cannot review this attendance record.",
+  attendance_reason_required: "Enter a reason of 1 to 500 characters to reject.",
+  attendance_reason_long: "Keep the reason to 500 characters or fewer.",
+  attendance_day_final: "This day is already approved, so it cannot be rejected. A supervisor can propose a correction.",
+  attendance_correction_stale:
+    "This correction cannot be decided now: it was already decided the other way, or the entry changed after it was proposed. Reload the page, and reject the correction if the entry changed.",
   export_rate_limited: "You can export 5 times an hour. Try again later.",
   export_failed: "The export could not be made, and nothing was downloaded. Try again.",
   material_name: "Enter a material name of 1 to 120 characters.",
