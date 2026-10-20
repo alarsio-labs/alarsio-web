@@ -3,8 +3,10 @@ import {
   buildReport,
   charCount,
   dayLabel,
+  headcountHint,
   isFlagged,
   needsReason,
+  openingFields,
   parsePayload,
   REPORT_LIMITS,
   reportDay,
@@ -281,5 +283,48 @@ describe('report model (#81)', () => {
       }
       expect(reportErrorText(new Error('/data/user/0/app.db is locked'))).toBe('Could not save on this phone. Try again.');
     });
+  });
+});
+
+describe('headcount from the day’s attendance (#109, ADR-038)', () => {
+  it('starts a new report with the number on site', () => {
+    expect(openingFields(null, { onSite: 14, halfDay: 2 }).headcount).toBe('14');
+  });
+
+  it('starts at 0 when attendance was taken and nobody came', () => {
+    expect(openingFields(null, { onSite: 0, halfDay: 0 }).headcount).toBe('0');
+  });
+
+  it('leaves the headcount to be typed when the phone holds no attendance', () => {
+    expect(openingFields(null, null)).toEqual({
+      headcount: '',
+      workDone: '',
+      blockers: '',
+      seriousBlocker: false,
+      safetyIncident: false,
+      nextDayPlan: '',
+    });
+  });
+
+  it('never overwrites a saved report’s headcount', () => {
+    const saved = submitted({ headcount: '12' });
+    expect(openingFields(saved, { onSite: 14, halfDay: 0 }).headcount).toBe('12');
+  });
+
+  it('keeps a saved report with no headcount empty', () => {
+    const draft = buildReport(SITE, DAY, fields({ headcount: '' }), 'draft', { previous: null });
+    expect(openingFields(draft, { onSite: 14, halfDay: 0 }).headcount).toBe('');
+  });
+
+  it('says where the number came from, and the half days only when there are some', () => {
+    expect(headcountHint({ onSite: 14, halfDay: 2 })).toBe('From attendance on this phone: 14 on site (2 half day)');
+    expect(headcountHint({ onSite: 9, halfDay: 0 })).toBe('From attendance on this phone: 9 on site');
+  });
+
+  it('opens a pre-filled form that a submit accepts as it is', () => {
+    const r = buildReport(SITE, DAY, { ...openingFields(null, { onSite: 14, halfDay: 0 }), workDone: 'Slab' }, 'submitted', {
+      previous: null,
+    });
+    expect(r.headcount).toBe(14);
   });
 });

@@ -1508,7 +1508,8 @@ needs a reason, and what the screen may say before the server answers.
 - D6. **A serious blocker or a safety incident shows a banner before submit** saying the report will be flagged
   to managers. In-app only (ADR-013 R3).
 - D7. **Headcount is typed for now.** Pre-filling it from the day's attendance entries waits for the phone's
-  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then.
+  mark-everyone-present (#79); it is a follow-up, and the "File a report" row stays unticked until then. *The pre-fill
+  is in #109 (ADR-038); it counts entries once the phone records them.*
 
 **Consequences.** A supervisor can save, finish and submit a report with no signal, and the only record is an
 outbox row that survives a restart. Costs: every draft save is also sent, so the server holds the author's
@@ -1562,6 +1563,47 @@ report in its app folder; the 4xx rule treats an unknown refusal as final, so a 
 the JPEG re-encode drops EXIF, which is intended but also loses the original's capture time; and the
 `Paths.document` folder is not cleared when a user signs out, so a photo of user A that was never uploaded stays on
 the phone until A signs in again (the queue row is A's, so B never sees or sends it).
+
+---
+
+## ADR-038 · Daily report headcount pre-filled from the day's attendance on the phone
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #109, follow-up to #81 AC 2; review: Manish, because the reader is in Attendance's phone folder)
+
+**Context.** ADR-036 D7 left the report's headcount typed until the phone recorded attendance. The
+shape of an attendance entry on the phone is fixed by Attendance's handler (`sync_attendance_entries`,
+ADR-033): `org_id`, `site_id`, `attendance_date`, `worker_id`, `status`, `overtime_hours`, `note`. So a
+report can count the day's entries from the outbox now, and the count starts working the day the
+phone's mark-all (ADR-034 D2, #79 PR 2) writes entries.
+
+**Decision.**
+- D1. **Attendance answers the count.** `readHeadcount(db, user, site, date)` lives in
+  `apps/mobile/src/attendance/headcount.ts`, so only Attendance's code reads an entry's payload; the
+  report screen calls it and never parses the record. It is read-only and additive, like ADR-034 D4's
+  `listRecords`.
+- D2. **On site means `present` or `half_day`**, counted once per worker by their newest entry.
+  `absent` and `leave` are not counted. The half days are counted apart for the hint.
+- D3. **Only the signed-in user's own entries** (ADR-020), through `listRecords`. An entry the server
+  `rejected` was never stored and is not counted; a record without a text site, day and worker and
+  one of the four statuses is skipped, as are another site and another day. The server stays the
+  check on the rest of the payload.
+- D4. **The count fills only a new report.** It is read once, when the form is first filled, never on
+  the poll. A saved report (draft or submitted) keeps its own headcount, and a typed value is never
+  overwritten. With no entry for the site and day the field stays empty, to be typed; with entries
+  and nobody on site it starts at 0. A failed read leaves the field to be typed and never stops the
+  report.
+- D5. **The screen says where the number came from**: "From attendance on this phone: 14 on site
+  (2 half day)", under the field, also beside a saved report so a difference shows. The field stays
+  editable and every ADR-036 rule (limits, reason after submit) is unchanged.
+- D6. **The scan stops at 3000** of the user's entry records for the site, newest first: about a month
+  of a 100-worker site. An older day beyond that is typed.
+
+**Consequences.** A supervisor who marked attendance on the phone opens the report with the headcount
+already right, offline. Costs: until #79 PR 2 ships, no phone holds an entry, so in practice the field
+is still typed; attendance recorded by another user or on another phone is not counted, and nor is the
+server's copy; a count read when the report opened does not follow later attendance changes until the
+screen is opened again; the outbox is never pruned, so the scan grows with the phone's history up to
+its limit; and the "File a report" row in `FEATURES.md` stays unticked until mark-all runs on a phone
+against the team project (#58).
 
 ---
 
