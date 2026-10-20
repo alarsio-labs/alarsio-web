@@ -350,6 +350,7 @@ describe('startSyncEngine', () => {
   describe('pull after sync (#49)', () => {
     const SITE = {
       id: '51000000-0000-4000-8000-000000000001',
+      org_id: '0a0a0a0a-0000-4000-8000-0000000000a1',
       name: 'Kothrud',
       address: 'Pune',
       status: 'active',
@@ -480,6 +481,50 @@ describe('startSyncEngine', () => {
       await noSource.syncNow();
       expect(noSource.getStatus().lastPull).toBeNull();
       noSource.stop();
+    });
+  });
+
+  describe('after each run (#81 PR 2)', () => {
+    it("calls afterRun with the database and this engine's user, after the push", async () => {
+      const f = fakeEnv();
+      const t = countingTransport();
+      const calls: { userId: string; pushesSoFar: number }[] = [];
+      const handle = startSyncEngine(db, t.transport, {
+        userId: USER_A,
+        afterRun: async (_db, userId) => {
+          calls.push({ userId, pushesSoFar: t.pushes.length });
+        },
+      }, f.env);
+      await enqueue(db, { entity: 'material_transactions', recordId: ID(7), authorId: USER_A, payload: {} });
+      await handle.syncNow();
+
+      expect(calls.length).toBeGreaterThan(0);
+      expect(calls.at(-1)).toEqual({ userId: USER_A, pushesSoFar: 1 });
+      handle.stop();
+    });
+
+    it('does not call afterRun while signed out', async () => {
+      const f = fakeEnv();
+      const afterRun = jest.fn(async () => undefined);
+      const handle = startSyncEngine(db, countingTransport(false).transport, { userId: USER_A, afterRun }, f.env);
+      await handle.syncNow();
+      expect(afterRun).not.toHaveBeenCalled();
+      handle.stop();
+    });
+
+    it('keeps a failing afterRun out of the run: the run still finishes with its own result', async () => {
+      const f = fakeEnv();
+      const handle = startSyncEngine(db, countingTransport().transport, {
+        userId: USER_A,
+        afterRun: async () => {
+          throw new Error('file:///private/path');
+        },
+      }, f.env);
+      const result = await handle.syncNow();
+      expect(result.kind).toBe('done');
+      expect(handle.getStatus().running).toBe(false);
+      expect(JSON.stringify(handle.getStatus())).not.toContain('private');
+      handle.stop();
     });
   });
 });
