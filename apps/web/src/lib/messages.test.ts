@@ -21,6 +21,29 @@ describe("messageFor", () => {
     expect(messageFor("material_exists")).toBe("This site already has a material with that name.");
   });
 
+  it("has its own message for each sites code", () => {
+    const codes = [
+      "site_name",
+      "site_address",
+      "site_latitude",
+      "site_longitude",
+      "site_radius",
+      "site_status",
+      "site_exists",
+      "site_forbidden",
+      "site_not_allowed"
+    ];
+    const texts = new Set<string | null>();
+    for (const code of codes) {
+      expect(messageFor(code)).not.toBeNull();
+      expect(messageFor(code)).not.toBe(messageFor("made_up"));
+      texts.add(messageFor(code));
+    }
+    expect(texts.size).toBe(codes.length);
+    expect(messageFor("site_not_allowed")).toMatch(/not allowed/i);
+    expect(messageFor("site_exists")).toMatch(/already exists/i);
+  });
+
   it("never returns an inherited property for a crafted code", () => {
     for (const code of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
       expect(messageFor(code)).toBe("Something went wrong. Try again.");

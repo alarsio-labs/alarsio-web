@@ -1357,6 +1357,52 @@ arrives before its day retries with backoff and then lands.
 
 ---
 
+## ADR-034 · Sites web, part 1: list, create, edit, status and archive, with no new database surface
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Manish (issue #78, PR 1 of 2; review: Ishant)
+
+**Context.** The Sites tables, policies and `archive_site()` are merged (ADR-007) but no screen
+exists, so a site can be made only in SQL. #78 also asks to assign and remove supervisors, which
+needs member names. `profiles` is readable only by its own user and Identity has not yet published a
+member-names view (on no branch on 2026-10-20), so #78 is split: this PR is everything that needs no
+names; PR 2 is assignment, after Identity's view.
+
+**Decision.**
+- W1. Routes: `/sites?org=` (list), `/sites/new?org=` and `/sites/[id]?org=` (edit, status, archive).
+  `/sites` joins `SIGNED_IN_ONLY`. A viewer is let in only when Identity's `can_manage_sites(org)` is
+  true; the dashboard shows the link to `owner` and `project_manager` only. This is presentation; RLS
+  and `archive_site` repeat the check.
+- W2. The pages write only through the existing grants: `sites` insert of six columns (the grant also allows `status`, which is not sent), update of five
+  detail columns, update of `status` alone, and `archive_site()`. No migration, no new view.
+- W3. The insert does not read its row back. `has_site_access` is `STABLE`, so `insert(...).select()`
+  would evaluate `sites_select` on a row its snapshot cannot see. A created site returns to the list.
+  A new site is `planned` (the column default); the create form has no status field.
+- W4. Status is a separate action from the details, so a status move cannot overwrite a concurrent edit
+  and the audit row shows one changed column. `archived` is refused in code and by `sites_update`'s
+  WITH CHECK. Edits and status moves filter on `id` and `org_id`; 0 rows reads as `site_not_allowed`.
+- W5. Archive has a confirm step: a server-rendered view (`?confirm=archive`) that says what it does,
+  with a POST button. Visiting it changes nothing. It calls `archive_site()` only.
+- W6. Coordinates are plain decimals read to 15 places and rounded to the 6 the column keeps; the
+  range is judged after rounding, as the database does. Radius is a whole number, 50 to 2000. Text is
+  trimmed and counted in characters. All of it is checked in code first to give a specific message; the
+  database CHECKs stay the boundary.
+- W7. "Find on map" is a Google Maps link built from validated numbers, `rel="noopener noreferrer"`.
+  Coordinates leave the app only when someone clicks it.
+- W8. The pages read no Identity table (ADR-025 W3), so the heading shows no organisation name.
+- W9. Errors map by SQLSTATE to fixed codes in `lib/messages.ts` (`42501` forbidden, `23505` name
+  taken, anything else generic).
+
+**Consequences.** Owners and project managers can set up and retire sites without SQL, and the
+Attendance, Reporting and Materials screens finally have sites to point at. Costs: assignment is not
+possible from the web until PR 2, so a supervisor still gets a site through SQL; two managers editing
+one site at once is last-write-wins (`updated_at` is not in the grant); an error on create or edit
+returns to a form with its values cleared, as the Materials form does; archiving needs two clicks and
+cannot be undone; a manager with several organisations sees no organisation name on these pages;
+the "not read back" rule (W3) rests on reading the function's volatility, not on a test against a
+real project; and the pages themselves are covered by unit tests of the actions and input rules only,
+not run against a real Supabase project.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
