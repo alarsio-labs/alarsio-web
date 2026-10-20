@@ -113,6 +113,8 @@ the table publishes the handler and lists it in its row of the public surface ab
 The phone also **pulls** what the signed-in user may see (sites, material
 balances, today's roster) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).
+The sites mirror carries each site's `org_id`, which every Attendance payload names (ADR-034).
+
 ## Data export
 
 The one read that crosses every module (ADR-026). An owner downloads their

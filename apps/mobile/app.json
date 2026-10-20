@@ -21,7 +21,13 @@
     },
     "plugins": [
       "expo-router",
-      "expo-sqlite"
+      "expo-sqlite",
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Alarsio reads your location once, when you tap Check in or Check out, to record that you are at the site. It does not track you in the background."
+        }
+      ]
     ]
   }
 }

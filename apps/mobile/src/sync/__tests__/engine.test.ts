@@ -350,6 +350,7 @@ describe('startSyncEngine', () => {
   describe('pull after sync (#49)', () => {
     const SITE = {
       id: '51000000-0000-4000-8000-000000000001',
+      org_id: '0a0a0a0a-0000-4000-8000-0000000000a1',
       name: 'Kothrud',
       address: 'Pune',
       status: 'active',

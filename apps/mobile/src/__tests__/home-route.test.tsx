@@ -1,4 +1,5 @@
-import { render, screen } from '@testing-library/react-native';
+import { fireEvent, render, screen } from '@testing-library/react-native';
+import { router } from 'expo-router';
 
 import Index from '../app/index';
 import { SessionUserContext } from '../auth/session-user';
@@ -22,6 +23,8 @@ jest.mock('../lib/supabase', () => ({ getSupabase: () => ({}) }));
 jest.mock('../sync/supabase-transport', () => ({ supabaseTransport: () => 'transport' }));
 jest.mock('../sync/supabase-mirror-source', () => ({ supabaseMirrorSource: () => 'mirror-source' }));
 jest.mock('../sync/engine', () => ({ startSyncEngine: jest.fn() }));
+// expo-router's own dependencies are not transformed by Jest, and only its navigator needs them.
+jest.mock('expo-router', () => ({ router: { push: jest.fn() } }));
 
 const USER = { id: '11111111-0000-4000-8000-00000000000a', email: 'a@example.com' };
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
@@ -62,6 +65,28 @@ describe('home route wiring', () => {
     expect(await screen.findByText('All your records are on the server')).toBeTruthy();
     expect(startSyncEngine).toHaveBeenCalledTimes(1);
     expect(startSyncEngine).toHaveBeenCalledWith(mockDb, 'transport', { userId: USER.id, mirrorSource: 'mirror-source' });
+  });
+
+  it('opens the Attendance route for a signed-in user (#79)', async () => {
+    await render(
+      <SessionUserContext.Provider value={USER}>
+        <Index />
+      </SessionUserContext.Provider>,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Attendance' }));
+    expect(router.push).toHaveBeenCalledWith('/attendance');
+  });
+
+  it('opens the Daily report route for a signed-in user (#81)', async () => {
+    await render(
+      <SessionUserContext.Provider value={USER}>
+        <Index />
+      </SessionUserContext.Provider>,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
+    expect(router.push).toHaveBeenCalledWith('/reports');
   });
 
   it('starts no engine when no user is signed in', async () => {

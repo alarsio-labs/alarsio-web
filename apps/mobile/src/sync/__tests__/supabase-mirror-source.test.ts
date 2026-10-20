@@ -41,7 +41,8 @@ describe('supabaseMirrorSource (#49)', () => {
 
     // Never the `sites` table: ARCHITECTURE rule 4 (Sites publishes this view, ADR-028).
     expect(call(calls, 'from')).toEqual(['site_details']);
-    expect(call(calls, 'select')).toEqual(['id, name, address, status, latitude, longitude, geofence_radius_m']);
+    // org_id: every Attendance payload names the organisation (#79).
+    expect(call(calls, 'select')).toEqual(['id, org_id, name, address, status, latitude, longitude, geofence_radius_m']);
     expect(call(calls, 'neq')).toEqual(['status', 'archived']);
     expect(call(calls, 'order')).toEqual(['id']);
     expect(call(calls, 'limit')).toEqual([1000]);
