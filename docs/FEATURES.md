@@ -126,6 +126,13 @@ proves the server side of offline capture. "Check in and check out; location cap
 tap" and "Mark everyone present in one tap" stay **unticked**, because both need the phone screens
 (#79).*
 
+*The phone's check-in and check-out are in #79 PR 1 (ADR-034): the sites list, the location permission
+flow, the geofence estimate, the outbox save and the per-record status, with `SiteAttendanceScreen.test.tsx`
+and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check
+out; location captured only on that tap" stays **unticked** on purpose: the tests use a fake location
+provider, and the phone's real permission prompt and GPS have not run on a device against the team project
+(#58). "Mark everyone present in one tap" is PR 2; the read-only approved day and corrections are PR 3.*
+
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
 - [ ] Save as an offline draft
@@ -140,8 +147,20 @@ edit history and photos, and calls `review_daily_report`. This is the surface fo
 tested. The pages need a run against a real project.*
 
 *Server side of offline filing is in place (#63, ADR-022): `sync_daily_reports` and
-`sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
-as an offline draft" is ticked when the phone's report screen ships.*
+`sync_report_photos` take a report, its edits and its photos from `sync_push`.*
+
+*The phone's report screens are in #81 PR 1 (ADR-036). `report-store.test.ts` and
+`DailyReportScreen.test.tsx` prove a draft is saved to the outbox with no network, found again as
+typed after the app reopens, and never shown as submitted before the server accepts it. "Save as
+an offline draft" stays unticked until it runs on a phone against the team project (#58), as
+Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled,
+which waits for the phone to record attendance (#79).*
+
+*The phone takes report photos in #105 (ADR-037). "Photos optional, and never blocking submission" was already
+ticked for the database; `photo-store.test.ts`, `photo-upload.test.ts` and `DailyReportPhotos.test.tsx` now prove the
+phone side: a photo is compressed and saved with no network, the report saves and submits whatever the photos' state,
+the file uploads only after its metadata is accepted and only under its author's session, and "On the server" is shown
+only once the file is up. Not run on a phone or against the team project (#58), where the bucket policy is checked.*
 
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
