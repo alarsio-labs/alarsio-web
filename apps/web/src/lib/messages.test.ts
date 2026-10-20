@@ -34,6 +34,27 @@ describe("messageFor", () => {
       expect(messageFor(code)).not.toBe(messageFor("made_up"));
     }
     expect(messageFor("attendance_reason_required")).toBe("Enter a reason of 1 to 500 characters to reject.");
+  it("has its own message for each sites code", () => {
+    const codes = [
+      "site_name",
+      "site_address",
+      "site_latitude",
+      "site_longitude",
+      "site_radius",
+      "site_status",
+      "site_exists",
+      "site_forbidden",
+      "site_not_allowed"
+    ];
+    const texts = new Set<string | null>();
+    for (const code of codes) {
+      expect(messageFor(code)).not.toBeNull();
+      expect(messageFor(code)).not.toBe(messageFor("made_up"));
+      texts.add(messageFor(code));
+    }
+    expect(texts.size).toBe(codes.length);
+    expect(messageFor("site_not_allowed")).toMatch(/not allowed/i);
+    expect(messageFor("site_exists")).toMatch(/already exists/i);
   });
 
   it("never returns an inherited property for a crafted code", () => {

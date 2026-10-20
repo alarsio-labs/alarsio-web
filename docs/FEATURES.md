@@ -74,6 +74,12 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [x] Site status: planned, active, paused, completed, archived
 - [x] An archived site is read-only
 
+*Web screens for the first, third and fourth rows (list, create, edit, status, archive behind a confirm
+step) are in #78 PR 1 (ADR-034). The ticks above come from the database suites and are unchanged: the
+screens are covered by unit tests of their actions and input rules, and have not been run against a real
+Supabase project. Assigning and unassigning supervisors from the web is #78 PR 2, which waits for
+Identity's member-names view.*
+
 *Sites also publishes the read-only views other modules read it through: `site_geofence` (ADR-021)
 and `site_directory` (ADR-025), plus `site_details` (#49, ADR-028), which the phone's offline mirror
 will read once #71 stops reading `sites` directly. No row is ticked for it: it adds no user feature.*
@@ -127,6 +133,12 @@ mocked client prove the filters, the ordering, the rules for drawing a button (n
 reason rules and the SQLSTATE messages. "Manager approves or rejects a day" stays **unticked**: the screen has not been driven against a
 real Supabase project, and "nobody reviews a day they recorded" is enforced only by hidden buttons until
 a follow-up migration adds the check to both functions.*
+*The phone's check-in and check-out are in #79 PR 1 (ADR-034): the sites list, the location permission
+flow, the geofence estimate, the outbox save and the per-record status, with `SiteAttendanceScreen.test.tsx`
+and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check
+out; location captured only on that tap" stays **unticked** on purpose: the tests use a fake location
+provider, and the phone's real permission prompt and GPS have not run on a device against the team project
+(#58). "Mark everyone present in one tap" is PR 2; the read-only approved day and corrections are PR 3.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -142,8 +154,20 @@ edit history and photos, and calls `review_daily_report`. This is the surface fo
 tested. The pages need a run against a real project.*
 
 *Server side of offline filing is in place (#63, ADR-022): `sync_daily_reports` and
-`sync_report_photos` take a report, its edits and its photos from `sync_push`. "Save
-as an offline draft" is ticked when the phone's report screen ships.*
+`sync_report_photos` take a report, its edits and its photos from `sync_push`.*
+
+*The phone's report screens are in #81 PR 1 (ADR-036). `report-store.test.ts` and
+`DailyReportScreen.test.tsx` prove a draft is saved to the outbox with no network, found again as
+typed after the app reopens, and never shown as submitted before the server accepts it. "Save as
+an offline draft" stays unticked until it runs on a phone against the team project (#58), as
+Attendance's check-in row does (ADR-034). "File a report" also needs the headcount pre-filled,
+which waits for the phone to record attendance (#79).*
+
+*The phone takes report photos in #105 (ADR-037). "Photos optional, and never blocking submission" was already
+ticked for the database; `photo-store.test.ts`, `photo-upload.test.ts` and `DailyReportPhotos.test.tsx` now prove the
+phone side: a photo is compressed and saved with no network, the report saves and submits whatever the photos' state,
+the file uploads only after its metadata is accepted and only under its author's session, and "On the server" is shown
+only once the file is up. Not run on a phone or against the team project (#58), where the bucket policy is checked.*
 
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
@@ -167,14 +191,19 @@ alerts; the unit is fixed once a material exists. The phone's record screen is s
 - [x] Outbox keyed on (entity, record_id)
 - [ ] Status shown: pending, syncing, synced, failed, conflict, rejected
 - [ ] Never shows "submitted" before the server confirms
-- [ ] A repeated push creates no duplicate
-- [ ] One bad record does not block the rest of its batch
+- [x] A repeated push creates no duplicate
+- [x] One bad record does not block the rest of its batch
 
-*The replay and poison-record rows stay unticked until all seven entities are
-wired. ADR-014 ties the no-duplicate guarantee to every handler, and calls for a
-shared handler contract test that does not exist yet. All seven entities now have
-handlers (Attendance's in #28 PR 3b, ADR-033), so the rows wait only on that contract
-test. Not yet run against the team Supabase project (#58).*
+*The replay and poison-record rows are ticked by the handler contract test (#107, ADR-014):
+`sync_contract_test.sql` runs the same checks over all seven handlers through `sync_push`.
+Each entity's record pushed twice is accepted twice and stored once; a whole batch of all
+seven pushed twice writes nothing the second time; an empty record (the missing-fields case)
+between two good ones is rejected with a reason and leaves no row, while both good ones are
+stored; and a single record with each field broken in turn gets a fixed code with no database
+detail in the response. ADR-014 tied the no-duplicate guarantee to every handler, and all
+seven now have one (Attendance's in #28 PR 3b, ADR-033). A bad record of any other kind is
+checked one record at a time, not inside a batch. It has not run against the team Supabase
+project (#58).*
 
 *Proof so far, in `supabase/tests`, with the real handlers unless stated:*
 - *Whole batch pushed twice, same answer, nothing written the second time:
@@ -198,9 +227,8 @@ test. Not yet run against the team Supabase project (#58).*
   into its status") and `sender.test.ts` ("applies a mix of verdicts record by
   record").*
 
-*To tick both rows: one contract test that runs the same checks over all seven handlers.
-Attendance's handlers now have their own replay and poison tests (`sync_attendance_test.sql`
-[3.03] to [7.08] and [8.12]).*
+*Attendance's handlers also have their own replay and poison tests (`sync_attendance_test.sql`
+[3.03] to [7.08] and [8.12]); the contract test above covers all seven handlers alike.*
 
 *The home screen shows the signed-in user's sync status (#68): counts, an honest
 sync line that never says "submitted", the conflict and rejected records with their
