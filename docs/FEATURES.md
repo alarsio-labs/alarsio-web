@@ -180,6 +180,14 @@ phone side: a photo is compressed and saved with no network, the report saves an
 the file uploads only after its metadata is accepted and only under its author's session, and "On the server" is shown
 only once the file is up. Not run on a phone or against the team project (#58), where the bucket policy is checked.*
 
+*The owner's overview is in #112 (ADR-041), the dashboard half of the week 7–8 "Dashboard and attendance-day
+approval" line. `/overview` shows every site for one day: report filed or not with its headcount, serious blocker
+and safety badges, the day's attendance state, geofence flags, visits not closed, pending corrections and low
+stock, sorted so what needs action comes first. It reads only published views. `overview_reads_test.sql` proves
+what each read returns for every role and another organisation; `lib/overview/*.test.ts` prove the rows, the
+order and the counts. That line stays **unticked**: the PRD's estimated wages are left out (ADR-041 D7), and the
+page has not been driven against the team project (#58). No row above changes.*
+
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
 - [x] Record opening balance, receipt, usage, adjustment
