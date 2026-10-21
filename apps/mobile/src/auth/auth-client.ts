@@ -1,4 +1,4 @@
-// Sign-in for the field app. Owner: Identity (Ishant). Issue #56, ADR-026.
+// Sign-in for the field app. Owner: Identity (Ishant). Issue #56, ADR-031.
 //
 // Screens talk to an AuthClient, not to Supabase, so they are tested without a
 // network. Supervisors are invited from the web dashboard and create their
