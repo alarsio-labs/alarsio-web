@@ -150,6 +150,14 @@ provider, and the phone's real permission prompt and GPS have not run on a devic
 - [x] Photos optional, and never blocking submission
 - [x] A submitted report cannot be changed quietly — edits keep history
 - [x] Serious blockers flagged to managers on submit (in-app flag only; no push, email or SMS)
+- [ ] A manager approves or sends back a report, with a comment
+  *PRD P0, CUJ-5. Added with #114 (ADR-042). Before this, a manager could only mark a report reviewed (ADR-013 R5).
+  `daily_reports_send_back_test.sql` proves who may send back, the reason rules, that a reviewed report stays
+  final, and that only the author resubmits, with a reason and a revision naming the send-back.
+  `sync_daily_reports_test.sql` proves a push with no reason never resubmits it (`conflict` / `sent_back`).
+  The web's Send back form and the phone's resubmit have unit tests. Unticked: the web screen has not been driven
+  against the team project (#58), and the phone learns of a send-back only when it next pushes that report,
+  because there is no report pull (#49).*
 
 *Managers read, filter and review reports on the web (#74, ADR-025): `/reports` lists
 `daily_report_status` with flagged reports first, and `/reports/<id>` shows the report, its

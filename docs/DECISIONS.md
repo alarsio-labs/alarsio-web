@@ -1785,6 +1785,62 @@ against the team project (#58).
 
 ---
 
+## ADR-042 · A manager sends a daily report back with a reason; the author resubmits it with one
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #114; amends ADR-013 R5; review: Manish, whose Attendance review this mirrors)
+
+**Context.** A PRD P0 (CUJ-5) says a manager can approve **or reject** a daily report, with a comment.
+ADR-013 R5 gave managers only `review_daily_report`, and said a manager who disagrees can only say so
+in the review note. Attendance already sends a day back (ADR-030). The phone holds no server copy of
+its reports (ADR-023 mirrors sites, materials and roster only), so it learns a report's state only from
+a sync verdict.
+
+**Decision.**
+- D1. **A fourth status, `rejected`, shown as "Sent back"**, the word Attendance uses for a rejected day.
+  The row keeps the latest decision in `reviewed_at`, `reviewed_by` and `review_note`, as a review does.
+  A sent-back report always has a `review_note` (a constraint), and `daily_report_status` shows it.
+- D2. **`send_back_daily_report(report_id, reason)`**, `SECURITY DEFINER`, `can_review_site`.
+  - It refuses with one `42501`: no such report, no access, the caller's own report, or a draft. This is
+    the same rule as `review_daily_report`, so nobody can probe for ids. A call with no signed-in user
+    gets `28000`, as a review does.
+  - The reason is required, trimmed, 1–1000 characters (`22023`).
+  - A reviewed report is final (`55000`).
+  - Sending back a report that is already sent back does nothing and keeps the first reason, so a
+    retried call is harmless.
+  - It never changes content: the guard trigger refuses a decision that does.
+- D3. **`review_daily_report` refuses a sent-back report** (`42501`, as for a draft). It must be
+  resubmitted first, so "reviewed" always means the manager saw the version they approved.
+- D4. **Resubmitting is the author's ordinary update back to `submitted`.** The update policy and the
+  column grants are unchanged.
+  - It always needs a signed-in editor and an `edit_reason`, even when nothing else changed: the author
+    may answer "the count was right".
+  - It always writes a revision. Three new nullable columns on `daily_report_revisions`
+    (`sent_back_reason`, `sent_back_by`, `sent_back_at`, all or none) name the send-back it answers, so
+    every send-back stays in the history after the row moves on.
+  - The first `submitted_at` is kept.
+  - A sent-back report cannot go back to draft (`55000`).
+- D5. **The guard trigger** allows a decision (`reviewed` or `rejected`) only from `submitted` (`55000`
+  otherwise). A client still cannot set either status or any review column.
+- D6. **Sync:** `sync_daily_reports` answers a push to a sent-back report that carries no edit reason
+  with `conflict` / `sent_back`. A replay of the old submit, or a phone that has not heard, never
+  resubmits it silently; without this the guard's `22023` would have been a terminal `rejected`. A push
+  with a reason resubmits it, and a replay of that resubmit is `accepted` as before.
+- D7. **Phone.** The verdict reads "A manager sent this report back…" and the report stays editable.
+  A submitted report may now be sent again **unchanged** with a reason. The phone usually learns of a
+  send-back from the web, not from a verdict, and on a report the server holds as submitted the same
+  content is a replay that changes nothing. This drops the phone's `no_changes` refusal from #81.
+
+**Consequences.** The P0's "reject, with a comment" is met on the server and the web, and every
+send-back and answer is in the report's history. Costs:
+- **The phone hears of a send-back late.** It finds out only when it next pushes that report. A
+  supervisor sees it straight away on the web `/reports` list, but on the phone it needs a report pull,
+  which is Offline Sync's (#49) to schedule.
+- **Only the latest decision is on the row.** An earlier one is in the revisions and in `audit_log`.
+- **A push that carries a reason can answer a later send-back.** This covers a stale queued edit, and a
+  retried resubmit whose first answer was lost and which arrives after a second send-back. In both
+  cases the report is resubmitted. The revision then names the newer send-back next to the older
+  reason. A push with no reason never resubmits.
+- **`/overview` (#113, ADR-041) has to learn the new status.** Whichever of the two PRs merges second
+  updates it, or a sent-back report reads as "not filed" there.
 ## ADR-041 · The owner's overview: every site for one day, from published views only
 **Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #112, the dashboard half of the week 7–8 "Dashboard and attendance-day approval" line; review: Manish, who shares that line)
 

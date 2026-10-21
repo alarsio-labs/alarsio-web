@@ -36,6 +36,7 @@ describe("parseReportFilters", () => {
       expect(parseReportFilters({ status: bad }, TODAY).status).toBe("all");
     }
     expect(parseReportFilters({ status: "reviewed" }, TODAY).status).toBe("reviewed");
+    expect(parseReportFilters({ status: "rejected" }, TODAY).status).toBe("rejected");
   });
 
   it("treats only the value 1 as flagged only", () => {

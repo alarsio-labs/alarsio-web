@@ -34,6 +34,7 @@ const REASONS: Record<string, string> = {
   duplicate: DIFFERENT_VERSION,
   different_report: DIFFERENT_VERSION,
   reviewed: 'A manager already reviewed it.',
+  sent_back: 'A manager sent it back. Open it, fix it and give a reason.',
   locked: 'A manager already approved this day, so it was not changed.',
 };
 

@@ -1,10 +1,10 @@
 // Parses the /reports search params. Every value is validated here and a bad
 // one falls back to its default, so a crafted URL never reaches a query as
-// anything but a uuid, one of three statuses, or a real calendar date.
+// anything but a uuid, one of four statuses, or a real calendar date.
 export const DEFAULT_RANGE_DAYS = 7;
 export const MAX_RANGE_DAYS = 31;
 
-export type StatusFilter = "all" | "submitted" | "reviewed";
+export type StatusFilter = "all" | "submitted" | "rejected" | "reviewed";
 
 export type ReportFilters = {
   site: string | null;
@@ -33,7 +33,7 @@ export function parseReportFilters(
 ): ReportFilters {
   const site = typeof params.site === "string" && UUID.test(params.site) ? params.site : null;
   const status: StatusFilter =
-    params.status === "submitted" || params.status === "reviewed" ? params.status : "all";
+    params.status === "submitted" || params.status === "rejected" || params.status === "reviewed" ? params.status : "all";
   const flaggedOnly = params.flagged === "1";
 
   const todayMs = Date.parse(`${iso(today.getTime())}T00:00:00Z`);

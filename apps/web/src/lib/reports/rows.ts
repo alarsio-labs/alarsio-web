@@ -2,12 +2,16 @@
 // database is the boundary; these only make the page's types honest.
 export const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
+// What daily_report_status shows: never a draft. "rejected" is shown as "Sent back" (ADR-042).
+export const REPORT_STATUSES = ["submitted", "rejected", "reviewed"] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
 export type ReportStatusRow = {
   id: string;
   site_id: string;
   report_date: string;
   author_id: string;
-  status: "submitted" | "reviewed";
+  status: ReportStatus;
   headcount: number | null;
   serious_blocker: boolean;
   safety_incident: boolean;
@@ -45,6 +49,9 @@ export type RevisionRow = {
   next_day_plan: string | null;
   reason: string;
   edited_at: string;
+  // Set when this edit resubmitted a sent-back report: the send-back it answers.
+  sent_back_reason: string | null;
+  sent_back_at: string | null;
 };
 
 export type PhotoRow = { id: string; storage_path: string; caption: string | null };
@@ -58,7 +65,7 @@ const strOrNull = (v: unknown): v is string | null => v === null || typeof v ===
 export function isReportStatusRow(v: unknown): v is ReportStatusRow {
   return (
     rec(v) && str(v.id) && str(v.site_id) && str(v.report_date) && str(v.author_id) &&
-    (v.status === "submitted" || v.status === "reviewed") && numOrNull(v.headcount) &&
+    REPORT_STATUSES.some((s) => s === v.status) && numOrNull(v.headcount) &&
     typeof v.serious_blocker === "boolean" && typeof v.safety_incident === "boolean" &&
     typeof v.flagged === "boolean" && typeof v.photo_count === "number"
   );
@@ -80,7 +87,8 @@ export function isRevisionRow(v: unknown): v is RevisionRow {
   return (
     rec(v) && str(v.id) && typeof v.revision_no === "number" && numOrNull(v.headcount) &&
     strOrNull(v.work_done) && strOrNull(v.blockers) && typeof v.serious_blocker === "boolean" &&
-    typeof v.safety_incident === "boolean" && strOrNull(v.next_day_plan) && str(v.reason) && str(v.edited_at)
+    typeof v.safety_incident === "boolean" && strOrNull(v.next_day_plan) && str(v.reason) && str(v.edited_at) &&
+    strOrNull(v.sent_back_reason) && strOrNull(v.sent_back_at)
   );
 }
 

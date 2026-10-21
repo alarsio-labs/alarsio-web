@@ -2,12 +2,19 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
-import { canMarkReviewed, MAX_REVIEW_NOTE } from "@/lib/reports/review";
+import { canMarkReviewed, MAX_REVIEW_NOTE, MAX_SEND_BACK_REASON } from "@/lib/reports/review";
 import { UUID, isPhotoRow, isReportRow, isRevisionRow, isSiteRow, rows } from "@/lib/reports/rows";
 import { Notice, buttonClass, inputClass } from "@/components/form";
-import { reviewReport } from "./actions";
+import { reviewReport, sendBackReport } from "./actions";
 
 const PHOTO_URL_SECONDS = 300;
+
+// "rejected" is shown as "Sent back" (ADR-042 D1). A draft never reaches this page.
+const STATUS_LABEL: Record<string, string> = {
+  submitted: "Not reviewed",
+  rejected: "Sent back",
+  reviewed: "Reviewed"
+};
 
 // The server's own time zone is not the viewer's, so say which one this is.
 // Days are UTC throughout (ADR-025 W4).
@@ -59,7 +66,9 @@ export default async function ReportPage({
     supabase.rpc("can_review_site", { p_site_id: report.site_id }),
     supabase
       .from("daily_report_revisions")
-      .select("id, revision_no, headcount, work_done, blockers, serious_blocker, safety_incident, next_day_plan, reason, edited_at")
+      .select(
+        "id, revision_no, headcount, work_done, blockers, serious_blocker, safety_incident, next_day_plan, reason, edited_at, sent_back_reason, sent_back_at"
+      )
       .eq("report_id", id)
       .order("revision_no", { ascending: true }),
     supabase.from("report_photos").select("id, storage_path, caption").eq("report_id", id).order("created_at", { ascending: true })
@@ -91,7 +100,7 @@ export default async function ReportPage({
       <Link href={`/reports?org=${org}`} className="text-sm underline">← Daily reports</Link>
       <h1 className="mt-4 text-2xl font-semibold">{site?.name ?? "Site"} · {report.report_date}</h1>
       <p className="mt-1 text-sm text-neutral-600">
-        {report.status === "reviewed" ? "Reviewed" : "Not reviewed"} · {report.headcount ?? "–"} workers
+        {STATUS_LABEL[report.status] ?? "Not reviewed"} · {report.headcount ?? "–"} workers
         {report.author_id === user.id && " · filed by you"}
       </p>
 
@@ -107,10 +116,15 @@ export default async function ReportPage({
       <Block title="Next-day plan" text={report.next_day_plan} />
 
       {report.reviewed_at && (
-        <section className="mt-6 rounded-md border border-neutral-200 p-4 text-sm">
-          <h2 className="font-medium">Review</h2>
+        <section
+          className={`mt-6 rounded-md border p-4 text-sm ${report.status === "rejected" ? "border-amber-300 bg-amber-50" : "border-neutral-200"}`}
+        >
+          <h2 className="font-medium">{report.status === "rejected" ? "Sent back" : "Review"}</h2>
           <p className="mt-1 text-neutral-600">{stamp(report.reviewed_at)}</p>
           <p className="mt-2 whitespace-pre-wrap">{report.review_note ?? "No note."}</p>
+          {report.status === "rejected" && report.author_id === user.id && (
+            <p className="mt-2 text-neutral-700">Fix the report on your phone and give a reason to send it again.</p>
+          )}
         </section>
       )}
 
@@ -123,6 +137,19 @@ export default async function ReportPage({
             <textarea name="note" maxLength={MAX_REVIEW_NOTE} rows={3} className={`${inputClass} mt-1`} />
           </label>
           <button type="submit" className={buttonClass}>Mark reviewed</button>
+        </form>
+      )}
+
+      {showReview && (
+        <form action={sendBackReport} className="mt-6 space-y-3 border-t border-neutral-200 pt-6">
+          <input type="hidden" name="report_id" value={report.id} />
+          <input type="hidden" name="org_id" value={org} />
+          <label className="block text-sm font-medium text-neutral-700">
+            Reason to send it back (required)
+            <textarea name="reason" required maxLength={MAX_SEND_BACK_REASON} rows={3} className={`${inputClass} mt-1`} />
+          </label>
+          <p className="text-xs text-neutral-500">The author sees this reason, fixes the report and sends it again with a reason of their own.</p>
+          <button type="submit" className="rounded-md border border-neutral-900 px-4 py-2 hover:bg-neutral-100">Send back</button>
         </form>
       )}
 
@@ -157,6 +184,11 @@ export default async function ReportPage({
                 <p className="font-medium">
                   Edit {r.revision_no} · {stamp(r.edited_at)}
                 </p>
+                {r.sent_back_reason && (
+                  <p className="mt-1 text-neutral-600">
+                    Answers the send-back{r.sent_back_at && ` of ${stamp(r.sent_back_at)}`}: {r.sent_back_reason}
+                  </p>
+                )}
                 <p className="mt-1 text-neutral-600">Reason: {r.reason}</p>
                 <p className="mt-2 text-xs uppercase tracking-wide text-neutral-500">Before this edit</p>
                 <p className="mt-1">{r.headcount ?? "–"} workers{r.serious_blocker && " · serious blocker"}{r.safety_incident && " · safety incident"}</p>

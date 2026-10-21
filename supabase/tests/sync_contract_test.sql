@@ -338,7 +338,7 @@ declare
   -- conflicts each handler returns itself. server_error, handler_unavailable,
   -- rate_limited and busy are infrastructure answers, not a verdict on a record.
   c_codes text[] := array['invalid_record_id', 'unknown_entity', 'invalid_payload', 'permission_denied',
-    'invalid_input', 'invalid_state', 'duplicate', 'missing_parent', 'locked', 'reviewed', 'checked_out',
+    'invalid_input', 'invalid_state', 'duplicate', 'missing_parent', 'locked', 'reviewed', 'sent_back', 'checked_out',
     'different_visit', 'different_day', 'different_entry', 'different_correction', 'different_report'];
   c_leaks text[] := array['violates', 'constraint', 'duplicate key', 'null value', 'invalid input syntax',
     'column', 'relation', 'ERROR', 'SQLSTATE', 'PS409', 'public.', 'c1000000-', 'c2000000-', 'Contract'];

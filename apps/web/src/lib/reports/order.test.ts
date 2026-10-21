@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { sortReports, type SortableReport } from "./order";
 
-const r = (id: string, report_date: string, flagged: boolean, status: "submitted" | "reviewed"): SortableReport => ({
+const r = (id: string, report_date: string, flagged: boolean, status: SortableReport["status"]): SortableReport => ({
   id,
   report_date,
   flagged,
@@ -22,6 +22,15 @@ describe("sortReports", () => {
   it("puts unreviewed before reviewed within a day and flag", () => {
     const out = sortReports([r("a", "2026-10-19", true, "reviewed"), r("b", "2026-10-19", true, "submitted")]);
     expect(out.map((x) => x.id)).toEqual(["b", "a"]);
+  });
+
+  it("puts a sent-back report after one waiting for review and before a reviewed one", () => {
+    const out = sortReports([
+      r("reviewed", "2026-10-19", false, "reviewed"),
+      r("sent-back", "2026-10-19", false, "rejected"),
+      r("waiting", "2026-10-19", false, "submitted")
+    ]);
+    expect(out.map((x) => x.id)).toEqual(["waiting", "sent-back", "reviewed"]);
   });
 
   it("a flag outranks review state, and a date outranks a flag", () => {

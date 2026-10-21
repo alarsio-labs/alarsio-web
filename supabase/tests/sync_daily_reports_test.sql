@@ -402,4 +402,71 @@ begin
   reset role;
 end $$;
 
+-- ----------------------------------------------- sent back, then resubmitted (#114)
+-- ADR-042 D6. A push without a reason never resubmits a sent-back report. Fred is the
+-- author: bob lost site 1 in the section above.
+
+do $$
+declare
+  v_id uuid := 'd3000000-0000-0000-0000-000000000114';
+  v_r  text;
+  v_before bigint;
+begin
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id, public.sdr_report('2026-08-15'));
+  perform test_assert(v_r = 'accepted:-', '(setup) fred files a report, got ' || v_r);
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  perform public.send_back_daily_report(v_id, 'Wrong headcount');
+  reset role;
+  v_before := public.sdr_audit_count(v_id);
+
+  -- the phone missed the answer and sends the submitted report again.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id, public.sdr_report('2026-08-15'));
+  perform test_assert(v_r = 'conflict:sent_back', 'a replay of a since-sent-back report is conflict:sent_back, got ' || v_r);
+  -- an edit with no reason, and one with a blank reason.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"headcount": 14}');
+  perform test_assert(v_r = 'conflict:sent_back', 'an edit with no reason is conflict:sent_back, got ' || v_r);
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"headcount": 14, "edit_reason": "  "}');
+  perform test_assert(v_r = 'conflict:sent_back', 'an edit with a blank reason is conflict:sent_back, got ' || v_r);
+  perform test_assert(
+    (select status = 'rejected' and headcount = 12 and review_note = 'Wrong headcount' from public.daily_reports where id = v_id)
+    and public.sdr_revisions(v_id) = 0 and public.sdr_audit_count(v_id) = v_before,
+    'none of them changed the report, wrote a revision or an audit row');
+
+  -- a draft with no reason is the same: it never touches the sent-back report.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"status": "draft"}');
+  perform test_assert(v_r = 'conflict:sent_back', 'a draft push with no reason is conflict:sent_back, got ' || v_r);
+
+  -- going back to draft is refused, as for any submitted report.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"status": "draft", "edit_reason": "Undo"}');
+  perform test_assert(v_r = 'rejected:invalid_state', 'a sent-back report cannot go back to draft, got ' || v_r);
+
+  -- the manager who sent it back cannot answer it for the author.
+  v_r := public.sdr_one('c0000000-0000-0000-0000-00000000000c', v_id,
+                        public.sdr_report('2026-08-15') || '{"headcount": 14, "edit_reason": "Mine"}');
+  perform test_assert(v_r = 'rejected:permission_denied', 'only the author resubmits, got ' || v_r);
+
+  -- the author answers with a reason: resubmitted, one revision naming the send-back.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"headcount": 14, "edit_reason": "Recounted"}');
+  perform test_assert(v_r = 'accepted:-', 'the author resubmits with a reason, got ' || v_r);
+  perform test_assert(
+    (select status = 'submitted' and headcount = 14 and review_note is null from public.daily_reports where id = v_id),
+    'the report is submitted again with the new headcount');
+  perform test_assert(
+    (select sent_back_reason = 'Wrong headcount' and sent_back_by = 'c0000000-0000-0000-0000-00000000000c'
+            and reason = 'Recounted' and headcount = 12
+       from public.daily_report_revisions where report_id = v_id),
+    'its revision keeps the old headcount, the reason and the send-back it answers');
+
+  -- the same resubmit pushed again is a replay.
+  v_r := public.sdr_one('f0000000-0000-0000-0000-00000000000f', v_id,
+                        public.sdr_report('2026-08-15') || '{"headcount": 14, "edit_reason": "Recounted"}');
+  perform test_assert(v_r = 'accepted:-' and public.sdr_revisions(v_id) = 1,
+    'a replayed resubmit is accepted and writes no second revision, got ' || v_r);
+end $$;
+
 rollback;

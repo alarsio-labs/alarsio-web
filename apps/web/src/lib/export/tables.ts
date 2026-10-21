@@ -109,7 +109,8 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
     orgColumn: "org_id",
     columns: [
       "id", "org_id", "site_id", "report_id", "revision_no", "headcount", "work_done", "blockers",
-      "serious_blocker", "safety_incident", "next_day_plan", "reason", "edited_by", "edited_at"
+      "serious_blocker", "safety_incident", "next_day_plan", "reason", "edited_by", "edited_at",
+      "sent_back_reason", "sent_back_by", "sent_back_at"
     ]
   },
   {
