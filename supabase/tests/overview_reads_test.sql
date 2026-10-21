@@ -242,4 +242,50 @@ begin
   perform test_assert(r = '0', '[3.02] an approved day is no longer awaiting review, got ' || r);
 end $$;
 
+-- ------------------------------------------------- 4 · a sent-back report (#116, ADR-043)
+-- A sent-back report (ADR-042) is still the site's report for the day. The page must
+-- read it, with the columns it selects and status 'rejected', from every role that
+-- read it before, or the site reads as "Report not filed".
+do $$
+declare r text; v_id uuid;
+begin
+  select id into v_id from public.daily_reports where site_id = test_site('a2') and report_date = test_day();
+
+  -- The project manager sends A2's report back; its author is the A2 supervisor.
+  perform test_as(test_u('a02'));
+  perform public.send_back_daily_report(v_id, 'Headcount does not match the register');
+  execute 'reset role';
+  perform test_assert((select status from public.daily_reports where id = v_id) = 'rejected',
+    '[4.01] (setup) the project manager sent A2''s report back');
+
+  -- The same report read as before: owner and project manager 2, each supervisor 1,
+  -- the accountant and org B none, anon refused.
+  r := test_count(test_u('a01'), test_read('reports', test_org('a')));
+  perform test_assert(r = '2', '[4.02] the owner still reads both reports of the day, got ' || r);
+  r := test_count(test_u('a02'), test_read('reports', test_org('a')));
+  perform test_assert(r = '2', '[4.03] the project manager still reads both reports, got ' || r);
+  r := test_count(test_u('a04'), test_read('reports', test_org('a')));
+  perform test_assert(r = '1', '[4.04] the A2 supervisor, its author, still reads it, got ' || r);
+  r := test_count(test_u('a03'), test_read('reports', test_org('a')));
+  perform test_assert(r = '1', '[4.05] the A1 supervisor still reads only A1''s report, got ' || r);
+  r := test_count(test_u('a05'), test_read('reports', test_org('a')));
+  perform test_assert(r = '0', '[4.06] the accountant still reads no report, got ' || r);
+  r := test_count(test_u('b01'), test_read('reports', test_org('a')));
+  perform test_assert(r = '0', '[4.07] org B''s owner still reads nothing of org A, got ' || r);
+  r := test_count(null, test_read('reports', test_org('a')));
+  perform test_assert(r = '42501', '[4.08] anon is still refused, got ' || r);
+
+  -- The exact columns the page selects, as the owner and as the author.
+  perform test_as(test_u('a01'));
+  select concat_ws('|', status, headcount, serious_blocker, safety_incident, flagged) into r
+    from public.daily_report_status where org_id = test_org('a') and report_date = test_day() and site_id = test_site('a2');
+  execute 'reset role';
+  perform test_assert(r = 'rejected|1|f|f|f',
+    '[4.09] the owner reads status|headcount|blocker|safety|flagged = rejected|1|f|f|f, got ' || coalesce(r, 'nothing'));
+  perform test_as(test_u('a04'));
+  select status into r from public.daily_report_status where id = v_id;
+  execute 'reset role';
+  perform test_assert(r = 'rejected', '[4.10] the author reads it as rejected, got ' || coalesce(r, 'nothing'));
+end $$;
+
 rollback;
