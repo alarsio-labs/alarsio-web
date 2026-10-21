@@ -1,4 +1,4 @@
-import type { SiteRow } from "../reports/rows";
+import type { ReportStatus, SiteRow } from "../reports/rows";
 import type { AlertRow, ApprovedDayRow, OverviewExceptionRow, OverviewReportRow } from "./rows";
 
 // One row per site for one day, built only from published views (ADR-041).
@@ -9,7 +9,8 @@ export type AttendanceState = "approved" | "awaiting_review" | "sent_back" | "no
 
 export type BoardReport = {
   id: string;
-  status: "submitted" | "reviewed";
+  // "rejected" is a report a manager sent back (ADR-042): filed, waiting on its author.
+  status: ReportStatus;
   headcount: number | null;
   seriousBlocker: boolean;
   safetyIncident: boolean;
@@ -90,7 +91,7 @@ export function buildBoard(input: BoardInput): BoardRow[] {
 }
 
 const hasSomethingToLookAt = (r: BoardRow) =>
-  r.attendance === "awaiting_review" || r.attendance === "sent_back" ||
+  r.report?.status === "rejected" || r.attendance === "awaiting_review" || r.attendance === "sent_back" ||
   r.geofenceFlags + r.visitsNotClosed + r.pendingCorrections + r.lowStock > 0;
 
 // Lower comes first: what a manager must act on today, then what is missing.
@@ -119,11 +120,13 @@ export type BoardSummary = {
   attendanceNotRecorded: number;
   flagged: number;
   waitingForReview: number;
+  sentBack: number;
 };
 
 // "Not filed" and "attendance not recorded" count active sites only: an inactive
-// site is not expected to report. Waiting for review is every unreviewed report,
-// every day awaiting review and every pending correction.
+// site is not expected to report. Waiting for review is every submitted report,
+// every day awaiting review and every pending correction. A sent-back report is
+// filed but waits on its author, not a manager, so it is counted apart (ADR-043).
 export function summarise(rows: readonly BoardRow[]): BoardSummary {
   const active = rows.filter((r) => r.siteStatus === "active");
   return {
@@ -136,6 +139,7 @@ export function summarise(rows: readonly BoardRow[]): BoardSummary {
       (n, r) =>
         n + (r.report?.status === "submitted" ? 1 : 0) + (r.attendance === "awaiting_review" ? 1 : 0) + r.pendingCorrections,
       0
-    )
+    ),
+    sentBack: rows.filter((r) => r.report?.status === "rejected").length
   };
 }
