@@ -1841,6 +1841,52 @@ send-back and answer is in the report's history. Costs:
   reason. A push with no reason never resubmits.
 - **`/overview` (#113, ADR-041) has to learn the new status.** Whichever of the two PRs merges second
   updates it, or a sent-back report reads as "not filed" there.
+## ADR-041 · The owner's overview: every site for one day, from published views only
+**Date:** 2026-10-20 · **Status:** Proposed · **By:** Anuradha (issue #112, the dashboard half of the week 7–8 "Dashboard and attendance-day approval" line; review: Manish, who shares that line)
+
+**Context.** A PRD P0 says an owner or project manager sees every site on one dashboard: who reported,
+who did not, headcount, exceptions, estimated wages, low stock and safety alerts. `/dashboard` is only
+the organisation list. Every figure but the wages is already in a published, `security_invoker` view:
+`site_directory` (Sites, ADR-025), `daily_report_status` (Daily Reporting), `site_exceptions` and
+`approved_attendance_days` (Attendance, ADR-032), `material_alerts` (Materials, ADR-015).
+
+**Decision.**
+- D1. **A new page, `/overview?org=&date=`**, linked from the organisation row on `/dashboard` for
+  `owner` and `project_manager`. `/dashboard` stays the organisation picker. The link is presentation;
+  RLS decides every row, so a supervisor who opens the URL sees only their sites and an accountant
+  sees no site.
+- D2. **Daily Reporting owns it** (`apps/web/src/lib/overview/`), and it reads only the five views above
+  and `is_org_member`. This is Architecture rule 4 as written, so it is not a named exception like the
+  data export (ADR-026). No table, view, function or migration is added, and nothing is written.
+- D3. **Attendance's state comes from the published views only.** Sent back if `site_exceptions` has
+  `day_rejected`, awaiting review if `day_awaiting_review`, approved if `approved_attendance_days` has
+  a row for that site and date, otherwise not recorded. One day per site and date (ADR-021) makes these
+  exclusive. The known gap is that an approved day with no entries leaves no row in
+  `approved_attendance_days`, so it reads as *Not recorded*. Closing it needs a per-day status view
+  published by Attendance, which is that module's decision.
+- D4. **One day, in India time.** The date defaults to today in Asia/Kolkata (`istToday`, as
+  `/attendance`); a malformed or impossible date falls back to it. Low stock is the balance now, since
+  `material_alerts` has no date, and the page says so.
+- D5. **Which sites are listed.** Every `active` site, plus a site in any other status that has a report,
+  an attendance day or an exception that date. A quiet planned, paused, completed or archived site is
+  not listed, and low stock alone does not list one.
+- D6. **Order and summary.** A flagged report first, then no report, then no attendance, then anything
+  to look at (a day awaiting review or sent back, an exception, low stock), then the rest; then site
+  name and id. The summary counts "not filed" and "no attendance" over active sites only, and "waiting
+  for a review" as unreviewed reports plus days awaiting review plus pending corrections.
+- D7. **Estimated wages are left out.** A project manager may not read wage amounts (ADR-003,
+  `can_view_wages`), and wage figures exist only for a calculated period (ADR-035), not for a day. An
+  owner-only wages tile needs its own decision.
+- D8. **Honest about gaps.** Each read has a cap and is ordered. A hit cap is said on the page, and a
+  failed read shows only "could not be loaded", with no summary and no list, so a missing read never
+  reads as "not filed" or "no attendance". The page says it shows only what has synced.
+
+**Consequences.** An owner or project manager sees the day across every site on one page, and each
+line links to where they act on it: the report, the attendance list for that site and day, the
+materials page. `overview_reads_test.sql` pins what each of the five reads returns for every role and
+another organisation. Costs: the zero-entry approved day in D3; the P0's estimated wages are not met
+(D7); the page is read live on each visit, with no caching, which is five small queries; and it has
+not been driven against a real Supabase project (#58).
 
 ---
 
