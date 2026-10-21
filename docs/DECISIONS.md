@@ -1888,6 +1888,34 @@ another organisation. Costs: the zero-entry approved day in D3; the P0's estimat
 (D7); the page is read live on each visit, with no caching, which is five small queries; and it has
 not been driven against a real Supabase project (#58).
 
+## ADR-043 · The overview reads a sent-back report as filed, and fails on a row it cannot read
+**Date:** 2026-10-21 · **Status:** Proposed · **By:** Anuradha (issue #116; amends ADR-041; review: Nikhil)
+
+**Context.** ADR-042 (#115) added a fourth report status, `rejected` ("Sent back"), and said `/overview`
+(ADR-041) had to learn it. It did not. `isOverviewReportRow` accepted only `submitted` and `reviewed`, and
+`rows()` drops a row that fails its guard, so a site whose report was sent back read "Report not filed". The
+database side was right: `daily_report_status` returns the row to every role that reads the page.
+
+**Decision.**
+- D1. **A sent-back report is a filed report.** Its line reads "Report sent back · N workers" and links to
+  the report. It counts in "Reports filed" and never in "Reports not filed".
+- D2. **It is not "Waiting for a review".** It waits on its author, not a manager. A new "Reports sent back"
+  tile counts it, so the owner can chase it.
+- D3. **Order.** A flagged sent-back report is first, as any flagged report is. Otherwise a sent-back report
+  is "something to look at" (rank 3), after no report and no attendance.
+- D4. **The page reads strictly.** If any row of the five reads fails its guard, the page shows "could not
+  be loaded", as for a failed read (ADR-041 D8). A new status or exception kind can never again read as
+  "not filed" or "no attendance". `strictRows` lives in `lib/overview/rows.ts`. The shared `rows()` stays
+  as it is, because `/reports` and the Attendance pages use it and changing their behaviour is not this
+  issue's concern.
+
+**Consequences.** The overview tells the truth about a sent-back report, and section 4 of
+`overview_reads_test.sql` pins the read the page relies on. Costs: a status the web does not yet know
+now blanks the whole overview until the guard learns it. That is louder, but it is honest, where the
+old way was a wrong number. `/reports` and the Attendance pages still drop rows silently through `rows()`.
+They know every status today, but they would fail the same way on the next new one. The page has not
+been driven against the team project (#58).
+
 ---
 
 ## Template — copy this for a new decision

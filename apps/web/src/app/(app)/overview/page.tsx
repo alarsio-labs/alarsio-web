@@ -2,9 +2,9 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
-import { isSiteRow, rows } from "@/lib/reports/rows";
+import { isSiteRow, type ReportStatus } from "@/lib/reports/rows";
 import { parseOverviewParams } from "@/lib/overview/params";
-import { isAlertRow, isApprovedDayRow, isOverviewExceptionRow, isOverviewReportRow } from "@/lib/overview/rows";
+import { isAlertRow, isApprovedDayRow, isOverviewExceptionRow, isOverviewReportRow, strictRows } from "@/lib/overview/rows";
 import { buildBoard, sortBoard, summarise, type AttendanceState } from "@/lib/overview/board";
 import { inputClass } from "@/components/form";
 
@@ -22,6 +22,12 @@ const ATTENDANCE_TEXT: Record<AttendanceState, string> = {
   awaiting_review: "Attendance waiting for review",
   sent_back: "Attendance sent back",
   not_recorded: "No attendance recorded"
+};
+
+const REPORT_TEXT: Record<ReportStatus, string> = {
+  submitted: "Report filed",
+  rejected: "Report sent back",
+  reviewed: "Report reviewed"
 };
 
 const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
@@ -75,17 +81,26 @@ export default async function OverviewPage({
   ]);
   if (isMember !== true) redirect("/dashboard");
 
-  const sites = rows(siteRes.data, isSiteRow);
-  const reports = rows(reportRes.data, isOverviewReportRow);
-  const exceptions = rows(exceptionRes.data, isOverviewExceptionRow);
-  const approvedDays = rows(approvedRes.data, isApprovedDayRow);
-  const alerts = rows(alertRes.data, isAlertRow);
+  // A failed read is not an empty one, and a row the page cannot read is not a
+  // missing one: show nothing but the error, never a board where either would read
+  // as "not filed" or "no attendance" (ADR-041 D8, ADR-043 D4).
+  const read = {
+    sites: strictRows(siteRes.data, isSiteRow),
+    reports: strictRows(reportRes.data, isOverviewReportRow),
+    exceptions: strictRows(exceptionRes.data, isOverviewExceptionRow),
+    approvedDays: strictRows(approvedRes.data, isApprovedDayRow),
+    alerts: strictRows(alertRes.data, isAlertRow)
+  };
+  const failed =
+    [siteRes, reportRes, exceptionRes, approvedRes, alertRes].some((r) => r.error) ||
+    Object.values(read).some((r) => r === null);
+  const sites = read.sites ?? [];
+  const reports = read.reports ?? [];
+  const exceptions = read.exceptions ?? [];
+  const approvedDays = read.approvedDays ?? [];
+  const alerts = read.alerts ?? [];
   const board = sortBoard(buildBoard({ sites, reports, exceptions, approvedDays, alerts }));
   const s = summarise(board);
-
-  // A failed read is not an empty one: show nothing but the error, never a
-  // board where a missing read would read as "not filed" or "no attendance".
-  const failed = [siteRes, reportRes, exceptionRes, approvedRes, alertRes].some((r) => r.error);
   const capped = [
     sites.length === SITE_LIMIT && `${SITE_LIMIT} sites`,
     reports.length === REPORT_LIMIT && `${REPORT_LIMIT} reports`,
@@ -123,6 +138,7 @@ export default async function OverviewPage({
           ["Active sites", s.activeSites],
           ["Reports filed", s.filed],
           ["Reports not filed", s.notFiled],
+          ["Reports sent back", s.sentBack],
           ["No attendance recorded", s.attendanceNotRecorded],
           ["Flagged reports", s.flagged],
           ["Waiting for a review", s.waitingForReview]
@@ -152,8 +168,11 @@ export default async function OverviewPage({
               </div>
               <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
                 {r.report ? (
-                  <Link href={`/reports/${r.report.id}?org=${org}`} className="underline">
-                    {r.report.status === "reviewed" ? "Report reviewed" : "Report filed"} · {r.report.headcount ?? "–"} workers
+                  <Link
+                    href={`/reports/${r.report.id}?org=${org}`}
+                    className={r.report.status === "rejected" ? "text-amber-800 underline" : "underline"}
+                  >
+                    {REPORT_TEXT[r.report.status]} · {r.report.headcount ?? "–"} workers
                   </Link>
                 ) : (
                   <span className="text-amber-800">Report not filed</span>

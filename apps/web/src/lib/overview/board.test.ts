@@ -87,6 +87,11 @@ describe("buildBoard: what a row says", () => {
     expect(row.report).toEqual({ id: "r9", status: "reviewed", headcount: 23, seriousBlocker: true, safetyIncident: true, flagged: true });
   });
 
+  it("keeps a sent-back report on its site's line, never as a missing one (#116)", () => {
+    const row = one({ sites: [site(A, "Alpha")], reports: [report({ site_id: A, status: "rejected", headcount: 7 })] });
+    expect(row.report).toMatchObject({ id: `r-${A}`, status: "rejected", headcount: 7 });
+  });
+
   it("reads attendance as approved, awaiting review, sent back or not recorded", () => {
     expect(one({ sites: [site(A, "a")], approved: [{ site_id: A }, { site_id: A }] }).attendance).toBe("approved");
     expect(one({ sites: [site(A, "a")], exceptions: [x(A, "day_awaiting_review")] }).attendance).toBe("awaiting_review");
@@ -143,6 +148,19 @@ describe("sortBoard", () => {
     expect(sortBoard(rows).map((r) => r.siteName)).toEqual(["Flagged", "No report", "No attendance", "Low stock", "Quiet"]);
   });
 
+  it("puts a sent-back report with anything to look at, and a flagged one first (ADR-043 D3)", () => {
+    const rows = board({
+      sites: [site("s1", "Quiet"), site("s2", "Sent back"), site("s3", "No report"), site("s4", "Flagged, sent back")],
+      reports: [
+        report({ site_id: "s1" }),
+        report({ site_id: "s2", status: "rejected" }),
+        report({ site_id: "s4", status: "rejected", flagged: true, serious_blocker: true })
+      ],
+      approved: [{ site_id: "s1" }, { site_id: "s2" }, { site_id: "s3" }, { site_id: "s4" }]
+    });
+    expect(sortBoard(rows).map((r) => r.siteName)).toEqual(["Flagged, sent back", "No report", "Sent back", "Quiet"]);
+  });
+
   it("orders by name within a group, then by id, the same on every call", () => {
     const rows = board({ sites: [site(B, "Same"), site(C, "Beta"), site(A, "Same")] });
     expect(sortBoard(rows).map((r) => r.siteId)).toEqual([C, A, B]);
@@ -174,7 +192,27 @@ describe("summarise", () => {
       notFiled: 1,
       attendanceNotRecorded: 1,
       flagged: 1,
-      waitingForReview: 5
+      waitingForReview: 5,
+      sentBack: 0
+    });
+  });
+
+  it("counts a sent-back report as filed and sent back, never as not filed or waiting for a review (ADR-043)", () => {
+    // A: sent back by a manager, waiting on its author. B: submitted. C: nothing.
+    // Waiting for a review: report B only (1). Not filed: C only (1).
+    const rows = board({
+      sites: [site(A, "A"), site(B, "B"), site(C, "C")],
+      reports: [report({ site_id: A, status: "rejected" }), report({ site_id: B })],
+      approved: [{ site_id: A }, { site_id: B }, { site_id: C }]
+    });
+    expect(summarise(rows)).toEqual({
+      activeSites: 3,
+      filed: 2,
+      notFiled: 1,
+      attendanceNotRecorded: 0,
+      flagged: 0,
+      waitingForReview: 1,
+      sentBack: 1
     });
   });
 
@@ -187,6 +225,6 @@ describe("summarise", () => {
   });
 
   it("is all zeros for an empty board", () => {
-    expect(summarise([])).toEqual({ activeSites: 0, filed: 0, notFiled: 0, attendanceNotRecorded: 0, flagged: 0, waitingForReview: 0 });
+    expect(summarise([])).toEqual({ activeSites: 0, filed: 0, notFiled: 0, attendanceNotRecorded: 0, flagged: 0, waitingForReview: 0, sentBack: 0 });
   });
 });

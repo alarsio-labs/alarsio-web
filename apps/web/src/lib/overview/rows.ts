@@ -1,4 +1,5 @@
 import { EXCEPTION_KINDS, type ExceptionKind } from "../attendance/rows";
+import { REPORT_STATUSES, type ReportStatus } from "../reports/rows";
 
 // Narrowing for the rows /overview reads from four published views. The
 // database is the boundary; these only make the page's types honest, and each
@@ -6,7 +7,7 @@ import { EXCEPTION_KINDS, type ExceptionKind } from "../attendance/rows";
 export type OverviewReportRow = {
   id: string;
   site_id: string;
-  status: "submitted" | "reviewed";
+  status: ReportStatus;
   headcount: number | null;
   serious_blocker: boolean;
   safety_incident: boolean;
@@ -26,12 +27,18 @@ const str = (v: unknown): v is string => typeof v === "string";
 const bool = (v: unknown): v is boolean => typeof v === "boolean";
 
 export const isOverviewReportRow = (v: unknown): v is OverviewReportRow =>
-  rec(v) && str(v.id) && str(v.site_id) && (v.status === "submitted" || v.status === "reviewed") &&
+  rec(v) && str(v.id) && str(v.site_id) && REPORT_STATUSES.some((k) => k === v.status) &&
   (v.headcount === null || typeof v.headcount === "number") &&
   bool(v.serious_blocker) && bool(v.safety_incident) && bool(v.flagged);
 
 export const isOverviewExceptionRow = (v: unknown): v is OverviewExceptionRow =>
   rec(v) && str(v.site_id) && EXCEPTION_KINDS.some((k) => k === v.kind);
+
+// Every row, or null when the data is not a list or any one row fails the guard.
+// The page treats null as a failed read (ADR-041 D8): a row it cannot read must
+// never be dropped, or a sent-back report reads as "not filed" (#116, ADR-043).
+export const strictRows = <T>(data: unknown, guard: (v: unknown) => v is T): T[] | null =>
+  Array.isArray(data) && data.every(guard) ? data : null;
 
 export const isApprovedDayRow = (v: unknown): v is ApprovedDayRow => rec(v) && str(v.site_id);
 
