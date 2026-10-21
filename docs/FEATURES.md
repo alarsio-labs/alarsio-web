@@ -196,6 +196,12 @@ what each read returns for every role and another organisation; `lib/overview/*.
 order and the counts. That line stays **unticked**: the PRD's estimated wages are left out (ADR-041 D7), and the
 page has not been driven against the team project (#58). No row above changes.*
 
+*A sent-back report is shown on `/overview` as "Report sent back" (#116, ADR-043). #115 added the status after the page
+was built, and the page dropped the row, so the site read "Report not filed". A sent-back report now counts as filed,
+has its own "Reports sent back" tile, is not "waiting for a review", and ranks with what needs a look. A row the page
+cannot read now fails the page instead of being dropped. `lib/overview/*.test.ts` and section 4 of
+`overview_reads_test.sql` prove it. No row above changes.*
+
 ### 6 · Materials & Inventory
 - [x] Define materials per site with unit and low-stock threshold
 - [x] Record opening balance, receipt, usage, adjustment
