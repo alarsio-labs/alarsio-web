@@ -1,5 +1,5 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
-// reach a screen while signed out. Owner of the gate: Identity (#56, ADR-026).
+// reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
