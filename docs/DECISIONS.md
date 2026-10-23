@@ -1918,6 +1918,36 @@ been driven against the team project (#58).
 
 ---
 
+## ADR-044 · Identity publishes org_member_names(): names and roles for managers, as a function
+**Date:** 2026-10-23 · **Status:** Proposed · **By:** Ishant (review: Manish; issue #78)
+
+**Context.** Sites web needs to list the people of an organisation, to assign supervisors
+and to show who assigned or removed someone. `profiles` is readable only by its own user
+(ADR-006), so a manager cannot read a member's name, and a plain `security_invoker` view
+would return only the caller's own row. Manish asked for names and roles only, with no
+email or phone, for managers.
+
+**Decision.**
+- N1. `org_member_names(p_org_id)` returns `(user_id, full_name, role)` for every member of
+  the organisation, all four roles. It is `SECURITY DEFINER`, `search_path = public`,
+  revoked from `public, anon`, and checks the caller itself.
+- N2. Callable by `owner` and `project_manager` (`can_manage_sites`), who assign people to
+  sites. A supervisor or accountant gets the error, since nothing they do needs it.
+- N3. No email, phone or auth data. A member with no profile row yet comes back with a null
+  `full_name`, listed last, and the caller shows a placeholder.
+- N4. An unknown organisation, a null id and another organisation's owner all get the same
+  error (42501), so a caller cannot probe for organisation ids.
+- N5. A function, not a view: a definer view would bypass `profiles` RLS for whoever can read
+  it, and an invoker view would show only the caller. A function carries its own check.
+
+**Consequences.** Sites web can list and pick people without widening `profiles`. Costs:
+every manager of an organisation reads every member's name, which is the point; the call
+runs one query per page load; and memberships cannot be deleted today, so every person with
+assignment history is still listed. Removing a member (week 6) must decide how their name
+stays on old assignment rows, and is a new decision.
+
+---
+
 ## Template — copy this for a new decision
 
 ```

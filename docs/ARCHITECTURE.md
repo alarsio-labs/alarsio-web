@@ -38,7 +38,7 @@ list, publish it deliberately and add it here in the same PR.
 
 | Module | Functions others may call | Views others may read |
 | :-- | :-- | :-- |
-| Identity & Access | `is_org_member` · `is_org_owner` · `has_site_access` · `can_manage_sites` · `can_record_on_site` · `can_review_site` · `can_view_wages` · `create_organization` · `create_invite` · `accept_invite` · `revoke_invite` | — |
+| Identity & Access | `is_org_member` · `is_org_owner` · `has_site_access` · `can_manage_sites` · `can_record_on_site` · `can_review_site` · `can_view_wages` · `create_organization` · `create_invite` · `accept_invite` · `revoke_invite` · `org_member_names` | — |
 | Sites | `archive_site` | `site_timeline` (not built yet) · `site_geofence` · `site_directory` (name and status only; ADR-025) · `site_details` (the full site record, for the offline mirror; ADR-028) |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` · `worker_pay_basis` (one row per worker: id, org, code, name, pay type; for Wage Summaries, ADR-035) |
 | Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`, and refuse a day the caller recorded or a correction they proposed; ADR-030, ADR-040) · `sync_site_visits` · `sync_attendance_days` · `sync_attendance_entries` · `sync_attendance_corrections` (sync handlers; ADR-033) | `approved_attendance_days` (one row per entry of an approved day, corrections applied; owner and accountant read every site of their org; ADR-032) · `site_exceptions` (what needs a reviewer's look, no coordinates; ADR-032) |
