@@ -5,8 +5,10 @@ import { messageFor } from "@/lib/messages";
 import { Notice, buttonClass, inputClass } from "@/components/form";
 import { SITE_STATUSES, mapUrl } from "@/lib/sites/input";
 import { toSiteRecord } from "@/lib/sites/rows";
+import { HISTORY_LIMIT, splitAssignments, toAssignmentRecord, toMemberName } from "@/lib/sites/assignments";
 import { requireSiteManager } from "../guard";
 import { SiteForm } from "../site-form";
+import { Supervisors } from "./supervisors";
 import { archiveSite, setSiteStatus, updateSite } from "../actions";
 
 export default async function SitePage({
@@ -35,6 +37,29 @@ export default async function SitePage({
   const site = toSiteRecord(data);
   if (!site) redirect(list);
 
+  // The people on this site: names through Identity's published function (ADR-044),
+  // the rows from the table Sites owns. A row that cannot be read is a failure, not a
+  // gap; names that cannot be read leave the rows shown as "Unknown member".
+  const [namesResult, rowsResult] = await Promise.all([
+    supabase.rpc("org_member_names", { p_org_id: org }),
+    supabase
+      .from("site_assignments")
+      .select("id, user_id, assigned_by, assigned_at, unassigned_at, unassigned_by")
+      .eq("site_id", id)
+      .eq("org_id", org)
+      // Open rows first, then the most recently removed, so the cap drops only old
+      // closed history and never an open assignment that still needs its Remove button.
+      .order("unassigned_at", { ascending: false, nullsFirst: true })
+      .limit(HISTORY_LIMIT)
+  ]);
+  if (rowsResult.error || !Array.isArray(rowsResult.data)) redirect(`${list}&error=generic`);
+  const records = rowsResult.data.map(toAssignmentRecord);
+  if (records.some((r) => r === null)) redirect(`${list}&error=generic`);
+  const { open, closed } = splitAssignments(records.filter((r) => r !== null));
+  const names = !namesResult.error && Array.isArray(namesResult.data) ? namesResult.data.map(toMemberName) : [null];
+  const members = names.some((m) => m === null) ? null : names.filter((m) => m !== null);
+  const capped = rowsResult.data.length >= HISTORY_LIMIT;
+
   const archived = site.status === "archived";
   const confirming = !archived && query.confirm === "archive";
   const error = messageFor(query.error);
@@ -50,6 +75,7 @@ export default async function SitePage({
       {saved && !error && <div className="mt-6"><Notice kind="info">Saved.</Notice></div>}
 
       {archived ? (
+        <>
         <section className="mt-6">
           <Notice kind="info">
             This site was archived on {site.archived_at ? site.archived_at.slice(0, 10) : "an earlier date"} (UTC). It is
@@ -72,6 +98,8 @@ export default async function SitePage({
             <div><dt className="font-medium">Geofence radius</dt><dd className="text-neutral-700">{site.geofence_radius_m} m</dd></div>
           </dl>
         </section>
+        <Supervisors org={org} siteId={site.id} archived members={members} open={open} closed={closed} capped={capped} />
+        </>
       ) : confirming ? (
         <section className="mt-6 rounded-md border border-red-300 bg-red-50 p-4">
           <h2 className="text-lg font-medium text-red-900">Archive {site.name}?</h2>
@@ -108,6 +136,8 @@ export default async function SitePage({
             </form>
             <p className="mt-1 text-xs text-neutral-500">Planned, active, paused and completed can be changed in any order.</p>
           </section>
+
+          <Supervisors org={org} siteId={site.id} archived={false} members={members} open={open} closed={closed} capped={capped} />
 
           <section className="mt-10">
             <h2 className="text-lg font-medium">Details</h2>
