@@ -36,8 +36,9 @@ If a session says "print the commands, I run them", do that instead.
 
 **A1 · Intake.** Read the issue (`gh issue view N --comments`) and every comment: the
 agreed answers live there. Read `CLAUDE.md`, `docs/ARCHITECTURE.md`,
-`docs/FEATURES.md`, `docs/WORKFLOW.md`, `docs/SECURITY.md`, `docs/TESTING.md` and the
-ADRs the module already cites. Confirm the work is in `FEATURES.md`. If it is not, or
+`docs/FEATURES.md`, `docs/WORKFLOW.md`, `docs/SECURITY.md` and `docs/TESTING.md`. For
+decisions, read the index, then only the ADRs the issue cites
+(`docs/DECISIONS-INDEX.md`). Confirm the work is in `FEATURES.md`. If it is not, or
 it implies a tenth module, **stop and say so**.
 
 **A2 · Sync and check for collisions.** Update `main`, then look at *every* open
