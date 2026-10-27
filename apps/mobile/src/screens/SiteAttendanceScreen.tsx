@@ -34,7 +34,7 @@ export interface SiteAttendanceScreenProps {
   now?: () => Date;
   /** How often the screen re-reads the outbox to show a verdict. 0 turns it off. */
   pollMs?: number;
-  /** Opens the day register for this site (#79, ADR-047). No button without it. */
+  /** Opens the day register for this site (#79, ADR-048). No button without it. */
   onOpenRegister?: () => void;
 }
 

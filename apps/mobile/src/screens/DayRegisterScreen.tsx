@@ -1,6 +1,6 @@
 // The day register at one site: mark everyone present in one tap, change one worker,
 // or propose a correction on an approved day, all with no signal. Owner: Attendance
-// (Manish). Issue #79, ADR-047. Every save goes to the outbox first, under the signed-in
+// (Manish). Issue #79, ADR-048. Every save goes to the outbox first, under the signed-in
 // user; the screen reads it back and says "On the server" only once the server accepted it.
 
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -1948,7 +1948,7 @@ stays on old assignment rows, and is a new decision.
 
 ---
 
-## ADR-047 · Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer
+## ADR-048 · Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer
 **Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #79, PR 2; review: Nikhil)
 
 **Context.** PR 1 (ADR-034) does check in and check out. #79 also asks for mark everyone present, per-worker

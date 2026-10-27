@@ -1,5 +1,5 @@
 // Saves and reads a user's day register through the outbox. Owner: Attendance
-// (Manish). Issue #79, ADR-047. The outbox is the only place a day, an entry or a
+// (Manish). Issue #79, ADR-048. The outbox is the only place a day, an entry or a
 // correction lives on the phone: every write goes there first, under its author,
 // and the screen reads it back. The roster comes from the mirror, never the server.
 
@@ -51,7 +51,7 @@ export interface Register {
   /**
    * The phone knows the day is approved: the server answered `locked` to an entry,
    * or accepted a correction (which it takes only on an approved day). There is no
-   * mirror of approved days, so a phone that never heard this cannot know it (ADR-047 D2).
+   * mirror of approved days, so a phone that never heard this cannot know it (ADR-048 D2).
    */
   locked: boolean;
 }
@@ -162,7 +162,7 @@ async function ensureDay(db: DeviceDb, userId: string, key: RegisterKey, now: Da
  * entry, so an exception is never overwritten, and it can be tapped again to finish
  * after an interruption. Returns how many entries it made. The day is queued before
  * its entries, so the server hears of it first. (Each save is its own transaction:
- * the outbox does not nest them, so this is not one transaction, ADR-047 D1.)
+ * the outbox does not nest them, so this is not one transaction, ADR-048 D1.)
  */
 export async function markAllPresent(
   db: DeviceDb,

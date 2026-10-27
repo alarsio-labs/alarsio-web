@@ -1,6 +1,6 @@
 // The day register as the phone holds it: one day, one entry per worker, and the
 // payloads sync_attendance_days, sync_attendance_entries and
-// sync_attendance_corrections accept. Owner: Attendance (Manish). Issue #79, ADR-047.
+// sync_attendance_corrections accept. Owner: Attendance (Manish). Issue #79, ADR-048.
 // Server side: ADR-021, ADR-030, ADR-033. Nothing here touches the database or the clock.
 
 import type { OutboxStatus } from '../sync/entities';

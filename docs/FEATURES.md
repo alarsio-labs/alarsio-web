@@ -144,7 +144,7 @@ and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transpo
 out; location captured only on that tap" stays **unticked** on purpose: the tests use a fake location
 provider, and the phone's real permission prompt and GPS have not run on a device against the team project
 (#58).*
-*The day register is #79 PR 2 (ADR-047): mark everyone present, per-worker exceptions, corrections on an approved
+*The day register is #79 PR 2 (ADR-048): mark everyone present, per-worker exceptions, corrections on an approved
 day, the approved day read-only once the server has said so, and a late edit shown as needs attention, through
 the outbox, with `register-store.test.ts` (airplane mode, end to end). "Mark everyone present in one tap" stays
 **unticked**: it has not run on a device or against the team project (#58).*
