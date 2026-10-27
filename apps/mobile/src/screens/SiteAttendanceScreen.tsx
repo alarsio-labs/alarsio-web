@@ -34,6 +34,8 @@ export interface SiteAttendanceScreenProps {
   now?: () => Date;
   /** How often the screen re-reads the outbox to show a verdict. 0 turns it off. */
   pollMs?: number;
+  /** Opens the day register for this site (#79, ADR-047). No button without it. */
+  onOpenRegister?: () => void;
 }
 
 type Action = { kind: 'in' } | { kind: 'out'; recordId: string };
@@ -93,6 +95,7 @@ export function SiteAttendanceScreen({
   location,
   now = () => new Date(),
   pollMs = 3000,
+  onOpenRegister,
 }: SiteAttendanceScreenProps) {
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [siteLoad, setSiteLoad] = useState<SiteLoad>({ kind: 'loading' });
@@ -364,6 +367,10 @@ export function SiteAttendanceScreen({
 
             {step.kind === 'idle' && site.orgId !== null && !openToday && (
               <Button label="Check in" onPress={() => void begin({ kind: 'in' })} />
+            )}
+
+            {step.kind === 'idle' && site.orgId !== null && onOpenRegister && (
+              <Button label="Day register" secondary onPress={onOpenRegister} />
             )}
 
             {shown.map((v) => {

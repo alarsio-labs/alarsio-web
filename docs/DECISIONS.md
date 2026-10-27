@@ -1948,6 +1948,47 @@ stays on old assignment rows, and is a new decision.
 
 ---
 
+## ADR-047 · Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #79, PR 2; review: Nikhil)
+
+**Context.** PR 1 (ADR-034) does check in and check out. #79 also asks for mark everyone present, per-worker
+exceptions, an approved day that is read-only, and a late edit shown as needs attention, all offline. The phone
+has the roster by date (ADR-023) but no mirror of approved days, and a mirror is Offline Sync's module.
+
+**Decision.**
+- D1. **Mark-all** writes records on the phone, as ADR-021 says: one `attendance_days` record (reused if one is
+  already queued for the site and date) and one `attendance_entries` record per rostered worker with no entry on
+  this phone, status `present`, overtime 0, no note. The day is queued first so the server hears of it first. It
+  never touches a worker who already has an entry, so an exception is not overwritten, and it can be tapped again
+  after an interruption. It is not one transaction (the outbox runs its own per save, and they do not nest); a
+  repeat tap finishes the job. ADR-034 D2 said one transaction; this is the corrected form.
+- D2. **No approved-days mirror in this PR.** The phone learns a day is approved from the server's answer: an
+  entry that came back `conflict` / `locked`, or a correction the server accepted (it takes one only on an
+  approved day). From then the day is read-only on this phone: no mark-all, no edit, and each worker offers
+  "Propose correction". A phone that never heard cannot know, and its edit comes back `locked`, shown as needs
+  attention. A mirror of `approved_attendance_days` (ADR-032) is a follow-up for Offline Sync.
+- D3. **Exceptions** are one record per worker and day: status (present, absent, half day, leave), overtime
+  0 to 8 hours with up to two decimals and only on a present or half day, and a note of up to 500 characters,
+  checked on the phone with the table's limits and refused before saving. An edit keeps its record id, so it
+  re-queues the same row. The server stays the boundary.
+- D4. **Corrections** are `attendance_corrections` records with the new values and a mandatory reason of 1 to
+  500 characters; the old values are never sent (the server stamps them). One proposal not yet on the server, or
+  refused, is saved again under its own id; one the server holds gets a new id. A change that changes nothing is
+  refused on the phone only when the entry is known to be on the server.
+- D5. **Words.** An entry says "Saved on this phone, waiting to send" until the server accepts it, then "On the
+  server". `conflict` and `rejected` are "Needs attention" with a plain reason; an unknown code is never printed.
+- D6. **Days.** Today in Asia/Kolkata, and back up to 7 days, which is as far as the roster mirror reaches.
+- D7. **No server change.** No migration, policy or handler; no change to Offline Sync's files.
+
+**Consequences.** A supervisor can mark a site present in one tap with no signal, change a worker, and propose a
+correction. Costs: the approved day is known only after a `locked` answer, so a phone can save an edit the server
+refuses; a worker added to the roster after the last pull is missing until the next pull; a locked entry shows
+the values the phone tried to save, with the status line saying they were not applied; up to a few hundred outbox
+rows per mark-all; and the screens are covered by store and unit tests, not run on a device or against a real
+Supabase project.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
