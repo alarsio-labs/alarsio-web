@@ -110,6 +110,17 @@ describe('home route wiring', () => {
     expect(router.push).toHaveBeenCalledWith('/reports');
   });
 
+  it('opens the Materials route for a signed-in user (#82)', async () => {
+    await render(
+      <SessionUserContext.Provider value={USER}>
+        <Index />
+      </SessionUserContext.Provider>,
+    );
+
+    await fireEvent.press(await screen.findByRole('button', { name: 'Materials' }));
+    expect(router.push).toHaveBeenCalledWith('/materials');
+  });
+
   it('starts no engine when no user is signed in', async () => {
     await render(<Index />);
 

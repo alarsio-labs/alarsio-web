@@ -1948,44 +1948,56 @@ stays on old assignment rows, and is a new decision.
 
 ---
 
-## ADR-048 · Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer
-**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #79, PR 2; review: Nikhil)
+## ADR-045 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Nikhil (issue #82, phone half; review: Anuradha, Manish; builds on ADR-015 and ADR-023)
 
-**Context.** PR 1 (ADR-034) does check in and check out. #79 also asks for mark everyone present, per-worker
-exceptions, an approved day that is read-only, and a late edit shown as needs attention, all offline. The phone
-has the roster by date (ADR-023) but no mirror of approved days, and a mirror is Offline Sync's module.
+**Context.** The server side of materials has existed since #13 and #34: `material_transactions`,
+`apply_material_transaction`, `sync_material_transactions` (ADR-015, ADR-017) and the `material_balances`
+view, which the phone copies at each pull (ADR-023). A supervisor had no way to record stock from the
+phone. ADR-015 fixes the rules: four kinds, only an adjustment may be negative and it needs a reason,
+the unit is fixed, and negative stock warns and never refuses. The phone's copy of a balance is old
+the moment it is pulled, and it cannot see another phone's entries.
 
 **Decision.**
-- D1. **Mark-all** writes records on the phone, as ADR-021 says: one `attendance_days` record (reused if one is
-  already queued for the site and date) and one `attendance_entries` record per rostered worker with no entry on
-  this phone, status `present`, overtime 0, no note. The day is queued first so the server hears of it first. It
-  never touches a worker who already has an entry, so an exception is not overwritten, and it can be tapped again
-  after an interruption. It is not one transaction (the outbox runs its own per save, and they do not nest); a
-  repeat tap finishes the job. ADR-034 D2 said one transaction; this is the corrected form.
-- D2. **No approved-days mirror in this PR.** The phone learns a day is approved from the server's answer: an
-  entry that came back `conflict` / `locked`, or a correction the server accepted (it takes one only on an
-  approved day). From then the day is read-only on this phone: no mark-all, no edit, and each worker offers
-  "Propose correction". A phone that never heard cannot know, and its edit comes back `locked`, shown as needs
-  attention. A mirror of `approved_attendance_days` (ADR-032) is a follow-up for Offline Sync.
-- D3. **Exceptions** are one record per worker and day: status (present, absent, half day, leave), overtime
-  0 to 8 hours with up to two decimals and only on a present or half day, and a note of up to 500 characters,
-  checked on the phone with the table's limits and refused before saving. An edit keeps its record id, so it
-  re-queues the same row. The server stays the boundary.
-- D4. **Corrections** are `attendance_corrections` records with the new values and a mandatory reason of 1 to
-  500 characters; the old values are never sent (the server stamps them). One proposal not yet on the server, or
-  refused, is saved again under its own id; one the server holds gets a new id. A change that changes nothing is
-  refused on the phone only when the entry is known to be on the server.
-- D5. **Words.** An entry says "Saved on this phone, waiting to send" until the server accepts it, then "On the
-  server". `conflict` and `rejected` are "Needs attention" with a plain reason; an unknown code is never printed.
-- D6. **Days.** Today in Asia/Kolkata, and back up to 7 days, which is as far as the roster mirror reaches.
-- D7. **No server change.** No migration, policy or handler; no change to Offline Sync's files.
+- M1. **A movement is one outbox record of entity `material_transactions`,** saved under the signed-in user
+  (ADR-020) with a new id from `newRecordId()`. It is append-only: no edit, no delete. A mistake is a new
+  adjustment. The payload is exactly what the handler reads: `material_id`, `kind`, `quantity`,
+  `occurred_on`, and `reason` only when there is one.
+- M2. **Quantities are integer thousandths on the phone,** parsed from the typed text by rule, never through
+  a float: up to nine digits and three decimals (numeric(12,3)), zero refused for every kind, a minus only
+  for an adjustment. The payload carries a decimal number, which the handler casts to numeric.
+- M3. **The phone checks what the database checks, and the database stays the check.** A reason is needed for
+  an adjustment and is at most 500 characters, counted as characters. The day is an Asia/Kolkata day
+  (ADR-021 D10), today by default and never in the future (the server allows one day more). A material the
+  user's own copy does not hold is refused: a supervisor cannot add one.
+- M4. **The balance shown is an estimate and is called one.** Estimate = the server balance at the last pull
+  plus this user's movements that the balance does not hold yet: `pending`, `syncing` and `failed`, and a
+  `synced` one only until a pull has happened after it was accepted (`updated_at` later than `refreshed_at`).
+  Refused and conflicting ones are never counted. The screen also shows the server balance and how old it
+  is, and "N not sent yet".
+- M5. **A synced entry counts until the next pull.** Without that, the estimate would fall back after a good
+  sync (the entry is accepted, the old balance does not hold it yet) and then be right again at the next pull.
+  The instant of a pull counts as holding it. This was the second of two options put to Anuradha on #82; she
+  had not answered when this was written, and the rule is one line in `countsTowardEstimate`.
+- M6. **Below zero and at or under the low-stock level are warnings.** "Below zero" and "Low stock" show on the
+  material, and a usage or negative adjustment that would take the estimate below zero says so before the save.
+  Neither stops it (ADR-015). The rule is the one in `material_alerts`.
+- M7. **The status words are the same as everywhere:** "Saved on this phone, waiting to send", "Could not send
+  yet. Will retry.", "On the server", and "Needs attention · <plain reason>" (ADR-009). "Submitted" is never
+  said. Server reasons come from Offline Sync's table, so no raw text reaches the screen (ADR-029).
+- M8. **The kind is chosen every time.** No default, so a wrong kind is never saved by a tap that skipped a step.
+- M9. **Only this user's entries are read back,** through `listRecords` with the author (ADR-020), the newest
+  2000 of them, and only for the site's materials. Another user on the phone sees none of it and none of it
+  moves their estimate. A row that is not a movement is skipped.
 
-**Consequences.** A supervisor can mark a site present in one tap with no signal, change a worker, and propose a
-correction. Costs: the approved day is known only after a `locked` answer, so a phone can save an edit the server
-refuses; a worker added to the roster after the last pull is missing until the next pull; a locked entry shows
-the values the phone tried to save, with the status line saying they were not applied; up to a few hundred outbox
-rows per mark-all; and the screens are covered by store and unit tests, not run on a device or against a real
-Supabase project.
+**Consequences.** A supervisor can record stock at a site with no signal, see what they did, and see which
+entries have reached the server. Costs: the estimate leaves out other supervisors' and other phones' entries and
+anything older than the 2000 newest of this user's records, so it can be wrong in either direction and says so;
+a movement whose pull never comes (a phone that stays offline) keeps counting, which is right until the server
+says otherwise; M5 compares two timestamps from the phone's clock, so a pull that was already fetching when
+the verdict arrived can briefly count an entry twice or not at all; a second `opening` entry for a material is only refused by the server, since the phone cannot
+know; there is no way to remove an unsent entry yet; and the sites list is a third near-copy of the same screen
+(Attendance, Daily report), to be shared in a later PR.
 
 ---
 
