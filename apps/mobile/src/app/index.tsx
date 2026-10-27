@@ -41,6 +41,7 @@ export default function Index() {
       userId={user?.id}
       onOpenAttendance={() => router.push('/attendance')}
       onOpenReports={() => router.push('/reports')}
+      onOpenMaterials={() => router.push('/materials')}
       config={config}
       appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />

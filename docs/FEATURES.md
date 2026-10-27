@@ -211,8 +211,16 @@ cannot read now fails the page instead of being dropped. `lib/overview/*.test.ts
 
 *These rows are the database side (ADR-015, ADR-017), which `sync_push` and the web already use.
 The manager's page, `/materials` (#82), defines and edits materials and shows balances and
-alerts; the unit is fixed once a material exists. The phone's record screen is still to come
-(#82, after the pull in #71), so a supervisor cannot record stock from the phone yet.*
+alerts; the unit is fixed once a material exists.*
+
+*The phone's record screen is in #82 PR 2 (ADR-045). A supervisor picks a site, then a material, and
+records opening, receipt, usage or adjustment with no signal. It is saved to the outbox first and shown
+as an estimate (the server balance at the last pull plus what that user has recorded since), never as
+the balance; "On the server" appears only once the server accepted the entry. Below zero and at or
+under the low-stock level are warnings that never stop a save. `movement.test.ts`, `estimate.test.ts`,
+`movement-store.test.ts`, `materials-offline.test.ts` (the real outbox and sender, a fake network) and
+the two screen tests cover it. No row above changes: the rows are the server side, and this screen has
+not run on a phone or against the team project (#58).*
 
 ### 7 · Wage Summaries
 - [x] Weekly or monthly period, using **approved attendance only**

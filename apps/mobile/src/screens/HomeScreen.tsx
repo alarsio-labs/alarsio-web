@@ -33,6 +33,8 @@ export interface HomeScreenProps {
   onOpenAttendance?: () => void;
   /** Opens the Daily report screens (#81). Shown only for a signed-in user. */
   onOpenReports?: () => void;
+  /** Opens the Materials screens (#82). Shown only for a signed-in user. */
+  onOpenMaterials?: () => void;
 }
 
 export function HomeScreen({
@@ -43,6 +45,7 @@ export function HomeScreen({
   appVersion,
   onOpenAttendance,
   onOpenReports,
+  onOpenMaterials,
 }: HomeScreenProps) {
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [sync, setSync] = useState<SyncStatus | null>(null);
@@ -100,6 +103,12 @@ export function HomeScreen({
       {userId && onOpenReports && (
         <Pressable accessibilityRole="button" accessibilityLabel="Daily report" onPress={onOpenReports} style={styles.button}>
           <Text style={styles.buttonText}>Daily report</Text>
+        </Pressable>
+      )}
+
+      {userId && onOpenMaterials && (
+        <Pressable accessibilityRole="button" accessibilityLabel="Materials" onPress={onOpenMaterials} style={styles.button}>
+          <Text style={styles.buttonText}>Materials</Text>
         </Pressable>
       )}
 

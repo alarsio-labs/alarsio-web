@@ -70,7 +70,7 @@ export function syncLine(status: SyncStatus): string {
 const SAFE_SERVER_REASON = /^server:[A-Za-z0-9]{1,8}$/;
 
 /** How old a timestamp is, in plain words. A clock that moved back reads as just now. */
-function ageText(timestamp: string, now: Date): string {
+export function ageText(timestamp: string, now: Date): string {
   const minutes = Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000);
   if (!(minutes >= 1)) return 'just now';
   if (minutes < 60) return `${minutes} min ago`;
