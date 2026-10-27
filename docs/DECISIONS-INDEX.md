@@ -55,3 +55,6 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-043 | The overview reads a sent-back report as filed, and fails on a row it cannot read | Proposed | Daily Reporting |
 | ADR-044 | Identity publishes org_member_names(): names and roles for managers, as a function | Proposed | Identity & Access |
 | ADR-045 | Preflight: local checks and only the gates the changed files need | Proposed | Platform |
+| ADR-046 | Sites web, part 2: assign and remove supervisors through the existing grants, names through org_member_names | Proposed | Sites |
+| ADR-047 | Materials on the phone: record a movement offline, and show an estimate beside the server balance | Proposed | Materials & Inventory |
+| ADR-048 | Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer | Proposed | Attendance & Site Presence |
