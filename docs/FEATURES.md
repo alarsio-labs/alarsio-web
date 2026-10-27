@@ -149,6 +149,13 @@ provider, and the phone's real permission prompt and GPS have not run on a devic
 day, the approved day read-only once the server has said so, and a late edit shown as needs attention, through
 the outbox, with `register-store.test.ts` (airplane mode, end to end). "Mark everyone present in one tap" stays
 **unticked**: it has not run on a device or against the team project (#58).*
+*The approved-day mirror is #127 (ADR-049): the phone copies the last 7 days of `approved_attendance_days`
+(which now ends with `entry_id`), so an approved day is read-only before the first edit and a worker with
+no local entry shows the server's approved status. The `locked` answer still covers a phone that has not
+pulled. `pull.test.ts`, `register-store.test.ts` and `DayRegisterScreen.test.tsx` cover it, and
+`attendance_views_test.sql` covers the new column. No row changes: "Mark everyone present in one tap" and
+"Manager approves or rejects a day" stay **unticked** until smoke tests S8 and S9 (`docs/DEPLOY.md`) pass
+against the team project (#58), after the `entry_id` migration is pushed.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan

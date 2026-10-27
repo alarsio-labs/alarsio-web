@@ -2106,6 +2106,46 @@ Supabase project.
 
 ---
 
+## ADR-049 · The phone holds a mirror of approved attendance days, paged by an entry id the view now publishes
+**Date:** 2026-10-28 · **Status:** Proposed · **By:** Manish (issue #127, last criterion of #79; review: Nikhil, whose files the pull is)
+
+**Context.** ADR-048 D2 left the phone with no mirror of approved days: it learns a day is approved only when
+the server answers `locked` to an edit or accepts a correction, so a phone that never heard can save an edit
+the server will refuse. ADR-032 D2 publishes `approved_attendance_days`, but it has no single-column key and
+ADR-023 pages every source by one key.
+
+**Decision.**
+- M1. **Attendance appends `entry_id`** (`attendance_entries.id`) as the last column of the view, with
+  `create or replace view` (ADR-032 D2 allows an append). Same rows, same RLS, `security_invoker` kept. A
+  separate Attendance migration lands first and is pushed before the phone reads it. Rejected: a composite
+  cursor in `MirrorSource.fetchPage`, which changes Offline Sync's interface, and a second narrower view.
+- M2. **One row per entry,** because the view gives nothing else and the phone can then show the approved
+  values read-only and apply ADR-048 D4's "known to be on the server".
+- M3. **Window:** today and the last 7 days in Asia/Kolkata, the same constant as the roster
+  (`ROSTER_LOOKBACK_DAYS`) and ADR-048 D6, filtered on `work_date`.
+- M4. **Device migration 7, `mirror_approved_days`:** `entry_id`, `site_id`, `worker_id`, `work_date`,
+  `status`, overtime in integer hundredths (exact for `numeric(4,2)`), `approved_at`, indexed on
+  `(site_id, work_date)`. Refilled in the pull's one transaction, with the rows of sites the phone holds only,
+  removed on sign-out, read only when `mirror_state` says the mirror is the user's. A value the phone cannot
+  read fails the pull; it never becomes 0.
+- M5. **The register is locked** when the mirror holds an approved row for the site and date, or when the
+  outbox says so as before. A worker with no local entry shows the server's approved status. The ADR-048 D2
+  answer from the server stays for a phone that has not pulled.
+- M6. **The mirror never lifts a lock the outbox inferred.** A day that is rejected after approval is not
+  handled here (ADR-030 was not read for this decision); the phone then stays read-only for that day until
+  its records are replaced. Chosen as the safe side.
+- M7. **An approved day with no entries has no row,** so such a day is still learned from the server's answer.
+
+**Consequences.** An approved day is read-only on the phone before the first edit, and "Propose correction"
+is offered up front. Costs: the copy is at most about 5 minutes old online and as old as the last pull
+offline, so a phone that pulled before the approval still depends on the `locked` answer; every refresh
+downloads the window again (about 2,400 rows for a supervisor with 3 sites of 100 workers); the view is read
+through RLS on every page; a day reopened after approval can stay locked on a phone (M6); an approved day
+with no entries is invisible (M7); and the screens are covered by store and unit tests, not run on a device
+or against the team project (#58).
+
+---
+
 ## Template — copy this for a new decision
 
 ```

@@ -25,7 +25,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Daily Reporting** | `daily_reports`, `daily_report_revisions`, `report_photos` | Sites, Attendance |
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
 | **Wage Summaries** | `wage_periods`, `wage_lines`, `wage_line_days`, `wage_adjustments`, `wage_period_reopens` (ADR-035) | Identity, Sites, Attendance, Workforce |
-| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials and Workforce views for the mirrors |
+| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials, Workforce and Attendance views for the mirrors |
 | **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters` | Identity |
 
 Dependencies point **downward** only. Identity → Sites → field capture → wages.
@@ -41,7 +41,7 @@ list, publish it deliberately and add it here in the same PR.
 | Identity & Access | `is_org_member` · `is_org_owner` · `has_site_access` · `can_manage_sites` · `can_record_on_site` · `can_review_site` · `can_view_wages` · `create_organization` · `create_invite` · `accept_invite` · `revoke_invite` · `org_member_names` | — |
 | Sites | `archive_site` | `site_timeline` (not built yet) · `site_geofence` · `site_directory` (name and status only; ADR-025) · `site_details` (the full site record, for the offline mirror; ADR-028) |
 | Workforce | `import_workers(org, rows)` · `anonymize_worker` · `worker_rate_on` | `worker_effective_rates` · `worker_roster` · `worker_pay_basis` (one row per worker: id, org, code, name, pay type; for Wage Summaries, ADR-035) |
-| Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`, and refuse a day the caller recorded or a correction they proposed; ADR-030, ADR-040) · `sync_site_visits` · `sync_attendance_days` · `sync_attendance_entries` · `sync_attendance_corrections` (sync handlers; ADR-033) | `approved_attendance_days` (one row per entry of an approved day, corrections applied; owner and accountant read every site of their org; ADR-032) · `site_exceptions` (what needs a reviewer's look, no coordinates; ADR-032) |
+| Attendance | `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`, and refuse a day the caller recorded or a correction they proposed; ADR-030, ADR-040) · `sync_site_visits` · `sync_attendance_days` · `sync_attendance_entries` · `sync_attendance_corrections` (sync handlers; ADR-033) | `approved_attendance_days` (one row per entry of an approved day, corrections applied, `entry_id` last as the key the phone's mirror pages by; owner and accountant read every site of their org; ADR-032, ADR-049) · `site_exceptions` (what needs a reviewer's look, no coordinates; ADR-032) |
 | Daily Reporting | `review_daily_report(report_id, note)` · `send_back_daily_report(report_id, reason)` (both `SECURITY DEFINER`, `can_review_site`, never the author; ADR-042) · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period(period_id)` · `lock_wage_period(period_id)` · `reopen_wage_period(period_id, reason)` (owner only) · `wage_period_attendance_changes(period_id)` (all `SECURITY DEFINER`; `can_view_wages`, and `is_org_owner` for reopen; ADR-035) | `wage_summary` · `wage_summary_by_site` (owner and accountant only; ADR-035) |
@@ -114,9 +114,10 @@ A module may also hand the engine an `afterRun` hook, called after each push for
 it to upload report-photo files once their metadata is accepted (ADR-037). The engine stays ignorant of what the hook does.
 
 The phone also **pulls** what the signed-in user may see (sites, material
-balances, today's roster) into read-only mirrors, through published views only,
+balances, today's roster, the last 7 days of approved attendance days) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).
 The sites mirror carries each site's `org_id`, which every Attendance payload names (ADR-034).
+The approved-days mirror reads Attendance's `approved_attendance_days` and tells the register a day is approved before any edit (ADR-049).
 On the phone, one module reads another's outbox records only through a function the owner publishes in its own
 folder: Daily Reporting pre-fills a report's headcount through Attendance's `readHeadcount` (ADR-038).
 
