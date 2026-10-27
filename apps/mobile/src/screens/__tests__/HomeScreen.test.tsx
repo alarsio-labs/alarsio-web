@@ -189,4 +189,23 @@ describe('HomeScreen', () => {
       expect(screen.queryByRole('button', { name: 'Daily report' })).toBeNull();
     });
   });
+
+  describe('the Materials entry (#82)', () => {
+    it('opens Materials for a signed-in user', async () => {
+      const onOpenMaterials = jest.fn();
+      await render(
+        <HomeScreen openDb={openFakeDb} userId={USER} onOpenMaterials={onOpenMaterials} config={goodConfig} appVersion="0.1.0" />,
+      );
+
+      await fireEvent.press(await screen.findByRole('button', { name: 'Materials' }));
+      expect(onOpenMaterials).toHaveBeenCalledTimes(1);
+    });
+
+    it('offers no Materials when no user is signed in', async () => {
+      await render(<HomeScreen openDb={openFakeDb} onOpenMaterials={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+
+      await screen.findByText('Device database ready');
+      expect(screen.queryByRole('button', { name: 'Materials' })).toBeNull();
+    });
+  });
 });

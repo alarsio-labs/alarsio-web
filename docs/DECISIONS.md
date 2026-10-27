@@ -1948,6 +1948,59 @@ stays on old assignment rows, and is a new decision.
 
 ---
 
+## ADR-045 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Nikhil (issue #82, phone half; review: Anuradha, Manish; builds on ADR-015 and ADR-023)
+
+**Context.** The server side of materials has existed since #13 and #34: `material_transactions`,
+`apply_material_transaction`, `sync_material_transactions` (ADR-015, ADR-017) and the `material_balances`
+view, which the phone copies at each pull (ADR-023). A supervisor had no way to record stock from the
+phone. ADR-015 fixes the rules: four kinds, only an adjustment may be negative and it needs a reason,
+the unit is fixed, and negative stock warns and never refuses. The phone's copy of a balance is old
+the moment it is pulled, and it cannot see another phone's entries.
+
+**Decision.**
+- M1. **A movement is one outbox record of entity `material_transactions`,** saved under the signed-in user
+  (ADR-020) with a new id from `newRecordId()`. It is append-only: no edit, no delete. A mistake is a new
+  adjustment. The payload is exactly what the handler reads: `material_id`, `kind`, `quantity`,
+  `occurred_on`, and `reason` only when there is one.
+- M2. **Quantities are integer thousandths on the phone,** parsed from the typed text by rule, never through
+  a float: up to nine digits and three decimals (numeric(12,3)), zero refused for every kind, a minus only
+  for an adjustment. The payload carries a decimal number, which the handler casts to numeric.
+- M3. **The phone checks what the database checks, and the database stays the check.** A reason is needed for
+  an adjustment and is at most 500 characters, counted as characters. The day is an Asia/Kolkata day
+  (ADR-021 D10), today by default and never in the future (the server allows one day more). A material the
+  user's own copy does not hold is refused: a supervisor cannot add one.
+- M4. **The balance shown is an estimate and is called one.** Estimate = the server balance at the last pull
+  plus this user's movements that the balance does not hold yet: `pending`, `syncing` and `failed`, and a
+  `synced` one only until a pull has happened after it was accepted (`updated_at` later than `refreshed_at`).
+  Refused and conflicting ones are never counted. The screen also shows the server balance and how old it
+  is, and "N not sent yet".
+- M5. **A synced entry counts until the next pull.** Without that, the estimate would fall back after a good
+  sync (the entry is accepted, the old balance does not hold it yet) and then be right again at the next pull.
+  The instant of a pull counts as holding it. This was the second of two options put to Anuradha on #82; she
+  had not answered when this was written, and the rule is one line in `countsTowardEstimate`.
+- M6. **Below zero and at or under the low-stock level are warnings.** "Below zero" and "Low stock" show on the
+  material, and a usage or negative adjustment that would take the estimate below zero says so before the save.
+  Neither stops it (ADR-015). The rule is the one in `material_alerts`.
+- M7. **The status words are the same as everywhere:** "Saved on this phone, waiting to send", "Could not send
+  yet. Will retry.", "On the server", and "Needs attention · <plain reason>" (ADR-009). "Submitted" is never
+  said. Server reasons come from Offline Sync's table, so no raw text reaches the screen (ADR-029).
+- M8. **The kind is chosen every time.** No default, so a wrong kind is never saved by a tap that skipped a step.
+- M9. **Only this user's entries are read back,** through `listRecords` with the author (ADR-020), the newest
+  2000 of them, and only for the site's materials. Another user on the phone sees none of it and none of it
+  moves their estimate. A row that is not a movement is skipped.
+
+**Consequences.** A supervisor can record stock at a site with no signal, see what they did, and see which
+entries have reached the server. Costs: the estimate leaves out other supervisors' and other phones' entries and
+anything older than the 2000 newest of this user's records, so it can be wrong in either direction and says so;
+a movement whose pull never comes (a phone that stays offline) keeps counting, which is right until the server
+says otherwise; M5 compares two timestamps from the phone's clock, so a pull that was already fetching when
+the verdict arrived can briefly count an entry twice or not at all; a second `opening` entry for a material is only refused by the server, since the phone cannot
+know; there is no way to remove an unsent entry yet; and the sites list is a third near-copy of the same screen
+(Attendance, Daily report), to be shared in a later PR.
+
+---
+
 ## Template — copy this for a new decision
 
 ```
