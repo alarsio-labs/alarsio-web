@@ -14,7 +14,7 @@ function fakeClient(session: FakeSession, result: { data: unknown; error: unknow
   const from = jest.fn((table: string) => {
     calls.push(['from', [table]]);
     const builder: Record<string, unknown> = {};
-    for (const method of ['select', 'order', 'limit', 'gt', 'neq', 'eq', 'or', 'setHeader']) {
+    for (const method of ['select', 'order', 'limit', 'gt', 'gte', 'neq', 'eq', 'or', 'setHeader']) {
       builder[method] = (...args: unknown[]) => {
         calls.push([method, args]);
         return builder;
@@ -85,6 +85,37 @@ describe('supabaseMirrorSource (#49)', () => {
     // 20th is the 13th, which starts at 18:30 UTC on the 12th.
     expect(ROSTER_LOOKBACK_DAYS).toBe(7);
     expect(all(calls, 'or')).toEqual([['unassigned_at.is.null,unassigned_at.gte.2026-10-12T18:30:00.000Z']]);
+  });
+
+  it('reads approved days from the view Attendance publishes, paged by entry id, in the roster window (ADR-049)', async () => {
+    const { client, calls } = fakeClient(signedInA);
+    await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('approved_days', USER_A, 'e-key', 500);
+
+    // Never attendance_entries or attendance_days: ARCHITECTURE rule 4 (Attendance publishes this view, ADR-032).
+    expect(call(calls, 'from')).toEqual(['approved_attendance_days']);
+    const columns = String(call(calls, 'select')?.[0]);
+    expect(columns).toBe('entry_id, site_id, worker_id, work_date, status, overtime_hours, approved_at');
+    expect(columns).not.toMatch(/approved_by|org_id|note/);
+    expect(call(calls, 'gt')).toEqual(['entry_id', 'e-key']);
+    expect(call(calls, 'order')).toEqual(['entry_id']);
+    expect(call(calls, 'limit')).toEqual([500]);
+    expect(call(calls, 'setHeader')).toEqual(['Authorization', 'Bearer token-a']);
+    // Today and 7 days back, as Asia/Kolkata days: the 13th is in, the 12th is out.
+    expect(call(calls, 'gte')).toEqual(['work_date', '2026-10-13']);
+  });
+
+  it('opens the approved-days window on the Asia/Kolkata day, not the UTC one', async () => {
+    const { client, calls } = fakeClient(signedInA);
+    // 19:00 UTC on the 20th is 00:30 IST on the 21st, so the window opens on the 14th.
+    await supabaseMirrorSource(client, { now: () => new Date('2026-10-20T19:00:00.000Z') }).fetchPage(
+      'approved_days',
+      USER_A,
+      null,
+      1000,
+    );
+
+    expect(call(calls, 'gte')).toEqual(['work_date', '2026-10-14']);
+    expect(call(calls, 'gt')).toBeUndefined();
   });
 
   it('refuses, without querying, when someone else or no one is signed in', async () => {

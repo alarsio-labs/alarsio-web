@@ -18,6 +18,7 @@ import { SESSION_CHANGED, SyncTransportError } from './sender';
  * How far back the roster mirror reaches for assignments that have ended. It is
  * what lets a supervisor back-fill a recent day offline and mark a worker who left
  * today (ADR-021 D10), without an ex-worker's name staying on the phone for good.
+ * The approved days reach as far, since the register opens the same days (ADR-049).
  * A product choice, not one from the docs: it is asked about on #49.
  */
 export const ROSTER_LOOKBACK_DAYS = 7;
@@ -43,6 +44,13 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'assignment_id, worker_id, site_id, worker_code, name, trade, assigned_at, unassigned_at',
     key: 'assignment_id',
   },
+  // Attendance's published view (ADR-032), never attendance_entries or attendance_days:
+  // ARCHITECTURE rule 4. entry_id is its key (ADR-049); approved_by and org_id stay behind.
+  approved_days: {
+    table: 'approved_attendance_days',
+    columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, approved_at',
+    key: 'entry_id',
+  },
 };
 
 export interface MirrorSourceOptions {
@@ -50,13 +58,15 @@ export interface MirrorSourceOptions {
   now?: () => Date;
 }
 
-/** The instant the roster window opens: the start of the Asia/Kolkata day, ROSTER_LOOKBACK_DAYS ago. */
-function rosterWindowStart(now: Date): string {
+/** The first Asia/Kolkata day of the window: ROSTER_LOOKBACK_DAYS before today. */
+function windowFirstDay(now: Date): string {
   const today = istDate(now.toISOString());
-  const first = new Date(Date.parse(`${today}T00:00:00Z`) - ROSTER_LOOKBACK_DAYS * 86_400_000)
-    .toISOString()
-    .slice(0, 10);
-  return new Date(`${first}T00:00:00+05:30`).toISOString();
+  return new Date(Date.parse(`${today}T00:00:00Z`) - ROSTER_LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The instant the roster window opens: the start of that day. */
+function rosterWindowStart(now: Date): string {
+  return new Date(`${windowFirstDay(now)}T00:00:00+05:30`).toISOString();
 }
 
 export function supabaseMirrorSource(
@@ -86,6 +96,8 @@ export function supabaseMirrorSource(
           .eq('status', 'active')
           .or(`unassigned_at.is.null,unassigned_at.gte.${rosterWindowStart(now())}`);
       }
+      // Approved days of the same window, so the phone holds the days its register can open (ADR-049).
+      if (kind === 'approved_days') query = query.gte('work_date', windowFirstDay(now()));
       if (after !== null) query = query.gt(key, after);
       const { data, error } = await query
         .order(key)

@@ -82,8 +82,8 @@ describe('photo store (#81 PR 2)', () => {
   });
 
   it('device migration 6 adds the upload queue, and a phone on version 5 upgrades in place', async () => {
-    expect(await readUserVersion(db)).toBe(6);
-    expect(deviceMigrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(await readUserVersion(db)).toBe(7);
+    expect(deviceMigrations.map((m) => m.version)).toEqual([1, 2, 3, 4, 5, 6, 7]);
     expect(await photoRows(db)).toEqual([]);
   });
 

@@ -9,6 +9,7 @@ import {
   mirrorInfo,
   mirrorSummary,
   PULL_PAGE_SIZE,
+  readApprovedDay,
   readMaterials,
   readRosterOn,
   readSites,
@@ -56,8 +57,25 @@ const worker = (n: number, siteId = SITE_1, assignedAt = '2026-10-01T04:00:00+00
   unassigned_at: unassignedAt,
 });
 
-type Data = Record<MirrorKind, Record<string, unknown>[]>;
-const KEY: Record<MirrorKind, string> = { sites: 'id', materials: 'material_id', roster: 'assignment_id' };
+const approvedDay = (n: number, siteId = SITE_1, workDate = '2026-10-20', status = 'present', overtime: unknown = 0) => ({
+  entry_id: ID('e7000000', n),
+  site_id: siteId,
+  worker_id: ID('77000000', n),
+  work_date: workDate,
+  status,
+  overtime_hours: overtime,
+  approved_at: '2026-10-20T11:00:00.123456+00:00',
+});
+
+type Rows = Record<string, unknown>[];
+// A test that is not about approved days leaves them out: the server then returns none.
+type Data = Omit<Record<MirrorKind, Rows>, 'approved_days'> & { approved_days?: Rows };
+const KEY: Record<MirrorKind, string> = {
+  sites: 'id',
+  materials: 'material_id',
+  roster: 'assignment_id',
+  approved_days: 'entry_id',
+};
 
 /**
  * A server as one user sees it, paging like PostgREST with `.gt(key, after)`,
@@ -82,7 +100,7 @@ function fakeSource(data: Data, user: string | null = USER_A, cap = Infinity) {
       state.onPage?.(kind, pages[kind]!);
       if (state.fail?.kind === kind) throw state.fail.error;
       if (userId !== state.user) throw new SyncTransportError(SESSION_CHANGED);
-      return [...state.data[kind]]
+      return [...(state.data[kind] ?? [])]
         .sort((a, b) => String(a[KEY[kind]]).localeCompare(String(b[KEY[kind]])))
         .filter((row) => after === null || String(row[KEY[kind]]) > after)
         .slice(0, Math.min(limit, state.cap));
@@ -142,7 +160,13 @@ describe('pull (#49)', () => {
   it("stores the signed-in user's sites, materials and roster, and reads them back", async () => {
     const { source } = fakeSource(oneOfEach());
 
-    expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'done', sites: 1, materials: 1, roster: 1 });
+    expect(await runPull(db, source, { now: () => T0 })).toEqual({
+      kind: 'done',
+      sites: 1,
+      materials: 1,
+      roster: 1,
+      approvedDays: 0,
+    });
 
     expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString() });
     expect(await readSites(db, USER_A)).toEqual([
@@ -266,7 +290,13 @@ describe('pull (#49)', () => {
       roster: [worker(1, SITE_1), worker(2, SITE_2)],
     });
 
-    expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'done', sites: 2, materials: 1, roster: 1 });
+    expect(await runPull(db, source, { now: () => T0 })).toEqual({
+      kind: 'done',
+      sites: 2,
+      materials: 1,
+      roster: 1,
+      approvedDays: 0,
+    });
 
     // completed stays: can_record_on_site only refuses archived sites.
     expect((await readSites(db, USER_A)).map((s) => s.status).sort()).toEqual(['active', 'completed']);
@@ -438,6 +468,7 @@ describe('pull (#49)', () => {
       sites: 2,
       materials: 2,
       roster: 1,
+      approvedDays: 0,
     });
     expect(await mirrorSummary(db, USER_B)).toBeNull();
   });
@@ -489,5 +520,168 @@ describe('pull (#49)', () => {
     expect(await db.all('select * from mirror_sites')).toEqual([]);
     expect(await db.all('select * from mirror_materials')).toEqual([]);
     expect(await db.all('select * from mirror_roster')).toEqual([]);
+    expect(await db.all('select * from mirror_approved_days')).toEqual([]);
+  });
+
+  describe('approved days (#127, ADR-049)', () => {
+    const DAY = '2026-10-20';
+    const BAD_ROWS: [string, Record<string, unknown>][] = [
+      ['no overtime', { overtime_hours: null }],
+      ['overtime that is not a number', { overtime_hours: 'a lot' }],
+      ['overtime over 8 hours', { overtime_hours: 8.01 }],
+      ['negative overtime', { overtime_hours: -1 }],
+      ['overtime with three decimals', { overtime_hours: 2.505 }],
+      ['a status the table does not have', { status: 'approved' }],
+      ['no status', { status: null }],
+      ['a date that is not a date', { work_date: '20-10-2026' }],
+      ['an impossible date', { work_date: '2026-13-45' }],
+      ['no approval time', { approved_at: null }],
+      ['an approval time that is not a time', { approved_at: 'later' }],
+      ['an entry id of the wrong length', { entry_id: 'short' }],
+      ['no site', { site_id: null }],
+      ['no worker', { worker_id: null }],
+    ];
+
+    async function pullApproved(rows: Rows, sites = [site(SITE_1)]) {
+      const fake = fakeSource({ sites, materials: [], roster: [], approved_days: rows });
+      const result = await runPull(db, fake.source, { now: () => T0 });
+      return { ...fake, result };
+    }
+
+    it('device migration 7 adds the table, and a phone on version 6 keeps its sites', async () => {
+      const old = await openTestDeviceDb();
+      await prepareDeviceDb(old, deviceMigrations.slice(0, 6));
+      await old.run(
+        `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
+         values (?, ?, 'Kothrud', 'Pune', 18.52, 73.85, 200, 'active')`,
+        [SITE_1, ORG],
+      );
+      await old.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [USER_A, T0.toISOString()]);
+
+      await prepareDeviceDb(old, deviceMigrations);
+
+      expect(await readUserVersion(old)).toBe(7);
+      expect(await old.all('select * from mirror_approved_days')).toEqual([]);
+      expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
+      expect(await readApprovedDay(old, USER_A, SITE_1, DAY)).toEqual([]);
+    });
+
+    it.each(BAD_ROWS)('a row with %s fails the whole pull and leaves the old mirror whole', async (_name, change) => {
+      const { source, state } = fakeSource({ ...oneOfEach(), approved_days: [approvedDay(1)] });
+      await runPull(db, source, { now: () => T0 });
+
+      state.data = { ...oneOfEach(), sites: [site(SITE_2)], approved_days: [{ ...approvedDay(2), ...change }] };
+
+      expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'bad_row:approved_days' });
+      expect((await readSites(db, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
+      expect((await readApprovedDay(db, USER_A, SITE_1, DAY)).map((e) => e.workerId)).toEqual([ID('77000000', 1)]);
+    });
+
+    it('keeps the old mirror whole when only the approved-days fetch fails', async () => {
+      const { source, state } = fakeSource({ ...oneOfEach(), approved_days: [approvedDay(1)] });
+      await runPull(db, source, { now: () => T0 });
+      state.data = { ...oneOfEach(), sites: [site(SITE_2)], approved_days: [] };
+      state.fail = { kind: 'approved_days', error: new SyncTransportError('network') };
+
+      expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'network' });
+
+      expect((await readSites(db, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toHaveLength(1);
+      expect(await mirrorSummary(db, USER_A)).toMatchObject({ approvedDays: 1 });
+    });
+
+    it('turns a failed write of the table into a fixed reason, and keeps the old mirror', async () => {
+      const { source } = fakeSource({ ...oneOfEach(), approved_days: [approvedDay(1)] });
+      await runPull(db, source, { now: () => T0 });
+      const flaky: DeviceDb = {
+        ...db,
+        run: async (sql, params) => {
+          if (sql.includes('insert into mirror_approved_days')) throw new Error('disk I/O error: /data/user/0/x');
+          return db.run(sql, params);
+        },
+      };
+
+      expect(await runPull(flaky, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'local_error' });
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toHaveLength(1);
+    });
+
+    it('stores the days of the sites it holds and reads one day back, with exact overtime', async () => {
+      const at = '2026-10-20T11:00:00.123456+00:00';
+      const { result } = await pullApproved([
+        approvedDay(1, SITE_1, DAY, 'present', 2.5),
+        approvedDay(2, SITE_1, DAY, 'half_day', '0.29'),
+        approvedDay(3, SITE_1, DAY, 'leave', 8),
+        approvedDay(4, SITE_1, '2026-10-19', 'absent', 0),
+        approvedDay(5, SITE_2, DAY), // a site this phone does not hold
+      ]);
+
+      expect(result).toEqual({ kind: 'done', sites: 1, materials: 0, roster: 0, approvedDays: 4 });
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toEqual([
+        { workerId: ID('77000000', 1), status: 'present', overtimeHours: 2.5, approvedAt: at },
+        { workerId: ID('77000000', 2), status: 'half_day', overtimeHours: 0.29, approvedAt: at },
+        { workerId: ID('77000000', 3), status: 'leave', overtimeHours: 8, approvedAt: at },
+      ]);
+      expect((await readApprovedDay(db, USER_A, SITE_1, '2026-10-19')).map((e) => e.status)).toEqual(['absent']);
+      expect(await readApprovedDay(db, USER_A, SITE_1, '2026-10-18')).toEqual([]);
+      expect(await readApprovedDay(db, USER_A, SITE_2, DAY)).toEqual([]);
+      // Exact hundredths, however the server wrote the number.
+      expect(
+        await db.all('select overtime_hundredths from mirror_approved_days where work_date = ? order by overtime_hundredths', [DAY]),
+      ).toEqual([{ overtime_hundredths: 29 }, { overtime_hundredths: 250 }, { overtime_hundredths: 800 }]);
+    });
+
+    it("never shows one user's approved days to another, on a shared phone", async () => {
+      await pullApproved([approvedDay(1)]);
+
+      expect(await readApprovedDay(db, USER_B, SITE_1, DAY)).toEqual([]);
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toHaveLength(1);
+    });
+
+    it('refuses a date that is not YYYY-MM-DD', async () => {
+      await pullApproved([approvedDay(1)]);
+      await expect(readApprovedDay(db, USER_A, SITE_1, 'today')).rejects.toThrow('date must be YYYY-MM-DD');
+    });
+
+    it('drops a day the server stops showing, such as one that was reopened', async () => {
+      const { source, state } = fakeSource({ ...oneOfEach(), approved_days: [approvedDay(1)] });
+      await runPull(db, source, { now: () => T0 });
+      state.data = { ...oneOfEach(), approved_days: [] };
+
+      expect(await runPull(db, source, { now: () => T0 })).toMatchObject({ kind: 'done', approvedDays: 0 });
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toEqual([]);
+    });
+
+    it('pages by entry id past the 1000-row cap, and stops on an empty page', async () => {
+      const rows = Array.from({ length: 2500 }, (_, i) => approvedDay(i + 1));
+      const { source, calls } = fakeSource({ sites: [site(SITE_1)], materials: [], roster: [], approved_days: rows });
+
+      expect(await runPull(db, source, { now: () => T0 })).toMatchObject({ kind: 'done', approvedDays: 2500 });
+
+      const afters = calls.filter((c) => c.kind === 'approved_days').map((c) => c.after);
+      expect(afters).toEqual([null, ID('e7000000', 1000), ID('e7000000', 2000), ID('e7000000', 2500)]);
+    });
+
+    it('gives up instead of looping when the cursor of the approved days does not advance', async () => {
+      const stuck: MirrorSource = {
+        currentUserId: async () => USER_A,
+        fetchPage: async (kind, _user, after) => {
+          if (kind === 'sites') return after === null ? [site(SITE_1)] : [];
+          return kind === 'approved_days' ? [approvedDay(1)] : [];
+        },
+      };
+
+      expect(await runPull(db, stuck, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'bad_paging' });
+      expect(await mirrorInfo(db)).toBeNull();
+    });
+
+    it('is emptied by clearMirrors and counted in the summary', async () => {
+      await pullApproved([approvedDay(1), approvedDay(2)]);
+      expect(await mirrorSummary(db, USER_A)).toMatchObject({ approvedDays: 2 });
+
+      await clearMirrors(db);
+
+      expect(await db.all('select * from mirror_approved_days')).toEqual([]);
+      expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toEqual([]);
+    });
   });
 });

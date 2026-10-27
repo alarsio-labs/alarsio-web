@@ -2,6 +2,8 @@
 // or propose a correction on an approved day, all with no signal. Owner: Attendance
 // (Manish). Issue #79, ADR-048. Every save goes to the outbox first, under the signed-in
 // user; the screen reads it back and says "On the server" only once the server accepted it.
+// A day the server approved is read-only, learned from the phone's copy of the approved
+// days or from a `locked` answer (ADR-049).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -177,7 +179,10 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
   }
 
   function openEditor(row: RegisterRow, correction: boolean) {
-    const current = row.correction?.mark ?? row.entry?.mark ?? null;
+    const current: Mark | null =
+      row.correction?.mark ??
+      row.entry?.mark ??
+      (row.approved ? { status: row.approved.status, overtimeHours: row.approved.overtimeHours, note: null } : null);
     setStatus(current?.status ?? 'present');
     setOvertime(current && current.overtimeHours > 0 ? String(current.overtimeHours) : '');
     setNote(current?.note ?? '');
@@ -284,7 +289,11 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
                   <Text style={styles.name}>{row.worker.name}</Text>
                   <Text style={styles.sub}>{`${row.worker.code} · ${row.worker.trade}`}</Text>
                   <Text style={styles.line}>
-                    {shown ? `${row.correction ? 'Correction: ' : ''}${describe(shown)}` : 'Not marked'}
+                    {shown
+                      ? `${row.correction ? 'Correction: ' : ''}${describe(shown)}`
+                      : row.approved
+                        ? `Approved · ${describe({ ...row.approved, note: null })}`
+                        : 'Not marked'}
                   </Text>
                   {text && (
                     <Text style={[styles.status, toneStyle[text.tone]]} accessibilityLiveRegion="polite">
@@ -295,7 +304,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
                   {!open && !editing && site.orgId !== null && !register.locked && (
                     <Button label={`Change ${row.worker.name}`} secondary onPress={() => openEditor(row, false)} />
                   )}
-                  {!open && !editing && site.orgId !== null && register.locked && row.entry && (
+                  {!open && !editing && site.orgId !== null && register.locked && (row.entry || row.approved) && (
                     <Button label={`Propose correction for ${row.worker.name}`} secondary onPress={() => openEditor(row, true)} />
                   )}
 
