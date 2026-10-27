@@ -213,7 +213,7 @@ cannot read now fails the page instead of being dropped. `lib/overview/*.test.ts
 The manager's page, `/materials` (#82), defines and edits materials and shows balances and
 alerts; the unit is fixed once a material exists.*
 
-*The phone's record screen is in #82 PR 2 (ADR-045). A supervisor picks a site, then a material, and
+*The phone's record screen is in #82 PR 2 (ADR-047). A supervisor picks a site, then a material, and
 records opening, receipt, usage or adjustment with no signal. It is saved to the outbox first and shown
 as an estimate (the server balance at the last pull plus what that user has recorded since), never as
 the balance; "On the server" appears only once the server accepted the entry. Below zero and at or
