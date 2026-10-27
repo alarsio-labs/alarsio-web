@@ -1978,7 +1978,7 @@ replace `/review`, `/security-review`, `module-guard` or `doc-keeper`, which it 
 
 ---
 
-## ADR-045 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
+## ADR-047 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
 **Date:** 2026-10-27 · **Status:** Proposed · **By:** Nikhil (issue #82, phone half; review: Anuradha, Manish; builds on ADR-015 and ADR-023)
 
 **Context.** The server side of materials has existed since #13 and #34: `material_transactions`,
