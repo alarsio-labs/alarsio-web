@@ -6,13 +6,14 @@
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from '../sync/entities';
 import { enqueue, listRecords, newRecordId, type OutboxRecord } from '../sync/outbox';
-import { readRosterOn, type RosterWorker } from '../sync/pull';
+import { readApprovedDay, readRosterOn, type RosterWorker } from '../sync/pull';
 import {
   buildCorrectionPayload,
   buildDayPayload,
   buildEntryPayload,
   parseEntryPayload,
   RegisterError,
+  type EntryStatus,
   type Mark,
   type RegisterKey,
 } from './register';
@@ -39,19 +40,29 @@ export interface StoredCorrection {
   verdictReason: string | null;
 }
 
+/** What the server held for a worker on an approved day at the last pull (ADR-049). */
+export interface ApprovedMark {
+  status: EntryStatus;
+  overtimeHours: number;
+}
+
 export interface RegisterRow {
   worker: RosterWorker;
   entry: StoredEntry | null;
   correction: StoredCorrection | null;
+  /** The server's approved entry, only for a worker with no entry on this phone. */
+  approved: ApprovedMark | null;
 }
 
 export interface Register {
   rows: RegisterRow[];
   day: { recordId: string; status: OutboxStatus; verdictReason: string | null } | null;
   /**
-   * The phone knows the day is approved: the server answered `locked` to an entry,
-   * or accepted a correction (which it takes only on an approved day). There is no
-   * mirror of approved days, so a phone that never heard this cannot know it (ADR-048 D2).
+   * The phone knows the day is approved: its copy of the server's approved days holds
+   * the day (ADR-049), or the server answered `locked` to an entry, or accepted a
+   * correction (which it takes only on an approved day). A phone that has not pulled
+   * since the approval and has not been told cannot know it (ADR-048 D2). The outbox's
+   * answer is never lifted by a later pull.
    */
   locked: boolean;
 }
@@ -95,8 +106,9 @@ function correctionOf(r: OutboxRecord, date: string) {
 /** One day of one site as this user's phone holds it. Another user's records are never read. */
 export async function readRegister(db: DeviceDb, userId: string, siteId: string, date: string): Promise<Register> {
   checkDate(date);
-  const [roster, entryRecords, dayRecords, correctionRecords] = await Promise.all([
+  const [roster, approvedDay, entryRecords, dayRecords, correctionRecords] = await Promise.all([
     readRosterOn(db, userId, siteId, date),
+    readApprovedDay(db, userId, siteId, date),
     listRecords(db, userId, 'attendance_entries', { siteId, limit: SCAN_LIMIT }),
     listRecords(db, userId, 'attendance_days', { siteId }),
     listRecords(db, userId, 'attendance_corrections', { siteId }),
@@ -130,16 +142,24 @@ export async function readRegister(db: DeviceDb, userId: string, siteId: string,
   }
   const dayRecord = dayRecords.find((r) => r.payload.attendance_date === date);
 
+  const approved = new Map(approvedDay.map((a) => [a.workerId.toLowerCase(), a]));
   const locked =
+    approvedDay.length > 0 ||
     [...entries.values()].some((e) => e.status === 'conflict' && e.verdictReason === 'locked') ||
     [...corrections.values()].some((c) => c.status === 'synced');
 
   return {
-    rows: roster.map((worker) => ({
-      worker,
-      entry: entries.get(worker.workerId.toLowerCase()) ?? null,
-      correction: corrections.get(worker.workerId.toLowerCase()) ?? null,
-    })),
+    rows: roster.map((worker) => {
+      const id = worker.workerId.toLowerCase();
+      const entry = entries.get(id) ?? null;
+      const server = approved.get(id);
+      return {
+        worker,
+        entry,
+        correction: corrections.get(id) ?? null,
+        approved: !entry && server ? { status: server.status, overtimeHours: server.overtimeHours } : null,
+      };
+    }),
     day: dayRecord ? { recordId: dayRecord.recordId, status: dayRecord.status, verdictReason: dayRecord.reason } : null,
     locked,
   };
@@ -226,7 +246,8 @@ export async function saveMark(
 
 /**
  * Proposes a correction to an entry on an approved day (ADR-030). Only once the phone
- * knows the day is approved, and only for a worker who has an entry. A change that
+ * knows the day is approved, and only for a worker who has an entry, on this phone or
+ * in the server's approved day (ADR-049). A change that
  * changes nothing is refused here when the entry is known to be on the server; when it
  * is not, the server judges. A correction that is not yet on the server, or was
  * refused, is saved again under its own id; one the server already holds gets a new id.
@@ -247,8 +268,10 @@ export async function proposeCorrection(
   const row = register.rows.find((r) => same(r.worker.workerId, workerId));
   if (!row) throw new RegisterError('not_on_roster');
   const entry = row.entry;
-  if (!entry) throw new RegisterError('no_entry');
+  if (!entry && !row.approved) throw new RegisterError('no_entry');
+  // The mirror holds no note, so a correction on a worker known only from it is judged by the server.
   if (
+    entry &&
     entry.status === 'synced' &&
     entry.mark.status === mark.status &&
     entry.mark.overtimeHours === mark.overtimeHours &&

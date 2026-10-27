@@ -16,16 +16,29 @@ const SITE = {
   longitude: 73.8,
   geofence_radius_m: 200,
 };
+const APPROVED_DAY = {
+  entry_id: 'e7000000-0000-4000-8000-000000000001',
+  site_id: SITE.id,
+  worker_id: '77000000-0000-4000-8000-000000000001',
+  work_date: '2026-10-20',
+  status: 'present',
+  overtime_hours: 0,
+  approved_at: '2026-10-20T11:00:00+00:00',
+};
 
 async function dbWithMirror(): Promise<DeviceDb> {
   const db = await openTestDeviceDb();
   await prepareDeviceDb(db, deviceMigrations);
   const source: MirrorSource = {
     currentUserId: async () => USER,
-    fetchPage: async (kind, _user, after) => (kind === 'sites' && after === null ? [SITE] : []),
+    fetchPage: async (kind, _user, after) => {
+      if (after !== null) return [];
+      return kind === 'sites' ? [SITE] : kind === 'approved_days' ? [APPROVED_DAY] : [];
+    },
   };
   await runPull(db, source);
   expect(await mirrorInfo(db)).not.toBeNull();
+  expect(await db.all('select * from mirror_approved_days')).toHaveLength(1);
   return db;
 }
 
@@ -43,6 +56,7 @@ describe('signOutAndClearMirrors (#49)', () => {
     expect(order).toEqual(['signOut']);
     expect(await mirrorInfo(db)).toBeNull();
     expect(await db.all('select * from mirror_sites')).toEqual([]);
+    expect(await db.all('select * from mirror_approved_days')).toEqual([]);
   });
 
   it('keeps the copy and passes the error on when sign-out fails, since the user is still signed in', async () => {

@@ -110,7 +110,7 @@ describe('syncLine (#68)', () => {
 describe('pullLine (#49)', () => {
   const NOW = new Date('2026-10-20T12:00:00.000Z');
   const ago = (ms: number) => new Date(NOW.getTime() - ms).toISOString();
-  const mirror = (refreshedAt: string) => ({ refreshedAt, sites: 1, materials: 14, roster: 1 });
+  const mirror = (refreshedAt: string) => ({ refreshedAt, sites: 1, materials: 14, roster: 1, approvedDays: 0 });
   const MIN = 60_000;
 
   it('says nothing before the phone holds a copy or has tried one', () => {
@@ -119,7 +119,7 @@ describe('pullLine (#49)', () => {
   });
 
   it('says what the phone holds and how old it is', () => {
-    expect(pullLine(mirror(ago(10_000)), { kind: 'done', sites: 1, materials: 14, roster: 1 }, NOW)).toBe(
+    expect(pullLine(mirror(ago(10_000)), { kind: 'done', sites: 1, materials: 14, roster: 1, approvedDays: 0 }, NOW)).toBe(
       'On this phone: 1 site, 14 materials, 1 worker · updated just now',
     );
     expect(pullLine(mirror(ago(5 * MIN)), null, NOW)).toBe('On this phone: 1 site, 14 materials, 1 worker · updated 5 min ago');

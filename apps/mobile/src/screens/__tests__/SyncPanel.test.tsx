@@ -41,7 +41,7 @@ describe('SyncPanel (#68)', () => {
   });
 
   it('says what the phone holds after a pull', async () => {
-    const mirror = { refreshedAt: new Date().toISOString(), sites: 2, materials: 3, roster: 4 };
+    const mirror = { refreshedAt: new Date().toISOString(), sites: 2, materials: 3, roster: 4, approvedDays: 0 };
     await render(<SyncPanel status={status({ mirror })} onSyncNow={jest.fn()} />);
     expect(screen.getByText('On this phone: 2 sites, 3 materials, 4 workers · updated just now')).toBeTruthy();
   });

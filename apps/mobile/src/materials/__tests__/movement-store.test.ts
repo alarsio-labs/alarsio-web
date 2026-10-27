@@ -41,6 +41,7 @@ function mirrorSource(user = USER_A): MirrorSource {
       material(OTHER_SITE_STEEL, SITE_2, 'Steel', 100, null),
     ],
     roster: [],
+    approved_days: [],
   };
   return {
     currentUserId: async () => user,

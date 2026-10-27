@@ -386,7 +386,13 @@ describe('startSyncEngine', () => {
 
       await handle.syncNow();
       expect(m.pulls()).toBe(1);
-      expect(handle.getStatus().lastPull).toEqual({ kind: 'done', sites: 1, materials: 0, roster: 0 });
+      expect(handle.getStatus().lastPull).toEqual({
+        kind: 'done',
+        sites: 1,
+        materials: 0,
+        roster: 0,
+        approvedDays: 0,
+      });
       expect((await mirrorInfo(db))?.userId).toBe(USER_A);
 
       clock += PULL_INTERVAL_MS - 1;
@@ -411,7 +417,7 @@ describe('startSyncEngine', () => {
 
       await handle.syncNow();
 
-      expect(handle.getStatus().mirror).toMatchObject({ sites: 1, materials: 0, roster: 0 });
+      expect(handle.getStatus().mirror).toMatchObject({ sites: 1, materials: 0, roster: 0, approvedDays: 0 });
       handle.stop();
     });
 

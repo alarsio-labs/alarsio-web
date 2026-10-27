@@ -139,4 +139,25 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index report_photo_files_report on report_photo_files (author_id, report_id, created_at);
     `,
   },
+  {
+    // Issue #127, ADR-049. The fourth pull mirror: Attendance's approved days for the
+    // last week, so the day register knows a day is approved before the first edit. A
+    // copy of what the server holds, replaced whole by each pull and owned by one user
+    // through mirror_state (ADR-023). Overtime is integer hundredths, exact for the
+    // server's numeric(4,2).
+    version: 7,
+    name: 'mirror approved days',
+    sql: `
+      create table mirror_approved_days (
+        entry_id            text primary key check (length(entry_id) = 36),
+        site_id             text not null check (length(site_id) = 36),
+        worker_id           text not null check (length(worker_id) = 36),
+        work_date           text not null check (length(work_date) = 10),
+        status              text not null check (status in ('present', 'absent', 'half_day', 'leave')),
+        overtime_hundredths integer not null check (overtime_hundredths between 0 and 800),
+        approved_at         text not null
+      );
+      create index mirror_approved_days_site on mirror_approved_days (site_id, work_date);
+    `,
+  },
 ];
