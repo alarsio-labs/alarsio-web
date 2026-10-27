@@ -1978,6 +1978,40 @@ replace `/review`, `/security-review`, `module-guard` or `doc-keeper`, which it 
 
 ---
 
+## ADR-046 · Sites web, part 2: assign and remove supervisors through the existing grants, names through org_member_names
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #78, closes it; review: Ishant)
+
+**Context.** ADR-034 shipped the site screens without assignment because a manager could not read a
+member's name. Identity has since published `org_member_names()` (ADR-044), so the last part of #78 needs
+no new database surface: the `site_assignments` grants, policies and triggers (ADR-007) already allow it.
+
+**Decision.**
+- A1. No new route. `/sites/[id]?org=` gains a Supervisors section: open assignments with Remove, an
+  Assign form, and a History of closed rows. An archived site shows the history with no controls.
+- A2. Writes use the existing grants only: `insert (org_id, site_id, user_id)` with no `.select()` (as
+  ADR-034 W3), and `update (unassigned_at)` filtered on `id`, `site_id` and `org_id`. The client sends any
+  non-null time; the trigger stamps the real time and caller. Nothing deletes a row.
+- A3. Names come only from `org_member_names(p_org_id)`; the pages read no `memberships` or `profiles`.
+  If it fails, rows show "Unknown member", a notice appears and the Assign form is hidden. A null name
+  shows "Unnamed member".
+- A4. The picker offers `supervisor` members with no open assignment on the site. That is presentation:
+  the database allows any member (ADR-007), and an open row of any role is still listed and removable.
+- A5. Remove has no confirm step. It closes a row; the person can be assigned again, and both rows stay in
+  the history.
+- A6. The page reads at most 200 rows: every open one first, then the most recently removed, with a
+  notice at the cap. Dates are UTC.
+- A7. Errors map by SQLSTATE to fixed codes: `42501` site_forbidden, `23505` already assigned, `55000`
+  archived, `23503` not a member; 0 rows on a remove is `assign_not_allowed`; anything else is generic.
+
+**Consequences.** Owners and project managers can put a supervisor on a site and take them off without
+SQL, and see who did it. Costs: the site page now makes two more reads (names, assignments), including on
+the archive confirm view; history older than 200 rows is not shown; two
+managers assigning the same person at once get the "already assigned" message for the second; an error on
+a button returns to the page with the choice reset; and the screen is covered by unit tests of the
+actions and helpers and by the existing SQL suites, not run against a real Supabase project.
+
+---
+
 ## ADR-047 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
 **Date:** 2026-10-27 · **Status:** Proposed · **By:** Nikhil (issue #82, phone half; review: Anuradha, Manish; builds on ADR-015 and ADR-023)
 
@@ -2028,6 +2062,47 @@ says otherwise; M5 compares two timestamps from the phone's clock, so a pull tha
 the verdict arrived can briefly count an entry twice or not at all; a second `opening` entry for a material is only refused by the server, since the phone cannot
 know; there is no way to remove an unsent entry yet; and the sites list is a third near-copy of the same screen
 (Attendance, Daily report), to be shared in a later PR.
+
+---
+
+## ADR-048 · Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #79, PR 2; review: Nikhil)
+
+**Context.** PR 1 (ADR-034) does check in and check out. #79 also asks for mark everyone present, per-worker
+exceptions, an approved day that is read-only, and a late edit shown as needs attention, all offline. The phone
+has the roster by date (ADR-023) but no mirror of approved days, and a mirror is Offline Sync's module.
+
+**Decision.**
+- D1. **Mark-all** writes records on the phone, as ADR-021 says: one `attendance_days` record (reused if one is
+  already queued for the site and date) and one `attendance_entries` record per rostered worker with no entry on
+  this phone, status `present`, overtime 0, no note. The day is queued first so the server hears of it first. It
+  never touches a worker who already has an entry, so an exception is not overwritten, and it can be tapped again
+  after an interruption. It is not one transaction (the outbox runs its own per save, and they do not nest); a
+  repeat tap finishes the job. ADR-034 D2 said one transaction; this is the corrected form.
+- D2. **No approved-days mirror in this PR.** The phone learns a day is approved from the server's answer: an
+  entry that came back `conflict` / `locked`, or a correction the server accepted (it takes one only on an
+  approved day). From then the day is read-only on this phone: no mark-all, no edit, and each worker offers
+  "Propose correction". A phone that never heard cannot know, and its edit comes back `locked`, shown as needs
+  attention. A mirror of `approved_attendance_days` (ADR-032) is a follow-up for Offline Sync.
+- D3. **Exceptions** are one record per worker and day: status (present, absent, half day, leave), overtime
+  0 to 8 hours with up to two decimals and only on a present or half day, and a note of up to 500 characters,
+  checked on the phone with the table's limits and refused before saving. An edit keeps its record id, so it
+  re-queues the same row. The server stays the boundary.
+- D4. **Corrections** are `attendance_corrections` records with the new values and a mandatory reason of 1 to
+  500 characters; the old values are never sent (the server stamps them). One proposal not yet on the server, or
+  refused, is saved again under its own id; one the server holds gets a new id. A change that changes nothing is
+  refused on the phone only when the entry is known to be on the server.
+- D5. **Words.** An entry says "Saved on this phone, waiting to send" until the server accepts it, then "On the
+  server". `conflict` and `rejected` are "Needs attention" with a plain reason; an unknown code is never printed.
+- D6. **Days.** Today in Asia/Kolkata, and back up to 7 days, which is as far as the roster mirror reaches.
+- D7. **No server change.** No migration, policy or handler; no change to Offline Sync's files.
+
+**Consequences.** A supervisor can mark a site present in one tap with no signal, change a worker, and propose a
+correction. Costs: the approved day is known only after a `locked` answer, so a phone can save an edit the server
+refuses; a worker added to the roster after the last pull is missing until the next pull; a locked entry shows
+the values the phone tried to save, with the status line saying they were not applied; up to a few hundred outbox
+rows per mark-all; and the screens are covered by store and unit tests, not run on a device or against a real
+Supabase project.
 
 ---
 
