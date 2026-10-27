@@ -108,6 +108,7 @@ pnpm test                      # unit tests across all workspaces
 pnpm build                     # turbo run build, cached
 
 pnpm test:db                   # SQL suites against throwaway Postgres (needs Docker)
+pnpm preflight                 # branch, forbidden files, migration and index rules, then only the gates the diff needs
 ```
 
 `--filter` is how you scope work to one app. Learn it early — it is the difference
@@ -128,7 +129,8 @@ between a 4-second run and a 90-second one.
 - **Plan before you code.** For anything above a one-line fix, use plan mode and
   show the plan first.
 - **Read before you write.** Check `docs/ARCHITECTURE.md` and the module's
-  existing code before proposing a change.
+  existing code before proposing a change. For decisions: read the index, then only
+  the ADRs the issue cites (`docs/DECISIONS-INDEX.md`).
 - **Say when you are unsure.** A wrong confident answer costs more than a question.
 - **Never invent a table, column, function or role.** If it is not in
   `docs/ARCHITECTURE.md`, it does not exist yet — propose it as a decision instead.
@@ -142,6 +144,7 @@ between a 4-second run and a 90-second one.
 | What are we building and why? | `docs/PRD.md` |
 | What are the modules and their boundaries? | `docs/ARCHITECTURE.md` |
 | What is in the MVP, who owns it, what is done? | `docs/FEATURES.md` |
+| Which decisions exist? | `docs/DECISIONS-INDEX.md` — read it first |
 | Why did we choose X over Y? | `docs/DECISIONS.md` |
 | How do we work day to day? | `docs/WORKFLOW.md` |
 | What must a security review check? | `docs/SECURITY.md` |

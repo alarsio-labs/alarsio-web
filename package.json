@@ -11,6 +11,7 @@
     "test": "turbo run test",
     "clean": "turbo run clean && rm -rf node_modules",
     "test:db": "bash supabase/tests/run.sh",
+    "preflight": "bash scripts/preflight.sh",
     "format": "prettier --write \"**/*.{ts,tsx,md,json}\""
   },
   "devDependencies": {

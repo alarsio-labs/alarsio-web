@@ -1946,6 +1946,36 @@ runs one query per page load; and memberships cannot be deleted today, so every 
 assignment history is still listed. Removing a member (week 6) must decide how their name
 stays on old assignment rows, and is a new decision.
 
+## ADR-045 · Preflight: local checks and only the gates the changed files need
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (chore, no issue)
+
+**Context.** Three costs repeat on every PR. A session reads all 45 ADRs to find the two it
+needs. CI catches a forbidden file, a migration without a `FEATURES.md` change or a
+`service_role` reference only after the push. And running every gate for a docs change, or
+`pnpm test` for the whole repo after a one-app change, takes 90 seconds instead of 4.
+
+**Decision.**
+- P1. `docs/DECISIONS-INDEX.md` has one line per ADR (number, title, status, module). A reader
+  reads the index, then only the ADRs the issue cites. `PLAYBOOK` A1 and `CLAUDE.md` say so.
+- P2. `pnpm preflight` runs `scripts/preflight.sh` in Git Bash, like `test:db`. It refuses: being
+  on `main`; a staged or branch-committed `supabase/config.toml`, `.env*` (not `.env.example`) or
+  root working draft; a changed migration without `docs/FEATURES.md`; a new migration version
+  that is not unique and newer than the newest on `origin/main`; `service_role` in a tracked file
+  under `apps`, `packages` or `supabase`; an index that disagrees with `DECISIONS.md`.
+- P3. Only after the rules pass, it runs the gates the diff needs: `--filter=web` for `apps/web`,
+  `--filter=mobile` for `apps/mobile`, everything for `packages/**` or root config, `pnpm test:db`
+  for a changed migration, only the named suites for a changed `*_test.sql`, `preflight.test.sh`
+  for a change under `scripts/`, none for docs. It prints what ran and what it skipped.
+- P4. `PREFLIGHT_NO_FEATURE_TICK=1` lets a migration through without a `FEATURES.md` change, with
+  a warning. CI's scope guard still asks for it.
+
+**Consequences.** Faster, narrower sessions and an earlier failure. Costs: the index is
+hand-maintained, and the script checks only that each ADR has a line with the same status, not
+that the module or title is right; two rules (the migration and `service_role` checks) mirror
+CI's scope guard, so a change to one needs the other, and the branch, file and version rules
+exist only here; `scripts/preflight.test.sh` is not yet part of `pnpm test` or CI. Preflight does not
+replace `/review`, `/security-review`, `module-guard` or `doc-keeper`, which it says it skipped.
+
 ---
 
 ## Template — copy this for a new decision
