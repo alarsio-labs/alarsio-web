@@ -58,3 +58,4 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-046 | Sites web, part 2: assign and remove supervisors through the existing grants, names through org_member_names | Proposed | Sites |
 | ADR-047 | Materials on the phone: record a movement offline, and show an estimate beside the server balance | Proposed | Materials & Inventory |
 | ADR-048 | Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer | Proposed | Attendance & Site Presence |
+| ADR-049 | The phone holds a mirror of approved attendance days, paged by an entry id the view now publishes | Proposed | Offline Sync |

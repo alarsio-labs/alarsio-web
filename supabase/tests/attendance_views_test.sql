@@ -204,8 +204,8 @@ $$;
 do $$
 begin
   perform test_assert(test_cols('approved_attendance_days')
-                      = 'org_id,site_id,worker_id,work_date,status,overtime_hours,approved_at,approved_by',
-    '[1.01] approved_attendance_days has exactly the D2 columns in order, got ' || coalesce(test_cols('approved_attendance_days'), 'no view'));
+                      = 'org_id,site_id,worker_id,work_date,status,overtime_hours,approved_at,approved_by,entry_id',
+    '[1.01] approved_attendance_days has the D2 columns in order, then entry_id last (ADR-049 D1), got ' || coalesce(test_cols('approved_attendance_days'), 'no view'));
   perform test_assert(test_cols('site_exceptions')
                       = 'org_id,site_id,exception_date,kind,source_id,worker_id,raised_by,reason,distance_m,changed_since_review,raised_at',
     '[1.02] site_exceptions has exactly the D6 columns in order, got ' || coalesce(test_cols('site_exceptions'), 'no view'));
@@ -344,6 +344,19 @@ begin
   perform test_assert(v.approved_at = v.d_at and v.work_date = v.d_date and v.org_id = test_org('a')
                       and v.worker_id = test_w('04'),
     '[3.14] approved_at, work_date, org_id and worker_id come from the day and the entry');
+
+  -- entry_id (ADR-049 D1): the id of the entry the row comes from, one per row, never null.
+  perform test_as(test_u('a07'));
+  select count(*) as n, count(distinct a.entry_id) as ids,
+         count(*) filter (where a.entry_id is null) as nulls,
+         count(*) filter (where e.id is null) as orphans into v
+    from public.approved_attendance_days a
+    left join public.attendance_entries e on e.id = a.entry_id
+     and e.site_id = a.site_id and e.worker_id = a.worker_id and e.attendance_date = a.work_date;
+  execute 'reset role';
+  perform test_assert(v.n = 9 and v.ids = 9 and v.nulls = 0 and v.orphans = 0,
+    '[3.15] entry_id is unique, never null, and is the id of the entry of that worker, site and date, got '
+      || v.n || '/' || v.ids || '/' || v.nulls || '/' || v.orphans);
 end $$;
 
 -- ------------------------------------------------- 4 · site_exceptions contents
