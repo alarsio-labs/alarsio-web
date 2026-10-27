@@ -1946,37 +1946,88 @@ runs one query per page load; and memberships cannot be deleted today, so every 
 assignment history is still listed. Removing a member (week 6) must decide how their name
 stays on old assignment rows, and is a new decision.
 
-## ADR-046 · Sites web, part 2: assign and remove supervisors through the existing grants, names through org_member_names
-**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #78, closes it; review: Ishant)
+## ADR-045 · Preflight: local checks and only the gates the changed files need
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (chore, no issue)
 
-**Context.** ADR-034 shipped the site screens without assignment because a manager could not read a
-member's name. Identity has since published `org_member_names()` (ADR-044), so the last part of #78 needs
-no new database surface: the `site_assignments` grants, policies and triggers (ADR-007) already allow it.
+**Context.** Three costs repeat on every PR. A session reads all 45 ADRs to find the two it
+needs. CI catches a forbidden file, a migration without a `FEATURES.md` change or a
+`service_role` reference only after the push. And running every gate for a docs change, or
+`pnpm test` for the whole repo after a one-app change, takes 90 seconds instead of 4.
 
 **Decision.**
-- A1. No new route. `/sites/[id]?org=` gains a Supervisors section: open assignments with Remove, an
-  Assign form, and a History of closed rows. An archived site shows the history with no controls.
-- A2. Writes use the existing grants only: `insert (org_id, site_id, user_id)` with no `.select()` (as
-  ADR-034 W3), and `update (unassigned_at)` filtered on `id`, `site_id` and `org_id`. The client sends any
-  non-null time; the trigger stamps the real time and caller. Nothing deletes a row.
-- A3. Names come only from `org_member_names(p_org_id)`; the pages read no `memberships` or `profiles`.
-  If it fails, rows show "Unknown member", a notice appears and the Assign form is hidden. A null name
-  shows "Unnamed member".
-- A4. The picker offers `supervisor` members with no open assignment on the site. That is presentation:
-  the database allows any member (ADR-007), and an open row of any role is still listed and removable.
-- A5. Remove has no confirm step. It closes a row; the person can be assigned again, and both rows stay in
-  the history.
-- A6. The page reads at most 200 rows: every open one first, then the most recently removed, with a
-  notice at the cap. Dates are UTC.
-- A7. Errors map by SQLSTATE to fixed codes: `42501` site_forbidden, `23505` already assigned, `55000`
-  archived, `23503` not a member; 0 rows on a remove is `assign_not_allowed`; anything else is generic.
+- P1. `docs/DECISIONS-INDEX.md` has one line per ADR (number, title, status, module). A reader
+  reads the index, then only the ADRs the issue cites. `PLAYBOOK` A1 and `CLAUDE.md` say so.
+- P2. `pnpm preflight` runs `scripts/preflight.sh` in Git Bash, like `test:db`. It refuses: being
+  on `main`; a staged or branch-committed `supabase/config.toml`, `.env*` (not `.env.example`) or
+  root working draft; a changed migration without `docs/FEATURES.md`; a new migration version
+  that is not unique and newer than the newest on `origin/main`; `service_role` in a tracked file
+  under `apps`, `packages` or `supabase`; an index that disagrees with `DECISIONS.md`.
+- P3. Only after the rules pass, it runs the gates the diff needs: `--filter=web` for `apps/web`,
+  `--filter=mobile` for `apps/mobile`, everything for `packages/**` or root config, `pnpm test:db`
+  for a changed migration, only the named suites for a changed `*_test.sql`, `preflight.test.sh`
+  for a change under `scripts/`, none for docs. It prints what ran and what it skipped.
+- P4. `PREFLIGHT_NO_FEATURE_TICK=1` lets a migration through without a `FEATURES.md` change, with
+  a warning. CI's scope guard still asks for it.
 
-**Consequences.** Owners and project managers can put a supervisor on a site and take them off without
-SQL, and see who did it. Costs: the site page now makes two more reads (names, assignments), including on
-the archive confirm view; history older than 200 rows is not shown; two
-managers assigning the same person at once get the "already assigned" message for the second; an error on
-a button returns to the page with the choice reset; and the screen is covered by unit tests of the
-actions and helpers and by the existing SQL suites, not run against a real Supabase project.
+**Consequences.** Faster, narrower sessions and an earlier failure. Costs: the index is
+hand-maintained, and the script checks only that each ADR has a line with the same status, not
+that the module or title is right; two rules (the migration and `service_role` checks) mirror
+CI's scope guard, so a change to one needs the other, and the branch, file and version rules
+exist only here; `scripts/preflight.test.sh` is not yet part of `pnpm test` or CI. Preflight does not
+replace `/review`, `/security-review`, `module-guard` or `doc-keeper`, which it says it skipped.
+
+---
+
+## ADR-045 · Materials on the phone: record a movement offline, and show an estimate beside the server balance
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Nikhil (issue #82, phone half; review: Anuradha, Manish; builds on ADR-015 and ADR-023)
+
+**Context.** The server side of materials has existed since #13 and #34: `material_transactions`,
+`apply_material_transaction`, `sync_material_transactions` (ADR-015, ADR-017) and the `material_balances`
+view, which the phone copies at each pull (ADR-023). A supervisor had no way to record stock from the
+phone. ADR-015 fixes the rules: four kinds, only an adjustment may be negative and it needs a reason,
+the unit is fixed, and negative stock warns and never refuses. The phone's copy of a balance is old
+the moment it is pulled, and it cannot see another phone's entries.
+
+**Decision.**
+- M1. **A movement is one outbox record of entity `material_transactions`,** saved under the signed-in user
+  (ADR-020) with a new id from `newRecordId()`. It is append-only: no edit, no delete. A mistake is a new
+  adjustment. The payload is exactly what the handler reads: `material_id`, `kind`, `quantity`,
+  `occurred_on`, and `reason` only when there is one.
+- M2. **Quantities are integer thousandths on the phone,** parsed from the typed text by rule, never through
+  a float: up to nine digits and three decimals (numeric(12,3)), zero refused for every kind, a minus only
+  for an adjustment. The payload carries a decimal number, which the handler casts to numeric.
+- M3. **The phone checks what the database checks, and the database stays the check.** A reason is needed for
+  an adjustment and is at most 500 characters, counted as characters. The day is an Asia/Kolkata day
+  (ADR-021 D10), today by default and never in the future (the server allows one day more). A material the
+  user's own copy does not hold is refused: a supervisor cannot add one.
+- M4. **The balance shown is an estimate and is called one.** Estimate = the server balance at the last pull
+  plus this user's movements that the balance does not hold yet: `pending`, `syncing` and `failed`, and a
+  `synced` one only until a pull has happened after it was accepted (`updated_at` later than `refreshed_at`).
+  Refused and conflicting ones are never counted. The screen also shows the server balance and how old it
+  is, and "N not sent yet".
+- M5. **A synced entry counts until the next pull.** Without that, the estimate would fall back after a good
+  sync (the entry is accepted, the old balance does not hold it yet) and then be right again at the next pull.
+  The instant of a pull counts as holding it. This was the second of two options put to Anuradha on #82; she
+  had not answered when this was written, and the rule is one line in `countsTowardEstimate`.
+- M6. **Below zero and at or under the low-stock level are warnings.** "Below zero" and "Low stock" show on the
+  material, and a usage or negative adjustment that would take the estimate below zero says so before the save.
+  Neither stops it (ADR-015). The rule is the one in `material_alerts`.
+- M7. **The status words are the same as everywhere:** "Saved on this phone, waiting to send", "Could not send
+  yet. Will retry.", "On the server", and "Needs attention · <plain reason>" (ADR-009). "Submitted" is never
+  said. Server reasons come from Offline Sync's table, so no raw text reaches the screen (ADR-029).
+- M8. **The kind is chosen every time.** No default, so a wrong kind is never saved by a tap that skipped a step.
+- M9. **Only this user's entries are read back,** through `listRecords` with the author (ADR-020), the newest
+  2000 of them, and only for the site's materials. Another user on the phone sees none of it and none of it
+  moves their estimate. A row that is not a movement is skipped.
+
+**Consequences.** A supervisor can record stock at a site with no signal, see what they did, and see which
+entries have reached the server. Costs: the estimate leaves out other supervisors' and other phones' entries and
+anything older than the 2000 newest of this user's records, so it can be wrong in either direction and says so;
+a movement whose pull never comes (a phone that stays offline) keeps counting, which is right until the server
+says otherwise; M5 compares two timestamps from the phone's clock, so a pull that was already fetching when
+the verdict arrived can briefly count an entry twice or not at all; a second `opening` entry for a material is only refused by the server, since the phone cannot
+know; there is no way to remove an unsent entry yet; and the sites list is a third near-copy of the same screen
+(Attendance, Daily report), to be shared in a later PR.
 
 ---
 
