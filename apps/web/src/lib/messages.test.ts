@@ -46,7 +46,11 @@ describe("messageFor", () => {
       "site_status",
       "site_exists",
       "site_forbidden",
-      "site_not_allowed"
+      "site_not_allowed",
+      "assign_exists",
+      "assign_archived",
+      "assign_member",
+      "assign_not_allowed"
     ];
     const texts = new Set<string | null>();
     for (const code of codes) {

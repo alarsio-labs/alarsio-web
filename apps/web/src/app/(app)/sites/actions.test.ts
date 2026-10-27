@@ -50,7 +50,7 @@ vi.mock("@/lib/supabase/server", () => ({
   })
 }));
 
-const { createSite, updateSite, setSiteStatus, archiveSite } = await import("./actions");
+const { createSite, updateSite, setSiteStatus, archiveSite, assignSupervisor, removeSupervisor } = await import("./actions");
 
 const ORG = "aaaaaaaa-0000-4000-8000-000000000001";
 const SITE = "51000000-0000-4000-8000-000000000001";
@@ -302,5 +302,113 @@ describe("archiveSite", () => {
     db.rpcResult = { data: null, error: { code: "XX000" } };
     expect(await target(() => archiveSite(archive()))).toBe(`${PAGE}&error=generic`);
     expect(db.revalidated).toEqual([]);
+  });
+});
+
+const USER = "00000000-0000-4000-8000-0000000000a1";
+const ASSIGNMENT = "a0000000-0000-4000-8000-000000000001";
+
+describe("assignSupervisor", () => {
+  const assign = (over: Record<string, string> = {}) => form({ org_id: ORG, site_id: SITE, user_id: USER, ...over });
+
+  it("sends a bad id to the dashboard without touching the database", async () => {
+    expect(await target(() => assignSupervisor(assign({ org_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => assignSupervisor(assign({ site_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => assignSupervisor(form({ org_id: ORG, site_id: SITE })))).toBe("/dashboard");
+    nothingWritten();
+  });
+
+  it("refuses a missing or malformed person and writes nothing", async () => {
+    expect(await target(() => assignSupervisor(form({ org_id: ORG, site_id: SITE })))).toBe("/dashboard");
+    expect(await target(() => assignSupervisor(assign({ user_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => assignSupervisor(assign({ user_id: "" })))).toBe("/dashboard");
+    nothingWritten();
+  });
+
+  it("inserts exactly the organisation, site and person, and reads nothing back", async () => {
+    expect(await target(() => assignSupervisor(assign({ assigned_by: "x", unassigned_at: "2000-01-01", role: "owner" })))).toBe(
+      `${PAGE}&saved=1`
+    );
+
+    // The mock's insert is a plain awaited call: a chained .select() would not exist.
+    expect(db.inserts).toEqual([{ table: "site_assignments", values: { org_id: ORG, site_id: SITE, user_id: USER } }]);
+    expect(db.updates).toEqual([]);
+    expect(db.rpcs).toEqual([]);
+    expect(db.revalidated).toEqual(["/sites"]);
+  });
+
+  it("maps the database's answers to fixed messages and shows no raw text", async () => {
+    const cases: [string, string][] = [
+      ["42501", "site_forbidden"],
+      ["23505", "assign_exists"],
+      ["55000", "assign_archived"],
+      ["23503", "assign_member"],
+      ["XX000", "generic"],
+      ["28000", "generic"]
+    ];
+    for (const [code, message] of cases) {
+      db.insertResult = { error: { code } };
+      expect(await target(() => assignSupervisor(assign())), code).toBe(`${PAGE}&error=${message}`);
+    }
+    expect(db.revalidated).toEqual([]);
+  });
+
+  it("maps an error with no code to the generic message", async () => {
+    db.insertResult = { error: {} };
+    expect(await target(() => assignSupervisor(assign()))).toBe(`${PAGE}&error=generic`);
+  });
+});
+
+describe("removeSupervisor", () => {
+  const remove = (over: Record<string, string> = {}) =>
+    form({ org_id: ORG, site_id: SITE, assignment_id: ASSIGNMENT, ...over });
+
+  it("sends a bad id to the dashboard without touching the database", async () => {
+    expect(await target(() => removeSupervisor(remove({ org_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => removeSupervisor(remove({ site_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => removeSupervisor(remove({ assignment_id: "nope" })))).toBe("/dashboard");
+    expect(await target(() => removeSupervisor(form({ org_id: ORG, site_id: SITE })))).toBe("/dashboard");
+    nothingWritten();
+  });
+
+  it("closes the one row by setting only unassigned_at, filtered on id, site and organisation", async () => {
+    expect(
+      await target(() => removeSupervisor(remove({ unassigned_by: "x", user_id: USER, status: "archived" })))
+    ).toBe(`${PAGE}&saved=1`);
+
+    expect(db.updates).toHaveLength(1);
+    const [update] = db.updates;
+    expect(update?.table).toBe("site_assignments");
+    expect(Object.keys(update?.values as object)).toEqual(["unassigned_at"]);
+    const at = (update?.values as { unassigned_at: unknown }).unassigned_at;
+    expect(typeof at === "string" && !Number.isNaN(Date.parse(at))).toBe(true);
+    expect(update?.filters).toEqual([
+      ["id", ASSIGNMENT],
+      ["site_id", SITE],
+      ["org_id", ORG]
+    ]);
+    expect(db.inserts).toEqual([]);
+    expect(db.rpcs).toEqual([]);
+    expect(db.revalidated).toEqual(["/sites"]);
+  });
+
+  it("reads 0 rows as not allowed: already removed, an archived site, or not theirs", async () => {
+    db.updateResult = { data: [], error: null };
+    expect(await target(() => removeSupervisor(remove()))).toBe(`${PAGE}&error=assign_not_allowed`);
+    db.updateResult = { data: null, error: null };
+    expect(await target(() => removeSupervisor(remove()))).toBe(`${PAGE}&error=assign_not_allowed`);
+    expect(db.revalidated).toEqual([]);
+  });
+
+  it("maps the database's answers to fixed messages", async () => {
+    db.updateResult = { data: null, error: { code: "42501" } };
+    expect(await target(() => removeSupervisor(remove()))).toBe(`${PAGE}&error=site_forbidden`);
+    db.updateResult = { data: null, error: { code: "XX000" } };
+    expect(await target(() => removeSupervisor(remove()))).toBe(`${PAGE}&error=generic`);
+  });
+
+  it("never deletes: the mock has no delete, so a delete call would throw", async () => {
+    await target(() => removeSupervisor(remove()));
+    expect(db.inserts).toEqual([]);
   });
 });

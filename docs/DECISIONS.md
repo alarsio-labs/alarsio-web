@@ -1946,6 +1946,38 @@ runs one query per page load; and memberships cannot be deleted today, so every 
 assignment history is still listed. Removing a member (week 6) must decide how their name
 stays on old assignment rows, and is a new decision.
 
+## ADR-046 · Sites web, part 2: assign and remove supervisors through the existing grants, names through org_member_names
+**Date:** 2026-10-27 · **Status:** Proposed · **By:** Manish (issue #78, closes it; review: Ishant)
+
+**Context.** ADR-034 shipped the site screens without assignment because a manager could not read a
+member's name. Identity has since published `org_member_names()` (ADR-044), so the last part of #78 needs
+no new database surface: the `site_assignments` grants, policies and triggers (ADR-007) already allow it.
+
+**Decision.**
+- A1. No new route. `/sites/[id]?org=` gains a Supervisors section: open assignments with Remove, an
+  Assign form, and a History of closed rows. An archived site shows the history with no controls.
+- A2. Writes use the existing grants only: `insert (org_id, site_id, user_id)` with no `.select()` (as
+  ADR-034 W3), and `update (unassigned_at)` filtered on `id`, `site_id` and `org_id`. The client sends any
+  non-null time; the trigger stamps the real time and caller. Nothing deletes a row.
+- A3. Names come only from `org_member_names(p_org_id)`; the pages read no `memberships` or `profiles`.
+  If it fails, rows show "Unknown member", a notice appears and the Assign form is hidden. A null name
+  shows "Unnamed member".
+- A4. The picker offers `supervisor` members with no open assignment on the site. That is presentation:
+  the database allows any member (ADR-007), and an open row of any role is still listed and removable.
+- A5. Remove has no confirm step. It closes a row; the person can be assigned again, and both rows stay in
+  the history.
+- A6. The page reads at most 200 rows: every open one first, then the most recently removed, with a
+  notice at the cap. Dates are UTC.
+- A7. Errors map by SQLSTATE to fixed codes: `42501` site_forbidden, `23505` already assigned, `55000`
+  archived, `23503` not a member; 0 rows on a remove is `assign_not_allowed`; anything else is generic.
+
+**Consequences.** Owners and project managers can put a supervisor on a site and take them off without
+SQL, and see who did it. Costs: the site page now makes two more reads (names, assignments), including on
+the archive confirm view; history older than 200 rows is not shown; two
+managers assigning the same person at once get the "already assigned" message for the second; an error on
+a button returns to the page with the choice reset; and the screen is covered by unit tests of the
+actions and helpers and by the existing SQL suites, not run against a real Supabase project.
+
 ---
 
 ## Template — copy this for a new decision

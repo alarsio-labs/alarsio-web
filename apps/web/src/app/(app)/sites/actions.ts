@@ -5,9 +5,10 @@ import { revalidatePath } from "next/cache";
 import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { cleanSiteInput, isSiteStatus, siteErrorCode } from "@/lib/sites/input";
+import { assignmentErrorCode } from "@/lib/sites/assignments";
 
-// The only writes the sites pages make, to the sites table (and archive_site())
-// as the signed-in user. RLS decides who may (can_manage_sites), the CHECKs hold
+// The only writes the sites pages make, to the sites and site_assignments tables
+// (and archive_site()) as the signed-in user. RLS decides who may (can_manage_sites), the CHECKs hold
 // the limits, and nothing here widens that. An update names `id` and `org_id`
 // both, so a changed hidden field cannot reach another organisation's site.
 // `archived` is reached only through archive_site(); an archived site is hidden
@@ -115,4 +116,44 @@ export async function archiveSite(form: FormData) {
 
   revalidatePath("/sites");
   redirect(`/sites?org=${org}&archived=1`);
+}
+
+// Assign a member to the site. Only the three columns the grant allows; who
+// assigned and when come from the table's defaults. No .select(), for the reason
+// in createSite. The person is a member of the organisation by the table's own
+// foreign key, and a duplicate open assignment is the unique index's 23505.
+export async function assignSupervisor(form: FormData) {
+  const { org, site, back } = siteIds(form);
+  const user = field(form, "user_id");
+  if (user === null || !UUID.test(user)) redirect("/dashboard");
+
+  const supabase = await supabaseServer();
+  const { error } = await supabase.from("site_assignments").insert({ org_id: org, site_id: site, user_id: user });
+  if (error) redirect(`${back}&error=${assignmentErrorCode(error.code)}`);
+
+  revalidatePath("/sites");
+  redirect(`${back}&saved=1`);
+}
+
+// Remove closes the row: the client sends only a non-null unassigned_at and the
+// trigger stamps the real time and the caller. Rows are never deleted. A row that
+// is already closed, or on an archived site, is hidden from UPDATE, so 0 rows.
+export async function removeSupervisor(form: FormData) {
+  const { org, site, back } = siteIds(form);
+  const assignment = field(form, "assignment_id");
+  if (assignment === null || !UUID.test(assignment)) redirect("/dashboard");
+
+  const supabase = await supabaseServer();
+  const { data, error } = await supabase
+    .from("site_assignments")
+    .update({ unassigned_at: new Date().toISOString() })
+    .eq("id", assignment)
+    .eq("site_id", site)
+    .eq("org_id", org)
+    .select("id");
+  if (error) redirect(`${back}&error=${assignmentErrorCode(error.code)}`);
+  if (!Array.isArray(data) || data.length === 0) redirect(`${back}&error=assign_not_allowed`);
+
+  revalidatePath("/sites");
+  redirect(`${back}&saved=1`);
 }

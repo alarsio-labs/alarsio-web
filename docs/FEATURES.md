@@ -78,8 +78,9 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 *Web screens for the first, third and fourth rows (list, create, edit, status, archive behind a confirm
 step) are in #78 PR 1 (ADR-034). The ticks above come from the database suites and are unchanged: the
 screens are covered by unit tests of their actions and input rules, and have not been run against a real
-Supabase project. Assigning and unassigning supervisors from the web is #78 PR 2, which waits for
-Identity's member-names view.*
+Supabase project. Assigning and unassigning supervisors from the web, with the assignment history, is the
+second half of #78 (ADR-046): it reads names through `org_member_names()` (ADR-044), the second row's
+tick is unchanged, and the screen is covered by unit tests only.*
 
 *Sites also publishes the read-only views other modules read it through: `site_geofence` (ADR-021)
 and `site_directory` (ADR-025), plus `site_details` (#49, ADR-028), which the phone's offline mirror

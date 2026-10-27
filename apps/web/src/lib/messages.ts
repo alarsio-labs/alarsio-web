@@ -46,6 +46,10 @@ const MESSAGES = {
   site_exists: "A site with that name already exists in this organisation. Archived sites keep their names.",
   site_forbidden: "Only an owner or project manager can change sites.",
   site_not_allowed: "You are not allowed to change this site. It may be archived.",
+  assign_exists: "That person is already assigned to this site.",
+  assign_archived: "This site is archived, so nobody can be assigned to it.",
+  assign_member: "That person is not a member of this organisation.",
+  assign_not_allowed: "That assignment could not be changed. It may already be removed, or the site may be archived.",
   generic: "Something went wrong. Try again."
 } as const;
 
