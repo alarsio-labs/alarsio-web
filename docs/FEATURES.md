@@ -144,7 +144,11 @@ flow, the geofence estimate, the outbox save and the per-record status, with `Si
 and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check
 out; location captured only on that tap" stays **unticked** on purpose: the tests use a fake location
 provider, and the phone's real permission prompt and GPS have not run on a device against the team project
-(#58). "Mark everyone present in one tap" is PR 2; the read-only approved day and corrections are PR 3.*
+(#58).*
+*The day register is #79 PR 2 (ADR-048): mark everyone present, per-worker exceptions, corrections on an approved
+day, the approved day read-only once the server has said so, and a late edit shown as needs attention, through
+the outbox, with `register-store.test.ts` (airplane mode, end to end). "Mark everyone present in one tap" stays
+**unticked**: it has not run on a device or against the team project (#58).*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
