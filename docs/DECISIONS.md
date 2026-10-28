@@ -627,7 +627,7 @@ amendment), so overlapping runs cannot settle each other's batches.
 ---
 
 ## ADR-019 · Invites: link grants access, 72-hour expiry, owners may invite owners
-**Date:** 2026-10-17 · **Status:** Proposed · **By:** Ishant (review: Nikhil; issue #25)
+**Date:** 2026-10-17 · **Status:** Accepted · **By:** Ishant (review: Nikhil; issue #25)
 
 **Context.** ADR-004 fixed email + password sign-in with an invite by copyable link,
 but left open who a link admits, how long it lives, which roles may be invited, and
@@ -995,7 +995,7 @@ grants, but objects that exist only on the hosted project (extensions, Supabase'
 are not checked until #58. And the checks are structural: a policy that is present but
 too wide still needs a reviewer and the module's own role tests.
 ## ADR-027 · Worker import: the file is read in the browser, with read-excel-file
-**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha; #57)
+**Date:** 2026-10-19 · **Status:** Accepted · **By:** Ishant (review: Manish, Anuradha; #57)
 
 **Context.** Contractors keep their worker register in Excel or CSV. The import needs
 to read both, and the rows go to `import_workers()` (ADR-011 W8).
@@ -1018,7 +1018,7 @@ to read both, and the rows go to `import_workers()` (ADR-011 W8).
 lockfile, reviewed on upgrade); old `.xls` files must be re-saved; and a leading zero
 already lost by Excel cannot be recovered, only warned about.
 ## ADR-031 · Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone
-**Date:** 2026-10-19 · **Status:** Proposed · **By:** Ishant (review: Manish, Anuradha, Nikhil; #56)
+**Date:** 2026-10-19 · **Status:** Accepted · **By:** Ishant (review: Manish, Anuradha, Nikhil; #56)
 
 **Context.** The sync sender (ADR-018, ADR-020) sends nothing while no one is signed
 in, and field capture must keep working with no signal (CLAUDE.md rule 6). Review of
@@ -2147,6 +2147,10 @@ or against the team project (#58).
 ---
 
 ## Template — copy this for a new decision
+
+The reviewer's approval of the PR that adds an ADR is its acceptance: the author sets
+`Accepted` before merge (#91). An ADR merged under the deadline override in `CLAUDE.md`
+stays `Proposed` until its module owner has reviewed it.
 
 ```
 ## ADR-00N · Short title
