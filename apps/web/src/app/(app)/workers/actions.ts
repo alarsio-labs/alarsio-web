@@ -1,8 +1,10 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
+import { LIMITS, formText, workerErrorCode, workerFields } from "@/lib/workers/form";
 import { MAX_IMPORT_ROWS, type ImportRow } from "@/lib/workers/roster-file";
 
 export type ImportResultRow = {
@@ -72,4 +74,28 @@ export async function importWorkers(orgId: string, rows: unknown): Promise<Impor
   }
   revalidatePath("/workers");
   return { ok: true, results: toResults(data) };
+}
+
+function backToList(orgId: string, error: string): never {
+  redirect(`/workers?org=${orgId}&error=${error}`);
+}
+
+export async function addWorker(form: FormData) {
+  const orgId = formText(form, "org_id", 36) ?? "";
+  if (!UUID.test(orgId)) redirect("/dashboard");
+  const fields = workerFields(form);
+  const code = formText(form, "code", LIMITS.code);
+  if (!code || !fields) backToList(orgId, "worker_invalid");
+
+  const supabase = await supabaseServer();
+  // Plain insert under RLS (workers_insert: can_manage_sites) and the table's
+  // own checks. The new id comes back through workers_select.
+  const { data, error } = await supabase
+    .from("workers")
+    .insert({ org_id: orgId, code, ...fields })
+    .select("id")
+    .single();
+  if (error || !data) backToList(orgId, workerErrorCode(error?.code));
+  revalidatePath("/workers");
+  redirect(`/workers/${data.id}?org=${orgId}&done=worker_added`);
 }

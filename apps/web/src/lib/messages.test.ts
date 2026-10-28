@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { messageFor } from "./messages";
+import { messageFor, noticeFor } from "./messages";
 
 describe("messageFor", () => {
   it("returns the message for a known code, and nothing for none", () => {
@@ -67,5 +67,12 @@ describe("messageFor", () => {
     for (const code of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
       expect(messageFor(code)).toBe("Something went wrong. Try again.");
     }
+  });
+});
+
+describe("noticeFor", () => {
+  it("returns a known notice and nothing for anything else, including inherited keys", () => {
+    expect(noticeFor("rate_added")).toBe("Rate added. Earlier rates are kept.");
+    for (const code of ["__proto__", "constructor", "made_up", undefined]) expect(noticeFor(code)).toBeNull();
   });
 });
