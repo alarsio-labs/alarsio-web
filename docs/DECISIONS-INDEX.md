@@ -27,7 +27,7 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-016 | The device outbox: one row per record, dirty edits, backoff, recovery | Proposed | Offline Sync |
 | ADR-017 | The stock ledger: one writer, replay before permission, warn-only alerts | Proposed | Materials & Inventory |
 | ADR-018 | The sync sender: transport seam, signed-in only, one run at a time | Proposed | Offline Sync |
-| ADR-019 | Invites: link grants access, 72-hour expiry, owners may invite owners | Proposed | Identity & Access |
+| ADR-019 | Invites: link grants access, 72-hour expiry, owners may invite owners | Accepted | Identity & Access |
 | ADR-020 | Outbox rows belong to their author; only that user's session sends them | Proposed | Offline Sync |
 | ADR-021 | Attendance capture: one visit row, geofence in the database, days keyed by site and date | Proposed | Attendance & Site Presence |
 | ADR-022 | Daily Reporting sync handlers: update in place, replay before permission | Proposed | Daily Reporting |
@@ -35,11 +35,11 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-024 | Schema guards: the non-negotiables are checked in CI, test-only | Proposed | Audit, Retention & Guards |
 | ADR-025 | Web review of daily reports: site names through a Sites view, no author names, no new write | Proposed | Daily Reporting |
 | ADR-026 | Owner data export: every table read under the owner's RLS, one ZIP of CSVs | Proposed | Audit, Retention & Guards |
-| ADR-027 | Worker import: the file is read in the browser, with read-excel-file | Proposed | Workforce |
+| ADR-027 | Worker import: the file is read in the browser, with read-excel-file | Accepted | Workforce |
 | ADR-028 | Sites publishes site_details, the full site record for the offline mirror | Proposed | Sites |
 | ADR-029 | Sync status belongs to one user, and never says more than it has read | Proposed | Offline Sync |
 | ADR-030 | Attendance corrections, day review and the approved-day lock | Proposed | Attendance & Site Presence |
-| ADR-031 | Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone | Proposed | Identity & Access |
+| ADR-031 | Mobile sign-in: one gate in the layout, offline-safe session, no sign-up on the phone | Accepted | Identity & Access |
 | ADR-032 | Attendance publishes approved days and site exceptions; wage readers see every approved day | Proposed | Attendance & Site Presence |
 | ADR-033 | Attendance sync handlers: replay before permission, the lock answered in the handler | Proposed | Attendance & Site Presence |
 | ADR-034 | Sites web, part 1: list, create, edit, status and archive, with no new database surface | Proposed | Sites |

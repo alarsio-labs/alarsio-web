@@ -23,6 +23,28 @@ list is in scope. If a request implies a tenth module, stop and say so.
 | Anuradha Tiwari | Audit, Retention & Guards · Daily Reporting |
 | *(paired, week 7)* | Wage Summaries — Ishant + Manish, since it reads their modules |
 
+### Deadline override (28–29 Oct 2026, MVP submission)
+
+The other three are unavailable until the submission on 29 Oct, so Ishant finishes the
+remaining MVP deploy work alone. **Until the end of 29 Oct 2026 only**, these
+process rules change:
+
+- **Ownership.** Ishant may do the remaining work in any module: the #58 push and
+  dashboard steps, the Vercel deploy, the #130 APK, the smoke tests in `docs/DEPLOY.md`,
+  FEATURES ticks, and fixes a smoke test needs. The module boundaries in the code do not
+  change. Rule 3 (one writer per table) still holds: a fix still goes in the module that
+  owns the table.
+- **Review.** Ishant may merge his own PR once CI is green. Each such PR is labelled
+  `needs-post-review` and names the module owner, who reviews it after the deadline.
+  A problem they find gets a new PR.
+- **Decisions.** Where a spec or issue waits on another owner's decision, Ishant takes the
+  documented recommendation and records it in that issue or ADR, marked for the owner to
+  confirm.
+
+The seven rules below, the four roles and the migration rules do **not** change. The
+deadline gives no reason to use the service-role key, turn off RLS or commit a secret.
+Delete this section after the post-deadline reviews.
+
 ## This is a rebuild, not a port
 
 An earlier version of this product exists. **Do not copy its code.** It is a

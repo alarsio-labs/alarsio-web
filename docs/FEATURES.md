@@ -137,8 +137,8 @@ day with its entries, exceptions and corrections, where an owner or project mana
 it and each pending correction through the two published functions. Unit tests and action tests with a
 mocked client prove the filters, the ordering, the rules for drawing a button (not the page itself), the
 reason rules and the SQLSTATE messages. "Manager approves or rejects a day" stays **unticked**: the screen has not been driven against a
-real Supabase project, and "nobody reviews a day they recorded" is enforced only by hidden buttons until
-a follow-up migration adds the check to both functions.*
+real Supabase project. "Nobody reviews a day they recorded" is enforced by both functions since #101
+(ADR-040, above), not only by hidden buttons.*
 *The phone's check-in and check-out are in #79 PR 1 (ADR-034): the sites list, the location permission
 flow, the geofence estimate, the outbox save and the per-record status, with `SiteAttendanceScreen.test.tsx`
 and `attendance-offline.test.ts` (airplane mode, end to end, with a fake transport). "Check in and check
