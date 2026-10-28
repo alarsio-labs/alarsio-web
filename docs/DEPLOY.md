@@ -96,28 +96,18 @@ Take a backup before any push that changes a table with data in it.
 
 ## 3. Mobile: EAS internal Android build (`apps/mobile`)
 
-Prerequisites that are **not in the repo yet** and are decided once:
+In the repo (#130): `android.package` is `in.alarsio.app` in `apps/mobile/app.json`. It cannot change
+after the app is installed on phones. `apps/mobile/eas.json` has one internal profile, `pilot`, that builds
+an installable APK and reads its variables from the EAS `preview` environment. No value is in the file.
 
-- [ ] An Expo account for the team, and `eas init` run in `apps/mobile` (adds the project id to `app.json`).
-- [ ] `android.package` in `apps/mobile/app.json` (for example `in.alarsio.app`). A build needs it and it
-      cannot change after the app is installed on phones.
-- [ ] `apps/mobile/eas.json`, with one internal profile that produces an installable APK:
-      ```json
-      {
-        "cli": { "appVersionSource": "remote" },
-        "build": {
-          "pilot": {
-            "distribution": "internal",
-            "android": { "buildType": "apk" },
-            "env": {
-              "EXPO_PUBLIC_SUPABASE_URL": "<set as an EAS environment variable, not here>",
-              "EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY": "<set as an EAS environment variable, not here>"
-            }
-          }
-        }
-      }
+Done once, by hand, with a team Expo account:
+
+- [ ] `eas login`, then `eas init` in `apps/mobile`. It adds the project id to `app.json`; commit that change.
+- [ ] Set the two public variables in the EAS `preview` environment, never in a file:
+      ```bash
+      eas env:create --environment preview --name EXPO_PUBLIC_SUPABASE_URL --value <url> --visibility plaintext
+      eas env:create --environment preview --name EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY --value <key> --visibility plaintext
       ```
-      Keep the values in EAS environment variables (`eas env:create`), not in the file.
 
 Then:
 
