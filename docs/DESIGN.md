@@ -135,10 +135,20 @@ and unobserves on entry.
 Same tokens and fonts (`app/fonts.ts`, `landing.css`), laid out in `app/(auth)/layout.tsx`: a loam
 panel with the drifting site-grid canvas, the wordmark, "Site records with no signal" and the hero's
 mono metadata, beside the form on cream. On phones the panel is a band above the form, without the
-metadata. The form pieces are in `app/(auth)/ui.tsx`: a mono eyebrow and an Anton title, mono labels,
+metadata. The form pieces are in `components/v2-form.tsx` (styles `app/v2-form.css`): a mono eyebrow and an Anton title, mono labels,
 48 px paper inputs with a 1.5 px ink border and zero radius, a full-width ink button, an error notice
-with a red left rule (`role="alert"`), and a hairline-ruled foot for the other link. Only these three
-pages use them; the app's pages keep `components/form.tsx` for now.
+with a red left rule (`role="alert"`), and a hairline-ruled foot for the other link. These pages and
+the dashboard use them; the other app pages keep `components/form.tsx` for now.
+
+## 2c · Dashboard
+
+`app/(app)/dashboard`: the landing header (wordmark, the signed-in email, Sign out), a loam band with
+the site-grid canvas and "Your organisations", then one paper card per organisation: its name in Anton,
+the member's role as a `red-deep` mono tag, and a ruled grid of page links (mono label, one-line note,
+→), one column on phones and up to four on desktop. Which links a role sees comes from
+`lib/dashboard/links.ts` and is unchanged from before the restyle (`links.test.ts`). With no
+organisation, the band reads "Create your organisation" and the v2 form takes its place. The form
+pieces (`components/v2-form.tsx`, `app/v2-form.css`) are shared with the sign-in pages.
 
 ## 3 · Rules
 

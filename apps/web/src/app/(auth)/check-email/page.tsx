@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AuthFoot, AuthHeading } from "../ui";
+import { AuthFoot, AuthHeading } from "@/components/v2-form";
 
 export default function CheckEmailPage() {
   return (

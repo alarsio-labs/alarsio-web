@@ -3,9 +3,15 @@ import { redirect } from "next/navigation";
 import { isAppRole, type AppRole } from "@alarsio/types";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
-import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { orgLinks } from "@/lib/dashboard/links";
+import { AuthField, AuthNotice, authButton, authInput } from "@/components/v2-form";
+import { FieldCanvas } from "@/components/landing/field-canvas";
 import { signOut } from "../../(auth)/actions";
 import { createOrganization } from "./actions";
+import { anton, mono } from "../../fonts";
+import "../../landing.css";
+import "../../v2-form.css";
+import "./dashboard.css";
 
 type Membership = { orgId: string; orgName: string; role: AppRole };
 
@@ -28,6 +34,8 @@ const ROLE_LABEL: Record<AppRole, string> = {
   accountant: "Accountant"
 };
 
+// The dashboard in the v2 look (docs/DESIGN.md): each organisation is a paper card
+// with the pages the member's role can open. The links come from orgLinks().
 export default async function DashboardPage({
   searchParams
 }: {
@@ -45,71 +53,69 @@ export default async function DashboardPage({
     .eq("user_id", user.id);
   const memberships = toMemberships(data);
   const error = messageFor((await searchParams).error);
+  const hasOrgs = memberships.length > 0;
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <div className="flex items-center justify-between">
-        <h1 className="text-2xl font-semibold">Alarsio</h1>
-        <form action={signOut}>
-          <button type="submit" className="text-sm underline">Sign out</button>
-        </form>
-      </div>
+    <div className={`lp db ${anton.variable} ${mono.variable}`}>
+      <header className="lp-head db-head">
+        <Link href="/dashboard" className="lp-display lp-wordmark" aria-label="Alarsio, dashboard">
+          Alar<span>sio</span>
+        </Link>
+        <div className="db-account">
+          {user.email && <span className="lp-mono lp-muted db-email">{user.email}</span>}
+          <form action={signOut}>
+            <button type="submit" className="lp-btn lp-btn-line lp-mono db-signout">Sign out</button>
+          </form>
+        </div>
+      </header>
 
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
+      <section className="db-band on-loam" aria-labelledby="db-title">
+        <FieldCanvas className="db-field" />
+        <div className="db-band-inner">
+          <p className="lp-mono db-eyebrow">Dashboard</p>
+          <h1 id="db-title" className="lp-display db-title">{hasOrgs ? "Your organisations" : "Create your organisation"}</h1>
+        </div>
+      </section>
 
-      {memberships.length > 0 ? (
-        <section className="mt-8">
-          <h2 className="text-lg font-medium">Your organisations</h2>
-          <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200">
+      <main className="db-main">
+        {error && <AuthNotice kind="error">{error}</AuthNotice>}
+
+        {hasOrgs ? (
+          <ul className="db-orgs">
             {memberships.map((m) => (
-              <li key={m.orgId} className="flex items-center justify-between px-4 py-3">
-                <span>
-                  {m.orgName} <span className="text-sm text-neutral-500">· {ROLE_LABEL[m.role]}</span>
-                </span>
-                <span className="flex items-center gap-4">
-                  {(m.role === "owner" || m.role === "project_manager") && (
-                    <Link href={`/overview?org=${m.orgId}`} className="text-sm underline">Overview</Link>
-                  )}
-                  {m.role !== "accountant" && (
-                    <Link href={`/reports?org=${m.orgId}`} className="text-sm underline">Daily reports</Link>
-                  )}
-                  {(m.role === "owner" || m.role === "project_manager") && (
-                    <Link href={`/attendance?org=${m.orgId}`} className="text-sm underline">Attendance</Link>
-                  )}
-                  {(m.role === "owner" || m.role === "project_manager") && (
-                    <Link href={`/sites?org=${m.orgId}`} className="text-sm underline">Sites</Link>
-                  )}
-                  {(m.role === "owner" || m.role === "project_manager") && (
-                    <Link href={`/materials?org=${m.orgId}`} className="text-sm underline">Materials</Link>
-                  )}
-                  {(m.role === "owner" || m.role === "project_manager" || m.role === "accountant") && (
-                    <Link href={`/workers?org=${m.orgId}`} className="text-sm underline">Workers</Link>
-                  )}
-                  {(m.role === "owner" || m.role === "accountant") && (
-                    <Link href={`/wages?org=${m.orgId}`} className="text-sm underline">Wages</Link>
-                  )}
-                  {m.role === "owner" && (
-                    <Link href={`/team?org=${m.orgId}`} className="text-sm underline">Team</Link>
-                  )}
-                </span>
+              <li key={m.orgId} className="db-org">
+                <div className="db-org-head">
+                  <h2 className="lp-display db-org-name">{m.orgName}</h2>
+                  <p className="lp-mono lp-role">{ROLE_LABEL[m.role]}</p>
+                </div>
+                <ul className="db-links">
+                  {orgLinks(m.role, m.orgId).map((l) => (
+                    <li key={l.path}>
+                      <Link href={l.path} className="db-link">
+                        <span className="lp-mono db-link-label">{l.label}</span>
+                        <span className="db-link-note">{l.note}</span>
+                        <span aria-hidden="true" className="db-link-arrow">→</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
               </li>
             ))}
           </ul>
-        </section>
-      ) : (
-        <section className="mt-8 max-w-sm">
-          <h2 className="text-lg font-medium">Create your organisation</h2>
-          <p className="mt-1 text-sm text-neutral-600">
-            You will be its owner. Joining someone else&apos;s? Open the invite link they sent you.
-          </p>
-          <form action={createOrganization} className="mt-4 space-y-4">
-            <Field label="Organisation name">
-              <input name="name" required maxLength={120} className={inputClass} />
-            </Field>
-            <button type="submit" className={buttonClass}>Create organisation</button>
-          </form>
-        </section>
-      )}
-    </main>
+        ) : (
+          <div className="db-create">
+            <p className="au-body">
+              You will be its owner. Joining someone else&apos;s? Open the invite link they sent you.
+            </p>
+            <form action={createOrganization} className="db-create-form">
+              <AuthField label="Organisation name">
+                <input name="name" required maxLength={120} className={authInput} />
+              </AuthField>
+              <button type="submit" className={authButton}>Create organisation</button>
+            </form>
+          </div>
+        )}
+      </main>
+    </div>
   );
 }

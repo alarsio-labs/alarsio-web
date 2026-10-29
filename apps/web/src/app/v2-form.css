@@ -1,0 +1,19 @@
+/* The v2 form pieces (components/v2-form.tsx): sign-in pages and the dashboard.
+   Tokens and .lp-mono / .lp-btn come from landing.css. */
+
+.au-field-row { display: grid; gap: 8px; }
+.au-input {
+  width: 100%; min-height: 48px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--ink);
+  background: var(--paper); border: 1.5px solid var(--ink); border-radius: 0; outline: none;
+}
+.au-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.au-input::placeholder { color: var(--muted); }
+.au-hint { text-transform: none; letter-spacing: 0.06em; }
+.au-submit { width: 100%; margin-top: 6px; cursor: pointer; font-size: 11px; }
+.au-submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.au-notice { background: var(--paper); border: 1.5px solid var(--ink); border-left-width: 4px; padding: 12px 14px; font-size: 15px; line-height: 1.5; }
+.au-notice-error { border-left-color: var(--red); }
+.au-foot { margin-top: 28px; padding-top: 18px; border-top: 1px solid var(--hair); color: var(--muted); font-size: 15px; }
+.au-foot a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+.au-foot a:hover { color: var(--red-deep); }
+.au-body { margin-top: 20px; font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 40ch; }

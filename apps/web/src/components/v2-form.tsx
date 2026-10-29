@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-// Form pieces for the sign-in pages only (docs/DESIGN.md v2). The app's own pages
-// keep components/form.tsx until they move to the v2 tokens.
+// The v2 form pieces (docs/DESIGN.md), for the sign-in pages and the dashboard; styles
+// in app/v2-form.css. The other app pages keep components/form.tsx until they move.
 
 export function AuthHeading({ eyebrow, title }: { eyebrow: string; title: string }) {
   return (

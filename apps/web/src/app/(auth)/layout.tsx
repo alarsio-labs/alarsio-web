@@ -4,6 +4,7 @@ import { FieldCanvas } from "@/components/landing/field-canvas";
 import { HERO } from "@/lib/landing/content";
 import { anton, mono } from "../fonts";
 import "../landing.css";
+import "../v2-form.css";
 import "./auth.css";
 
 // The sign-in pages in the landing page's look (docs/DESIGN.md v2): a dark panel
