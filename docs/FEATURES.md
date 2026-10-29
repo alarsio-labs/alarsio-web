@@ -61,6 +61,7 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 
 ### 1 · Identity & Access
 - [ ] Create an organisation with name, timezone, currency (INR)
+  *#139: the dashboard's Create organisation is a three-step form (name, timezone defaulting to Asia/Kolkata with INR shown fixed, review) that passes `p_timezone` to `create_organization`. `org-form.test.ts` and `dashboard/actions.test.ts` cover an empty or over-long name, a refused timezone, the default and the happy path. Unticked until smoke test S2 runs against the team project.*
 - [ ] Sign in with email + password and a verification link
   *Web sign-in merged (#51); mobile sign-in in #56 (ADR-031). Unticked until both run end to end against the team project (#58).*
 - [ ] Invite a team member by email or copyable link

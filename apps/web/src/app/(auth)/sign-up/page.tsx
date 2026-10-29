@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signUp } from "../actions";
-import { AuthCard, Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -15,24 +15,27 @@ export default async function SignUpPage({
   const signInHref = next === "/dashboard" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(next)}`;
 
   return (
-    <AuthCard title="Create an account">
-      <form action={signUp} className="space-y-4">
-        {error && <Notice kind="error">{error}</Notice>}
+    <>
+      <AuthHeading eyebrow="Join the pilot" title="Create an account" />
+      <form action={signUp}>
+        {error && <AuthNotice kind="error">{error}</AuthNotice>}
         <input type="hidden" name="next" value={next} />
-        <Field label="Full name">
-          <input name="full_name" autoComplete="name" required maxLength={120} className={inputClass} />
-        </Field>
-        <Field label="Email">
-          <input name="email" type="email" autoComplete="email" required className={inputClass} />
-        </Field>
-        <Field label="Password (at least 8 characters)">
-          <input name="password" type="password" autoComplete="new-password" required minLength={8} className={inputClass} />
-        </Field>
-        <button type="submit" className={buttonClass}>Create account</button>
+        <AuthField label="Full name">
+          <input name="full_name" autoComplete="name" required maxLength={120} className={authInput} />
+        </AuthField>
+        <AuthField label="Email">
+          <input name="email" type="email" autoComplete="email" required className={authInput} />
+        </AuthField>
+        <AuthField label="Password" hint="At least 8 characters">
+          <input name="password" type="password" autoComplete="new-password" required minLength={8} className={authInput} />
+        </AuthField>
+        <button type="submit" className={authButton}>Create account</button>
       </form>
-      <p className="mt-6 text-sm text-neutral-600">
-        Have an account? <Link href={signInHref} className="underline">Sign in</Link>
-      </p>
-    </AuthCard>
+      <AuthFoot>
+        Have an account? <Link href={signInHref}>Sign in</Link>
+        <br />
+        Joining a team? Open the invite link your owner sent you.
+      </AuthFoot>
+    </>
   );
 }

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signIn } from "../actions";
-import { AuthCard, Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -15,21 +15,22 @@ export default async function SignInPage({
   const signUpHref = next === "/dashboard" ? "/sign-up" : `/sign-up?next=${encodeURIComponent(next)}`;
 
   return (
-    <AuthCard title="Sign in">
-      <form action={signIn} className="space-y-4">
-        {error && <Notice kind="error">{error}</Notice>}
+    <>
+      <AuthHeading eyebrow="Welcome back" title="Sign in" />
+      <form action={signIn}>
+        {error && <AuthNotice kind="error">{error}</AuthNotice>}
         <input type="hidden" name="next" value={next} />
-        <Field label="Email">
-          <input name="email" type="email" autoComplete="email" required className={inputClass} />
-        </Field>
-        <Field label="Password">
-          <input name="password" type="password" autoComplete="current-password" required className={inputClass} />
-        </Field>
-        <button type="submit" className={buttonClass}>Sign in</button>
+        <AuthField label="Email">
+          <input name="email" type="email" autoComplete="email" required className={authInput} />
+        </AuthField>
+        <AuthField label="Password">
+          <input name="password" type="password" autoComplete="current-password" required className={authInput} />
+        </AuthField>
+        <button type="submit" className={authButton}>Sign in</button>
       </form>
-      <p className="mt-6 text-sm text-neutral-600">
-        New here? <Link href={signUpHref} className="underline">Create an account</Link>
-      </p>
-    </AuthCard>
+      <AuthFoot>
+        New here? <Link href={signUpHref}>Create an account</Link>
+      </AuthFoot>
+    </>
   );
 }
