@@ -1,36 +1,39 @@
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { Anton, Martian_Mono } from "next/font/google";
 import { supabaseServer } from "@/lib/supabase/server";
-import { CTA, DAY_TABS, FAQ, HERO, OFFICE_CARDS, PROBLEMS, RECORD_STATES, ROLES } from "@/lib/landing/content";
-import { DayTabs } from "@/components/landing/day-tabs";
-import { SiteHeader, Wordmark } from "@/components/landing/site-header";
-import { StatusChip } from "@/components/landing/status-chip";
-import { BrowserFrame, CheckInScreen, OverviewScreen, PhoneFrame } from "@/components/landing/screens";
+import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "@/lib/landing/content";
+import { LandingMotion } from "@/components/landing/landing-motion";
+import { Words } from "@/components/landing/words";
+import "./landing.css";
+
+// Self-hosted at build time by next/font, like Inter in the layout.
+const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton", display: "swap" });
+const mono = Martian_Mono({ weight: "400", subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
-  title: "Alarsio · Site records that work with no signal",
+  title: "Alarsio · Site records with no signal",
   description:
     "Attendance, daily reports and materials captured offline on site, and wages built from approved attendance. For contractors running 2 to 20 sites."
 };
 
-const focus = "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ink";
-const primary = `inline-flex h-12 items-center justify-center rounded-[10px] bg-accent px-6 font-semibold text-ink transition-colors duration-150 hover:bg-accent-hover ${focus}`;
-const secondary = `inline-flex h-12 items-center justify-center rounded-[10px] border border-line bg-surface px-6 font-semibold text-ink transition-colors duration-150 hover:bg-canvas ${focus}`;
-const container = "mx-auto max-w-[1200px] px-6 lg:px-12";
-const h2 = "text-3xl font-extrabold leading-[1.1] tracking-[-0.015em] text-ink lg:text-[44px]";
+type Vars = CSSProperties & Record<`--${string}`, string | number>;
+const d = (i: number, step = 60): Vars => ({ "--d": `${i * step}ms` });
+const LAST = DAY_RECORD.status.length - 1;
 
-function Tick() {
+function Wordmark() {
   return (
-    <svg aria-hidden viewBox="0 0 20 20" className="mt-0.5 size-5 shrink-0">
-      <circle cx="10" cy="10" r="10" className="fill-accent" />
-      <path d="m6 10.5 2.5 2.5L14 7.5" fill="none" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="stroke-ink" />
-    </svg>
+    <Link href="/" className="lp-display lp-wordmark" aria-label="Alarsio, home">
+      Alar<span>sio</span>
+    </Link>
   );
 }
 
-// The public landing page (docs/DESIGN.md section 4). A signed-in visitor goes
-// straight to their dashboard, as / always did.
+// The public landing page (docs/DESIGN.md v2). A signed-in visitor goes straight to
+// their dashboard, as / always did. The server renders the finished state; the
+// motion script rewinds it to the start only when it runs.
 export default async function Home() {
   const supabase = await supabaseServer();
   const {
@@ -39,180 +42,184 @@ export default async function Home() {
   if (user) redirect("/dashboard");
 
   return (
-    <div className="bg-canvas text-ink">
-      <a href="#main" className={`sr-only rounded-md bg-surface px-4 py-2 focus:not-sr-only focus:fixed focus:top-2 focus:left-2 focus:z-30 ${focus}`}>
-        Skip to content
-      </a>
-      <SiteHeader />
+    <div className={`lp ${anton.variable} ${mono.variable}`}>
+      <header className="lp-head">
+        <Wordmark />
+        <nav aria-label="Main" className="lp-nav lp-mono">
+          {[["#records", "Records"], ["#day-record", "Day record"], ["#wages", "Wages"], ["#faq", "FAQ"]].map(([href, label], i) => (
+            <a key={href} href={href} data-rev="" style={d(i, 50)}>{label}</a>
+          ))}
+        </nav>
+        <div className="lp-head-actions">
+          <Link href={CTA.secondary.href} className="lp-btn lp-btn-line lp-mono">{CTA.secondary.label}</Link>
+          <Link href={CTA.primary.href} className="lp-btn lp-btn-ink lp-mono">{CTA.primary.label}</Link>
+        </div>
+      </header>
 
-      <main id="main">
-        {/* Hero */}
-        <section className={`${container} grid gap-12 py-16 lg:grid-cols-[1.05fr_1fr] lg:items-center lg:py-24`}>
-          <div>
-            <p className="text-sm font-semibold text-ink-muted lg:text-base">{HERO.eyebrow}</p>
-            <h1 className="mt-3 text-[38px] font-extrabold leading-[1.05] tracking-[-0.02em] lg:text-[56px]">
-              {HERO.headline.map((line) => (
-                <span key={line} className="block">{line}</span>
-              ))}
+      <main>
+        {/* 1 · Poster hero */}
+        <section className="lp-stage lp-hero on-loam" style={{ "--h": "280svh" } as Vars} data-stage="hero" aria-labelledby="hero-title">
+          <div className="lp-pin">
+            <canvas data-live="hero" aria-hidden="true" />
+            <h1 id="hero-title" className="lp-lockup lp-display">
+              <Words text={HERO.top} className="lp-poster lp-poster-top" style={{ "--chars": HERO.top.length } as Vars} />
+              <span className="lp-poster lp-poster-brand" style={{ "--chars": HERO.brand.length } as Vars} data-rev="">
+                {HERO.brand}
+              </span>
             </h1>
-            <p className="mt-6 max-w-xl text-lg leading-relaxed text-ink-muted lg:text-xl">{HERO.lead}</p>
-            <ul className="mt-8 space-y-3">
-              {HERO.ticks.map((t) => (
-                <li key={t} className="flex gap-3 text-base lg:text-lg">
-                  <Tick />
-                  {t}
-                </li>
-              ))}
-            </ul>
-            <div className="mt-10 flex flex-wrap gap-3">
-              <Link href={CTA.primary.href} className={primary}>{CTA.primary.label}</Link>
-              <a href="#how-it-works" className={secondary}>See how it works</a>
-            </div>
-          </div>
-
-          {/* The phone overlaps only the overview's wide left padding, so no row is covered.
-              On a phone the hero shows the overview alone; the phone screens follow below. */}
-          <div className="flex items-center">
-            <div className="relative z-10 hidden shrink-0 sm:block">
-              <PhoneFrame label="Phone screen: checked in at the site, on the server">
-                <CheckInScreen />
-              </PhoneFrame>
-            </div>
-            <div className="min-w-0 flex-1 sm:-ml-14">
-              <BrowserFrame label="The owner's overview: each site's report and attendance for the day">
-                <OverviewScreen inset />
-              </BrowserFrame>
-            </div>
-          </div>
-        </section>
-
-        {/* Problem */}
-        <section aria-labelledby="problem-title" className="border-y border-line bg-surface py-16 lg:py-24">
-          <div className={container}>
-            <h2 id="problem-title" className={`${h2} max-w-2xl`}>The record exists. Nobody can trust it.</h2>
-            <ul className="mt-12 grid gap-4 md:grid-cols-3">
-              {PROBLEMS.map((p) => (
-                <li key={p.title} className="rounded-2xl bg-canvas p-6">
-                  <h3 className="text-xl font-bold">{p.title}</h3>
-                  <p className="mt-2 leading-relaxed text-ink-muted">{p.body}</p>
-                </li>
+            <ul className="lp-hero-meta lp-mono" aria-label="At a glance">
+              {HERO.meta.map((m, i) => (
+                <li key={m} data-rev="" style={d(i + 4, 90)}>{m}</li>
               ))}
             </ul>
           </div>
         </section>
 
-        {/* A day on site */}
-        <section id="how-it-works" aria-labelledby="day-title" className="scroll-mt-20 py-16 lg:py-24">
-          <div className={container}>
-            <h2 id="day-title" className={`${h2} text-center`}>A day on site, on one phone</h2>
-            <p className="mx-auto mt-4 max-w-2xl text-center text-lg text-ink-muted">
-              Four things a supervisor does every day, each a few taps, each saved on the phone first.
-            </p>
-            <div className="mt-12">
-              <DayTabs tabs={DAY_TABS} />
+        {/* 2 · Clip-wipe manifesto */}
+        <section className="lp-stage lp-man" style={{ "--h": "260svh" } as Vars} data-stage="manifesto" aria-label="What Alarsio is for">
+          <div className="lp-pin">
+            <div className="lp-man-box lp-display">
+              <Words as="p" text={MANIFESTO} className="lp-man-base" />
+              <div className="lp-man-fill" aria-hidden="true">
+                <Words as="p" text={MANIFESTO} />
+              </div>
             </div>
           </div>
         </section>
 
-        {/* Offline */}
-        <section id="offline" aria-labelledby="offline-title" className="scroll-mt-20 bg-surface py-16 lg:py-24">
-          <div className={`${container} grid gap-12 lg:grid-cols-2 lg:items-center`}>
-            <div>
-              <p className="text-sm font-semibold text-ink-muted lg:text-base">Built for no signal</p>
-              <h2 id="offline-title" className={`${h2} mt-2`}>It never says “done” before the server has it.</h2>
-              <p className="mt-6 text-lg leading-relaxed text-ink-muted">
-                Basements, rooftops, sites at the edge of town. Every record is saved on the phone the moment it is typed and sent
-                when a connection comes back. Each one shows exactly where it is.
-              </p>
+        {/* 3 · Horizontal rail */}
+        <section id="records" className="lp-stage lp-rail" style={{ "--h": "340svh" } as Vars} data-stage="rail" aria-labelledby="rail-title">
+          <div className="lp-pin">
+            <div className="lp-rail-head">
+              <Words as="h2" id="rail-title" text={RAIL.title} className="lp-display lp-rail-headline" />
+              <p className="lp-mono lp-muted" data-rev="" style={d(2)}>{RAIL.hint}</p>
             </div>
-            <ol className="space-y-3">
-              {RECORD_STATES.map((s, i) => (
-                <li key={s.word} className="flex gap-4 rounded-2xl border border-line bg-canvas p-5">
-                  <span aria-hidden className="flex size-8 shrink-0 items-center justify-center rounded-full bg-surface text-sm font-bold tabular-nums">
-                    {i + 1}
-                  </span>
-                  <div>
-                    <StatusChip tone={s.tone}>{s.word}</StatusChip>
-                    <p className="mt-2 text-ink-muted">{s.detail}</p>
+            <ul className="lp-track" data-rail-track="">
+              {RAIL.cards.map((c, i) => (
+                <li key={c.title} className="lp-card" data-rev="" style={d(i, 80)}>
+                  <canvas data-plate={c.plate} aria-hidden="true" />
+                  <h3 className="lp-display" data-rev="" style={d(i, 80)}>{c.title}</h3>
+                  <div className="lp-card-meta lp-mono">
+                    <span className="lp-muted" data-rev="" style={d(i + 1, 80)}>{c.type}</span>
+                    <span className="lp-role" data-rev="" style={d(i + 2, 80)}>{c.role}</span>
                   </div>
                 </li>
               ))}
-            </ol>
-          </div>
-        </section>
-
-        {/* Office */}
-        <section id="office" aria-labelledby="office-title" className="scroll-mt-20 py-16 lg:py-24">
-          <div className={container}>
-            <h2 id="office-title" className={`${h2} text-center`}>From the site to the office, the same day</h2>
-            <ul className="mt-12 grid gap-4 md:grid-cols-2">
-              {OFFICE_CARDS.map((c) => (
-                <li key={c.title} className="rounded-3xl bg-surface p-6 lg:p-8">
-                  <h3 className="text-2xl font-bold tracking-[-0.01em] lg:text-[30px] lg:leading-tight">{c.title}</h3>
-                  <p className="mt-3 text-base leading-relaxed text-ink-muted lg:text-lg">{c.body}</p>
-                </li>
-              ))}
             </ul>
+            <div className="lp-meter" aria-hidden="true"><i /></div>
           </div>
         </section>
 
-        {/* Roles */}
-        <section aria-labelledby="roles-title" className="border-y border-line bg-surface py-16 lg:py-24">
-          <div className={container}>
-            <h2 id="roles-title" className={h2}>Four roles. Each sees what it needs.</h2>
-            <dl className="mt-12 grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
-              {ROLES.map((r) => (
-                <div key={r.role} className="border-t-4 border-accent pt-4">
-                  <dt className="text-lg font-bold">{r.role}</dt>
-                  <dd className="mt-2 leading-relaxed text-ink-muted">{r.does}</dd>
+        {/* 4 · The day record */}
+        <section id="day-record" className="lp-stage lp-rec on-loam" style={{ "--h": "420svh" } as Vars} data-stage="record" aria-labelledby="rec-title">
+          <div className="lp-pin">
+            <div className="lp-rec-copy">
+              <p className="lp-mono" data-rev="" style={{ color: "var(--cream-muted)" }}>{DAY_RECORD.eyebrow}</p>
+              <Words as="h2" id="rec-title" text={DAY_RECORD.title} className="lp-display lp-rec-headline" />
+              <Words as="p" text={DAY_RECORD.body} className="lp-rec-body" />
+              <ol className="lp-cues lp-mono">
+                {DAY_RECORD.cues.map((c, i) => (
+                  <li key={c} className="lp-cue is-on" data-cue="" data-rev="" style={d(i, 70)}>{c}</li>
+                ))}
+              </ol>
+              <p className="lp-status lp-mono" data-status="" data-rev="">{DAY_RECORD.status[LAST]}</p>
+              <div className="lp-meter" aria-hidden="true"><i /></div>
+            </div>
+
+            <div>
+              <div className="lp-packet" role="img" aria-label="A day record slip for Baner Residency, Tower A, approved and ready for wages">
+                <div className="lp-packet-top" aria-hidden="true">
+                  <p className="lp-mono">{DAY_RECORD.header}</p>
+                  <p className="lp-display lp-packet-name">{DAY_RECORD.name}</p>
+                  <canvas data-plate="site" />
                 </div>
-              ))}
-            </dl>
+                <div className="lp-perf" aria-hidden="true" />
+                <div className="lp-packet-stub lp-mono" aria-hidden="true">
+                  {DAY_RECORD.rows.map((r, i) => (
+                    <p key={r.label} className="lp-prow" data-rev="" style={d(i, 90)}>
+                      <span>{r.label}</span>
+                      <b data-row-value={i}>{r.values[LAST]}</b>
+                    </p>
+                  ))}
+                </div>
+              </div>
+              <p className="lp-tear lp-mono">{DAY_RECORD.tear}</p>
+            </div>
           </div>
+        </section>
+
+        {/* 5 · Wage period band */}
+        <section id="wages" className="lp-stage lp-wages" style={{ "--h": "300svh" } as Vars} data-stage="wages" aria-labelledby="wages-title">
+          <div className="lp-pin">
+            <canvas data-live="contours" aria-hidden="true" />
+            <div className="lp-wages-body">
+              <Words as="h2" id="wages-title" text={WAGES.title} className="lp-display lp-wages-headline" />
+              <ol className="lp-chapters">
+                {WAGES.chapters.map((c, i) => (
+                  <li key={c.n} className="lp-chapter is-on" data-chapter="" data-rev="" style={d(i, 100)}>
+                    <p className="lp-mono lp-role" data-rev="" style={d(i, 100)}>{c.n}</p>
+                    <h3 className="lp-display">{c.title}</h3>
+                    <p>{c.body}</p>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        {/* Who does what */}
+        <section className="lp-band" aria-labelledby="roles-title">
+          <Words as="h2" id="roles-title" text={ROLES.title} className="lp-display lp-band-headline" />
+          <table className="lp-table">
+            <caption className="sr-only">{ROLES.title}</caption>
+            <thead className="lp-mono lp-muted">
+              <tr>{ROLES.head.map((h) => <th key={h} scope="col">{h}</th>)}</tr>
+            </thead>
+            <tbody>
+              {ROLES.rows.map((row, i) => (
+                <tr key={row[0]} data-rev="" style={d(i, 80)}>
+                  {row.map((cell, j) =>
+                    j === 0 ? (
+                      <td key={cell} className="lp-display">{cell}</td>
+                    ) : (
+                      <td key={cell} className={j === 2 ? "lp-muted" : undefined} data-rev="" style={d(i + j, 60)}>{cell}</td>
+                    )
+                  )}
+                </tr>
+              ))}
+            </tbody>
+          </table>
         </section>
 
         {/* FAQ */}
-        <section id="faq" aria-labelledby="faq-title" className="scroll-mt-20 py-16 lg:py-24">
-          <div className="mx-auto max-w-3xl px-6">
-            <h2 id="faq-title" className={`${h2} text-center`}>Questions</h2>
-            <div className="mt-12 divide-y divide-line rounded-3xl bg-surface">
-              {FAQ.map((f) => (
-                <details key={f.q} className="group px-6">
-                  <summary className={`flex min-h-16 cursor-pointer list-none items-center justify-between gap-4 rounded-md text-lg font-semibold ${focus} [&::-webkit-details-marker]:hidden`}>
-                    {f.q}
-                    <span aria-hidden className="text-2xl text-ink-muted transition-transform duration-150 group-open:rotate-45">+</span>
-                  </summary>
-                  <p className="pb-6 leading-relaxed text-ink-muted">{f.a}</p>
-                </details>
-              ))}
-            </div>
-          </div>
-        </section>
-
-        {/* Dark band */}
-        <section aria-labelledby="cta-title" className="bg-night py-16 text-center lg:py-24">
-          <div className="mx-auto max-w-2xl px-6">
-            <h2 id="cta-title" className="text-3xl font-extrabold leading-[1.1] tracking-[-0.015em] text-white lg:text-[44px]">{CTA.title}</h2>
-            <p className="mt-4 text-lg text-night-muted">{CTA.body}</p>
-            <div className="mt-8 flex flex-wrap justify-center gap-3">
-              <Link href={CTA.primary.href} className={`${primary} focus-visible:outline-white`}>{CTA.primary.label}</Link>
-              <Link href={CTA.secondary.href} className={`inline-flex h-12 items-center rounded-[10px] border border-night-muted px-6 font-semibold text-white ${focus} focus-visible:outline-white`}>
-                {CTA.secondary.label}
-              </Link>
-            </div>
+        <section id="faq" className="lp-band" style={{ paddingTop: 0 }} aria-labelledby="faq-title">
+          <Words as="h2" id="faq-title" text="Questions" className="lp-display lp-band-headline" />
+          <div className="lp-faq">
+            {FAQ.map((f, i) => (
+              <details key={f.q} data-rev="" style={d(i, 70)}>
+                <summary>{f.q}</summary>
+                <p>{f.a}</p>
+              </details>
+            ))}
           </div>
         </section>
       </main>
 
-      <footer className="bg-surface py-10">
-        <div className={`${container} flex flex-col gap-6 md:flex-row md:items-center md:justify-between`}>
-          <div>
-            <Wordmark />
-            <p className="mt-2 max-w-sm text-sm text-ink-muted">Offline-first site records for construction contractors in India.</p>
-          </div>
-          <p className="text-sm text-ink-muted">© {new Date().getFullYear()} Alarsio</p>
+      <footer className="lp-foot on-loam">
+        <Words as="h2" text={CTA.title} className="lp-display lp-foot-headline" />
+        <Words as="p" text={CTA.body} className="lp-foot-body" />
+        <div className="lp-foot-actions">
+          <Link href={CTA.primary.href} className="lp-btn lp-btn-red lp-mono" data-rev="" style={d(1)}>{CTA.primary.label}</Link>
+          <Link href={CTA.secondary.href} className="lp-btn lp-btn-cream lp-mono" data-rev="" style={d(2)}>{CTA.secondary.label}</Link>
+        </div>
+        <div className="lp-foot-base lp-mono">
+          <span data-rev="" style={d(0)}><Wordmark /></span>
+          <span data-rev="" style={d(1)}>Offline-first site records for construction contractors in India</span>
+          <span data-rev="" style={d(2)}>© {new Date().getFullYear()} Alarsio</span>
         </div>
       </footer>
+
+      <LandingMotion />
     </div>
   );
 }

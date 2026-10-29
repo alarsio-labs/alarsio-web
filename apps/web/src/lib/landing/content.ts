@@ -1,94 +1,68 @@
-// The landing page's words, in one place (docs/DESIGN.md section 4). Every claim
-// here is a feature in docs/FEATURES.md. No customer names, ratings or numbers
-// until the pilot produces real ones.
-
-export type SectionId = "how-it-works" | "offline" | "office" | "faq";
-
-export const NAV: { label: string; href: `#${SectionId}` }[] = [
-  { label: "How it works", href: "#how-it-works" },
-  { label: "Offline", href: "#offline" },
-  { label: "Wages", href: "#office" },
-  { label: "FAQ", href: "#faq" }
-];
+// The landing page's words, in one place (docs/DESIGN.md section 2). Every claim
+// here is a feature in docs/FEATURES.md. No customer names, ratings, prices or
+// numbers until the pilot produces real ones.
 
 export const HERO = {
-  eyebrow: "Site records for Indian contractors",
-  headline: ["Your site record.", "Even with no signal.", "Trusted at wage time."],
-  lead:
-    "A supervisor captures attendance, the daily report and materials on the phone, with or without internet. The owner sees every site and pays from approved attendance.",
-  ticks: [
-    "Check-in that proves the supervisor was on site",
-    "Attendance for the whole crew in one tap",
-    "A daily report that takes minutes, not an evening",
-    "Wages built from approved attendance only"
+  top: "Site records with no signal",
+  brand: "Alarsio",
+  meta: ["Offline first", "2 to 20 sites", "Android and web", "For Indian contractors"]
+};
+
+export const MANIFESTO = "Every attendance, report and bag of cement, captured with no signal and trusted at wage time.";
+
+export type Plate = "checkin" | "register" | "report" | "materials" | "overview" | "wages";
+
+export const RAIL = {
+  title: "One phone. Six records.",
+  hint: "Keep scrolling →",
+  cards: [
+    { plate: "checkin", title: "Check in", type: "Site visit · geofence", role: "Supervisor" },
+    { plate: "register", title: "Day register", type: "Everyone present in one tap", role: "Supervisor" },
+    { plate: "report", title: "Daily report", type: "Headcount from attendance", role: "Supervisor" },
+    { plate: "materials", title: "Materials", type: "Receipts · usage · stock", role: "Supervisor" },
+    { plate: "overview", title: "Overview", type: "Every site, one day", role: "Owner" },
+    { plate: "wages", title: "Wage summary", type: "Approved days only", role: "Accountant" }
+  ] satisfies { plate: Plate; title: string; type: string; role: string }[]
+};
+
+// The day record prints itself in four phases. Each row and the status line have one
+// value per phase; the cues light up to the current phase.
+export const DAY_RECORD = {
+  eyebrow: "The day record",
+  title: "Printed only when the server has it.",
+  body:
+    "Every record is saved on the phone the moment it is typed, with its own id, and sent when a connection comes back. The phone says it is on the server only once the server has accepted it.",
+  header: "Day record · Baner Residency, Tower A",
+  name: "Wed 28 Oct",
+  rows: [
+    { label: "Record", values: ["7f3a-91c2", "7f3a-91c2", "7f3a-91c2", "7f3a-91c2"] },
+    { label: "Server", values: ["pending", "on the server", "on the server", "on the server"] },
+    { label: "Approved", values: ["—", "—", "—", "28 Oct"] }
+  ],
+  cues: ["Checked in, inside the geofence", "Everyone present, two exceptions", "Report filed", "Day approved"],
+  status: ["Saved on this phone, waiting to send", "Sending…", "On the server", "Approved, ready for wages"],
+  tear: "Approved days tear off to the wage summary"
+};
+
+export const WAGES = {
+  title: "From approved days to wages you can explain.",
+  chapters: [
+    { n: "01", title: "Approve", body: "A project manager approves or rejects each attendance day. Nobody approves a day they recorded." },
+    { n: "02", title: "Calculate", body: "Rate, payable days, overtime and adjustments, built from approved attendance only." },
+    { n: "03", title: "Lock and export", body: "The accountant locks the period and exports CSV or Excel. Only the owner reopens it, with a reason." }
   ]
 };
 
-export const PROBLEMS: { title: string; body: string }[] = [
-  { title: "Paper registers", body: "Attendance sits in a notebook on site and reaches the office days later, if at all." },
-  { title: "WhatsApp and Excel", body: "Reports, photos and stock counts are scattered across chats and sheets nobody can check." },
-  { title: "Arguments at wage time", body: "The same record is typed two or three times, and the office and the crew disagree on whose is right." }
-];
-
-export type Tab = {
-  id: "check-in" | "attendance" | "report" | "materials";
-  label: string;
-  eyebrow: string;
-  title: string;
-  body: string;
+export const ROLES = {
+  title: "Who does what",
+  head: ["Role", "Records", "Sees"],
+  rows: [
+    ["Owner", "Sites, team and access", "Every site, wages, the audit log"],
+    ["Project manager", "Approvals and send-backs", "Every site's reports and attendance"],
+    ["Supervisor", "Check-in, attendance, report, materials", "Only the sites assigned to them"],
+    ["Accountant", "Wage periods, locks, exports", "Approved attendance and wages"]
+  ]
 };
-
-export const DAY_TABS: Tab[] = [
-  {
-    id: "check-in",
-    label: "Check in",
-    eyebrow: "Start of the day",
-    title: "Check in at the site, not from home",
-    body: "Location is read once, on the tap, and checked against the site's geofence. Outside it, the supervisor has to give a reason, and the office sees it."
-  },
-  {
-    id: "attendance",
-    label: "Mark attendance",
-    eyebrow: "Day register",
-    title: "Everyone present in one tap, then the exceptions",
-    body: "Mark the whole rostered crew present, then change only who is on half day, on leave, absent or doing overtime, with a note per worker."
-  },
-  {
-    id: "report",
-    label: "Daily report",
-    eyebrow: "End of the day",
-    title: "The whole day, filed from the phone",
-    body: "Headcount is filled in from attendance. Add work done, blockers, a safety flag and tomorrow's plan. Photos are optional and never hold up the report."
-  },
-  {
-    id: "materials",
-    label: "Materials",
-    eyebrow: "Stock on site",
-    title: "Receipts and usage, recorded where they happen",
-    body: "Record opening stock, receipts, usage and adjustments with no signal. Low or negative stock is flagged, and an adjustment always needs a reason."
-  }
-];
-
-export const RECORD_STATES: { word: string; tone: "wait" | "ok" | "warn"; detail: string }[] = [
-  { word: "Saved on this phone, waiting to send", tone: "wait", detail: "Saved the moment it is typed, with its own id, even in airplane mode." },
-  { word: "Sending…", tone: "wait", detail: "Sent when the phone finds a connection. A record sent twice is stored once." },
-  { word: "On the server", tone: "ok", detail: "Shown only after the server has accepted that record. Never before." },
-  { word: "Needs attention", tone: "warn", detail: "If a manager already approved the day, the change is held and shown, not lost." }
-];
-
-export const OFFICE_CARDS: { title: string; body: string }[] = [
-  { title: "Every site on one page", body: "The owner's overview shows each site for the day: report filed or not, attendance state, geofence flags, pending corrections and low stock." },
-  { title: "Approve the day", body: "A project manager approves or rejects each attendance day and each correction. Nobody approves a day they recorded themselves." },
-  { title: "Wages you can explain", body: "Approved attendance becomes a weekly or monthly summary with rate, days, overtime and adjustments. Export it to CSV or Excel." },
-  { title: "Your data stays yours", body: "Every change is kept in an audit log. The owner can download all of the company's data at any time." }
-];
-
-export const ROLES: { role: string; does: string }[] = [
-  { role: "Owner", does: "Sees every site each day, checks wages, and controls who has access." },
-  { role: "Project manager", does: "Reads reports, approves attendance and sends back what needs fixing." },
-  { role: "Supervisor", does: "Checks in, marks attendance, files the report and records materials, only for assigned sites." },
-  { role: "Accountant", does: "Turns approved attendance into the wage summary, locks it and exports it." }
-];
 
 export const FAQ: { q: string; a: string }[] = [
   { q: "Does it really work without internet?", a: "Yes. Check-in, attendance, the daily report and materials are saved on the phone first and sent when it finds a connection. The phone says \"On the server\" only once the server has the record." },

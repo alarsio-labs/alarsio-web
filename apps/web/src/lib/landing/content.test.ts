@@ -1,24 +1,28 @@
 import { describe, expect, it } from "vitest";
-import { CTA, DAY_TABS, FAQ, HERO, NAV, type SectionId } from "./content";
-
-// The ids the page renders as section anchors. A nav link to any other id goes nowhere.
-const RENDERED: SectionId[] = ["how-it-works", "offline", "office", "faq"];
+import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "./content";
 
 describe("landing content", () => {
-  it("links every nav item to a section the page renders, once each", () => {
-    const targets = NAV.map((n) => n.href.slice(1));
-    expect(new Set(targets).size).toBe(targets.length);
-    for (const t of targets) expect(RENDERED).toContain(t);
+  it("has six rail cards, three wage chapters and one table row per role", () => {
+    expect(RAIL.cards).toHaveLength(6);
+    expect(WAGES.chapters).toHaveLength(3);
+    expect(ROLES.rows.map((r) => r[0])).toEqual(["Owner", "Project manager", "Supervisor", "Accountant"]);
   });
 
-  it("keeps the hero to three headline lines and at most four ticks (DESIGN.md)", () => {
-    expect(HERO.headline).toHaveLength(3);
-    expect(HERO.ticks.length).toBeLessThanOrEqual(4);
+  it("gives the day record one value per phase for every row, cue and status line", () => {
+    const phases = DAY_RECORD.status.length;
+    expect(phases).toBe(4);
+    expect(DAY_RECORD.cues).toHaveLength(phases);
+    for (const row of DAY_RECORD.rows) expect(row.values).toHaveLength(phases);
   });
 
-  it("gives every day tab a unique id", () => {
-    const ids = DAY_TABS.map((t) => t.id);
-    expect(new Set(ids).size).toBe(ids.length);
+  it("reads 'pending' on the server row until the record is sent", () => {
+    const server = DAY_RECORD.rows.find((r) => r.label === "Server");
+    expect(server?.values[0]).toBe("pending");
+    expect(server?.values[1]).toBe("on the server");
+  });
+
+  it("uses the phone's own status words, in order", () => {
+    expect(DAY_RECORD.status.slice(0, 3)).toEqual(["Saved on this phone, waiting to send", "Sending…", "On the server"]);
   });
 
   it("sends the pilot button to sign-up and the second one to sign-in, both on this site", () => {
@@ -26,8 +30,9 @@ describe("landing content", () => {
     expect(CTA.secondary.href).toBe("/sign-in");
   });
 
-  it("never claims a record is submitted, only that it is on the server", () => {
-    const words = JSON.stringify({ HERO, DAY_TABS, FAQ }).toLowerCase();
+  it("never claims a record is submitted, and quotes no price", () => {
+    const words = JSON.stringify({ HERO, MANIFESTO, RAIL, DAY_RECORD, WAGES, ROLES, FAQ, CTA }).toLowerCase();
     expect(words).not.toContain("submitted");
+    expect(words).not.toMatch(/₹|rs\.|per month|\/month/);
   });
 });
