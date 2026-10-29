@@ -145,5 +145,113 @@ and unobserves on entry.
   mobile.
 - **Phone first.** Check 375 px. No horizontal page scroll; check each poster line too.
 - **English only** in the MVP. **No dark mode** in the MVP.
-- **The app's own screens** (dashboard, forms, tables) move to these tokens in later PRs;
-  until then they keep their current neutral styles.
+- **The app's own screens** (dashboard, forms, tables) move to these tokens as section 4
+  says; until their PR lands they keep their current neutral styles.
+
+---
+
+## 4 · App screens
+
+**Status: Proposed** (Manish, 29 Oct 2026, for Ishant to confirm). The signed-in web app uses
+the section 1 tokens in a **calmer** form: the same colours, shape and labels as the landing
+page, but built for forms and dense tables that people use for an hour, not for scrolling once.
+
+### What carries over, and what does not
+
+| | Landing | App |
+| :-- | :-- | :-- |
+| Ground | cream, loam stages | cream page, `paper` for cards, forms and tables. No loam |
+| Display | Anton at poster scale | Anton **only** for the page title (`h1`), 28–36 px |
+| Body, tables, form labels | Inter | Inter 15–16 px. Numbers use `tabular-nums` |
+| Mono labels | Martian Mono | statuses, record ids, table headers, captions, dates in metadata |
+| Shape | radius 0, 1.5 px ink | the same |
+| Motion | pinned stages, word reveals | **none** beyond a 150 ms colour change on hover and focus |
+| Red | marks; text only on loam | marks only (active nav underline, a focus ring on an error). Red **text** is `red-deep` |
+
+### The frame
+
+A slim top bar on cream, on every signed-in page:
+- **Left:** the wordmark (links home).
+- **Middle:** the module links for the user's role in the current organisation. The current one
+  has a 2 px red underline.
+- **Right:** the organisation switcher (organisation name and role in mono). With one
+  membership it is plain text. Then the user menu with Sign out.
+
+Below 768 px the module links fold into a **Menu** button that opens a native `<details>`
+list, so it works without JavaScript. No sidebar.
+
+Module links by role, matching what each page already allows (RLS stays the boundary; a
+hidden link is a convenience):
+
+| Link | owner | project_manager | accountant | supervisor |
+| :-- | :-: | :-: | :-: | :-: |
+| Overview | ✓ | ✓ | | |
+| Attendance | ✓ | ✓ | | |
+| Daily reports | ✓ | ✓ | | ✓ |
+| Sites | ✓ | ✓ | | |
+| Materials | ✓ | ✓ | | |
+| Workers | ✓ | ✓ | ✓ | |
+| Wages | ✓ | | ✓ | |
+| Team | ✓ | | | |
+| Export | ✓ | | | |
+
+### Home after sign-in
+
+The home page depends on the role:
+
+| Role | Home |
+| :-- | :-- |
+| owner, project_manager | `/overview` |
+| accountant | `/wages` |
+| supervisor | `/reports`, with one line saying that capture is on the phone app |
+
+- **Several organisations:** use the last one chosen in the switcher, kept in a cookie (not a
+  table), else the first.
+- **No membership yet:** the create-organisation form.
+- **`/dashboard`:** it becomes the organisation list that the switcher's "All organisations"
+  opens.
+
+### Components
+
+All of these live in `apps/web/src/components/`. A screen uses these and does not restyle them.
+
+- **Button.** Primary: ink ground, cream text. Secondary: paper ground, 1.5 px ink border.
+  Text link: ink, underlined. Height at least 48 px on touch. A destructive action (archive,
+  lock, reopen, send back) uses the same styles **plus** its existing confirm step. There is no
+  red button.
+- **Field.** Label in Inter 14 px medium above the input. Inputs and selects are paper, 1.5 px
+  ink border, radius 0, height at least 48 px. Help and error text sit under the input; the
+  error is `red-deep` with a red border on the input.
+- **Notice.** Error: paper, 1.5 px red border, `red-deep` text, `role="alert"`. Info: paper,
+  1 px `hair` border, ink text, `role="status"`.
+- **Status tag.** Mono 10.5 px uppercase in a 1 px ink box, using the app's own words. A state
+  that asks someone to act (needs attention, sent back, rejected, flagged, no rate) is
+  `red-deep` text with a red border. Every other state is ink. The word carries the meaning, so
+  there is no green or amber.
+- **Table.** Paper, a mono header row, `hair` row lines, numbers right-aligned. On a narrow
+  screen the table scrolls sideways inside its own box with the first column fixed, and the
+  page itself never scrolls sideways (#138 is the first case). There are no card layouts on
+  phones.
+- **Card.** Paper, 1.5 px ink border, no shadow. Used for an overview site row, a summary
+  tile and a form panel.
+- **Empty state.** One sentence saying what is missing and the one action that fills it.
+
+### Rules
+
+- **Accessibility.** Section 3's accessibility rules apply: AA on every text pair, focus
+  outline 2 px ink at 2 px offset, and tap targets of at least 48 px. Every table header is a
+  `<th scope>`.
+- **Phone.** Check every page at 375 px.
+- **No new colour.** Any colour or size not in section 1 updates this file in the same PR.
+- **Out of scope here:**
+  - the phone app (its own decision after the pilot, with outdoor contrast checked);
+  - dark mode;
+  - motion.
+
+### Order of work
+
+Each step is a separate PR, reviewed by Ishant:
+1. **Components** in `components/`, replacing `components/form.tsx`. No page changes yet.
+2. **The frame and the home redirect** (with #135 and #140).
+3. **One PR per module** moving its pages to the components: Overview, Attendance, Reports,
+   Sites, Materials, Workers, Wages, Team and Export.
