@@ -324,6 +324,18 @@ Unticked until a download runs end to end against the team project (#58), as wit
 
 ---
 
+## Web landing page (not a module)
+
+*The public page at `/` (docs/DESIGN.md v2): five scroll-pinned stages (poster hero, manifesto, a rail of
+six records, the day record printing itself, the wage period) and a roles table, FAQ and footer. "Join the
+pilot" goes to the existing sign-up. It owns no table and reads no data; a signed-in visitor goes to
+`/dashboard` as before. Every claim on it is a row above, and it quotes no prices. Plates are generated on
+canvas, not screenshots. Under reduced motion or without JavaScript it is a still, complete page.
+`lib/landing/stage.test.ts` proves the scroll maths and `lib/landing/content.test.ts` the copy rules. It
+adds no row and ticks none.*
+
+---
+
 ## Explicitly NOT in the MVP
 
 Do not build these. See `docs/PRD.md` §6.7 for the full list and reasoning.
