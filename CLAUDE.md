@@ -169,6 +169,7 @@ between a 4-second run and a 90-second one.
 | Which decisions exist? | `docs/DECISIONS-INDEX.md` — read it first |
 | Why did we choose X over Y? | `docs/DECISIONS.md` |
 | How do we work day to day? | `docs/WORKFLOW.md` |
+| How does it look: colours, type, components, the landing page? | `docs/DESIGN.md` |
 | What must a security review check? | `docs/SECURITY.md` |
 | How do we test? | `docs/TESTING.md` |
 | What does Claude do, step by step, for a feature, a bug fix or a PR review? | `docs/PLAYBOOK.md` |
