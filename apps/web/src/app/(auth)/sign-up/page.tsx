@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { signUp } from "../actions";
-import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "../ui";
+import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
 
