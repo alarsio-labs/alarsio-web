@@ -16,7 +16,7 @@ export default async function NewSitePage({
 
   return (
     <main className="mx-auto max-w-xl px-4 py-10">
-      <Link href={`/sites?org=${org}`} className="text-sm underline">← Sites</Link>
+      <Link href={`/sites?org=${org}`} className="app-back">← Sites</Link>
       <h1 className="mt-4 text-2xl font-semibold">New site</h1>
       <p className="mt-1 text-sm text-neutral-600">
         A new site starts as planned. You can change its status on the site&apos;s page.

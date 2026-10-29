@@ -34,7 +34,7 @@ export default async function WagesPage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/dashboard" className="text-sm underline">← Dashboard</Link>
+      <Link href="/dashboard" className="app-back">← Dashboard</Link>
       <h1 className="mt-4 text-2xl font-semibold">{orgRow.name} · Wage summaries</h1>
       <p className="mt-2 text-sm text-neutral-600">
         Built from approved attendance only. A day that is still open, or was sent back, is not counted.

@@ -1,34 +1,41 @@
 import type { ReactNode } from "react";
+import { AuthHeading } from "./v2-form";
+
+// The app's shared form pieces, now in the v2 look (docs/DESIGN.md). The classes come
+// from app/v2-form.css and app/landing.css, which the (app) and (auth) layouts load.
 
 export function Field({ label, children }: { label: string; children: ReactNode }) {
   return (
-    <label className="block">
-      <span className="text-sm font-medium text-neutral-700">{label}</span>
-      <div className="mt-1">{children}</div>
+    <label className="au-field-row">
+      <span className="lp-mono">{label}</span>
+      {children}
     </label>
   );
 }
 
-export const inputClass =
-  "w-full rounded-md border border-neutral-300 px-3 py-2 text-base outline-none focus:border-neutral-900";
+export const inputClass = "au-input";
 
-export const buttonClass =
-  "w-full rounded-md bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-700";
+/** The v2 button with no width, for a button sitting beside a field in a row. */
+export const buttonBase = "lp-btn lp-btn-ink lp-mono cursor-pointer disabled:opacity-60";
+
+// Full width as a Tailwind utility, not in v2-form.css, so sm:w-auto can narrow it.
+// Plain w-auto cannot (Tailwind emits it before w-full); use buttonBase instead.
+export const buttonClass = `${buttonBase} w-full`;
 
 export function Notice({ kind, children }: { kind: "error" | "info"; children: ReactNode }) {
-  const tone = kind === "error" ? "border-red-300 bg-red-50 text-red-800" : "border-neutral-300 bg-neutral-50 text-neutral-800";
   return (
-    <p role={kind === "error" ? "alert" : "status"} className={`rounded-md border px-3 py-2 text-sm ${tone}`}>
+    <p role={kind === "error" ? "alert" : "status"} className={`au-notice ${kind === "error" ? "au-notice-error" : ""}`}>
       {children}
     </p>
   );
 }
 
+/** A titled block on the sign-in pages' layout (used by the invite page). */
 export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
   return (
-    <main className="mx-auto max-w-sm px-4 py-12">
-      <h1 className="mb-6 text-2xl font-semibold">{title}</h1>
-      {children}
-    </main>
+    <>
+      <AuthHeading eyebrow="Invitation" title={title} />
+      <div className="au-body-block">{children}</div>
+    </>
   );
 }

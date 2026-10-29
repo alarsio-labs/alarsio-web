@@ -100,7 +100,7 @@ export default async function WorkerPage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href={`/workers?org=${org}`} className="text-sm underline">← Workers</Link>
+      <Link href={`/workers?org=${org}`} className="app-back">← Workers</Link>
       <h1 className="mt-4 text-2xl font-semibold">
         {worker.full_name} <span className="font-mono text-base text-neutral-500">{worker.code}</span>
       </h1>

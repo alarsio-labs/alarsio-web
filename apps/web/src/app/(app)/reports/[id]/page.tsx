@@ -97,7 +97,7 @@ export default async function ReportPage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href={`/reports?org=${org}`} className="text-sm underline">← Daily reports</Link>
+      <Link href={`/reports?org=${org}`} className="app-back">← Daily reports</Link>
       <h1 className="mt-4 text-2xl font-semibold">{site?.name ?? "Site"} · {report.report_date}</h1>
       <p className="mt-1 text-sm text-neutral-600">
         {STATUS_LABEL[report.status] ?? "Not reviewed"} · {report.headcount ?? "–"} workers

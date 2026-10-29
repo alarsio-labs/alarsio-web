@@ -1,4 +1,4 @@
-import { Notice, buttonClass, inputClass } from "@/components/form";
+import { Notice, buttonBase, inputClass } from "@/components/form";
 import {
   HISTORY_LIMIT,
   eligibleSupervisors,
@@ -76,7 +76,7 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
               ))}
             </select>
           </label>
-          <button type="submit" className={`${buttonClass} w-auto`}>Assign</button>
+          <button type="submit" className={`${buttonBase} shrink-0`}>Assign</button>
         </form>
       )}
       {!archived && members !== null && eligible.length === 0 && (

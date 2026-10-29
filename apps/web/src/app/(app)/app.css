@@ -1,0 +1,71 @@
+/* Every signed-in page in the v2 look (docs/DESIGN.md section 2e), without editing
+   each page: inside .app, Tailwind's neutral scale, white and radii point at v2 tokens,
+   so the pages' existing utility classes draw in warm ink, stone and paper with square
+   corners. Every text step passes AA on cream, paper and the 50/100 fills.
+   The base rules are unlayered on purpose: they beat Tailwind's utility layer. */
+
+:where(.app) {
+  --color-white: #fffdf8;
+  --color-neutral-50: #f1ede4;
+  --color-neutral-100: #e9e4da;
+  --color-neutral-200: #d3cdc1;
+  --color-neutral-300: #b6afa2;
+  --color-neutral-400: #8d867a;
+  --color-neutral-500: #625d56;
+  --color-neutral-600: #56524c;
+  --color-neutral-700: #3f3b36;
+  --color-neutral-800: #2a2723;
+  --color-neutral-900: #171717;
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  min-height: 100svh;
+}
+:where(.app) .rounded { border-radius: 0; }
+
+/* Type: Anton headings, mono table headers, as on the landing page. */
+:where(.app) h1 {
+  font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: clamp(40px, 6vw, 72px); line-height: 0.9; letter-spacing: -0.025em; color: var(--ink);
+}
+:where(.app) h2 {
+  font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase;
+  font-size: 28px; line-height: 1; letter-spacing: -0.01em;
+}
+:where(.app) th {
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; font-weight: 400;
+  letter-spacing: 0.18em; text-transform: uppercase; color: var(--muted);
+}
+:where(.app) main a:focus-visible,
+:where(.app) main button:focus-visible,
+:where(.app) main summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* The page frame under the app header. */
+:where(.app) .app-body { padding-bottom: 64px; }
+.app-back {
+  display: inline-flex; align-items: center; min-height: 44px; gap: 8px;
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+  color: var(--ink); text-decoration: none;
+}
+.app-back:hover { color: var(--red-deep); }
+
+/* App header: the landing header, sticky, with the account on the right. */
+.app-head { position: sticky; }
+.app-account { display: flex; align-items: center; gap: 14px; min-width: 0; }
+.app-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0.08em; }
+@media (max-width: 560px) { .app-email { display: none; } }
+/* landing.css hides the header's outline button on phones; Sign out must always show. */
+.app .lp-head .app-signout { display: inline-flex; min-height: 44px; }
+.app-signout { padding: 0 14px; cursor: pointer; background: transparent; }
+.app-signout:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Pages' own ink buttons ("New site", "Show", "Filter") take the v2 button's mono
+   label and a 44px target, so every action reads the same as buttonClass. */
+:where(.app) main :is(a, button)[class*="bg-neutral-900"] {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
+}

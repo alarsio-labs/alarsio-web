@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
-import { Notice, buttonClass, inputClass } from "@/components/form";
+import { Notice, buttonBase, inputClass } from "@/components/form";
 import { SITE_STATUSES, mapUrl } from "@/lib/sites/input";
 import { toSiteRecord } from "@/lib/sites/rows";
 import { HISTORY_LIMIT, splitAssignments, toAssignmentRecord, toMemberName } from "@/lib/sites/assignments";
@@ -68,7 +68,7 @@ export default async function SitePage({
 
   return (
     <main className="mx-auto max-w-xl px-4 py-10">
-      <Link href={list} className="text-sm underline">← Sites</Link>
+      <Link href={list} className="app-back">← Sites</Link>
       <h1 className="mt-4 text-2xl font-semibold">{site.name}</h1>
 
       {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
@@ -132,7 +132,7 @@ export default async function SitePage({
                   {SITE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
-              <button type="submit" className={`${buttonClass} w-auto`}>Change status</button>
+              <button type="submit" className={`${buttonBase} shrink-0`}>Change status</button>
             </form>
             <p className="mt-1 text-xs text-neutral-500">Planned, active, paused and completed can be changed in any order.</p>
           </section>

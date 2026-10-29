@@ -8,6 +8,7 @@
 }
 .au-input:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .au-input::placeholder { color: var(--muted); }
+textarea.au-input { padding: 12px 14px; min-height: 96px; line-height: 1.5; resize: vertical; }
 .au-hint { text-transform: none; letter-spacing: 0.06em; }
 .au-submit { width: 100%; margin-top: 6px; cursor: pointer; font-size: 11px; }
 .au-submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
@@ -54,3 +55,5 @@
 .st-foot .st-next { flex: 1; cursor: pointer; }
 .st-foot .st-back { cursor: pointer; background: transparent; }
 .st-foot button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+.au-body-block { display: grid; gap: 16px; margin-top: 24px; }

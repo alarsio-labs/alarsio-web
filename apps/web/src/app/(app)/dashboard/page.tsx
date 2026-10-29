@@ -7,12 +7,8 @@ import { orgLinks } from "@/lib/dashboard/links";
 import { AuthNotice } from "@/components/v2-form";
 import { timezoneOptions } from "@/lib/dashboard/org-form";
 import { FieldCanvas } from "@/components/landing/field-canvas";
-import { signOut } from "../../(auth)/actions";
 import { createOrganization } from "./actions";
 import { CreateOrgWizard } from "./create-org-wizard";
-import { anton, mono } from "../../fonts";
-import "../../landing.css";
-import "../../v2-form.css";
 import "./dashboard.css";
 
 type Membership = { orgId: string; orgName: string; role: AppRole };
@@ -36,8 +32,9 @@ const ROLE_LABEL: Record<AppRole, string> = {
   accountant: "Accountant"
 };
 
-// The dashboard in the v2 look (docs/DESIGN.md): each organisation is a paper card
-// with the pages the member's role can open. The links come from orgLinks().
+// The dashboard in the v2 look (docs/DESIGN.md); the header comes from the (app)
+// layout. Each organisation is a paper card with the pages the member's role can
+// open; the links come from orgLinks().
 export default async function DashboardPage({
   searchParams
 }: {
@@ -58,19 +55,7 @@ export default async function DashboardPage({
   const hasOrgs = memberships.length > 0;
 
   return (
-    <div className={`lp db ${anton.variable} ${mono.variable}`}>
-      <header className="lp-head db-head">
-        <Link href="/dashboard" className="lp-display lp-wordmark" aria-label="Alarsio, dashboard">
-          Alar<span>sio</span>
-        </Link>
-        <div className="db-account">
-          {user.email && <span className="lp-mono lp-muted db-email">{user.email}</span>}
-          <form action={signOut}>
-            <button type="submit" className="lp-btn lp-btn-line lp-mono db-signout">Sign out</button>
-          </form>
-        </div>
-      </header>
-
+    <div className="db">
       <section className="db-band on-loam" aria-labelledby="db-title">
         <FieldCanvas className="db-field" />
         <div className="db-band-inner">

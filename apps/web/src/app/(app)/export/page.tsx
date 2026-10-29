@@ -26,7 +26,7 @@ export default async function ExportPage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href="/dashboard" className="text-sm underline">← Dashboard</Link>
+      <Link href="/dashboard" className="app-back">← Dashboard</Link>
 
       {!org ? (
         <div className="mt-6">

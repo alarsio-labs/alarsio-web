@@ -54,7 +54,7 @@ export default async function TeamPage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href="/dashboard" className="text-sm underline">← Dashboard</Link>
+      <Link href="/dashboard" className="app-back">← Dashboard</Link>
       <h1 className="mt-4 text-2xl font-semibold">{orgRow.name} · Team</h1>
 
       <section className="mt-8 max-w-sm">

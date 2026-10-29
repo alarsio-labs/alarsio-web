@@ -83,11 +83,11 @@ export default async function MaterialsPage({
 
   return (
     <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href="/dashboard" className="text-sm underline">← Dashboard</Link>
+      <Link href="/dashboard" className="app-back">← Dashboard</Link>
       <h1 className="mt-4 text-2xl font-semibold">
         {orgRow.name} · Materials{site ? ` · ${site.name}` : ""}
       </h1>
-      {site && <Link href={`/materials?org=${org}`} className="text-sm underline">← All sites</Link>}
+      {site && <Link href={`/materials?org=${org}`} className="app-back">← All sites</Link>}
 
       {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
       {saved && !error && <div className="mt-6"><Notice kind="info">Saved.</Notice></div>}

@@ -125,7 +125,7 @@ export default async function AttendanceDayPage({
 
   return (
     <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href={`/attendance?org=${org}`} className="text-sm underline">← Attendance</Link>
+      <Link href={`/attendance?org=${org}`} className="app-back">← Attendance</Link>
       <h1 className="mt-4 text-2xl font-semibold">{site?.name ?? "Site"} · {day.attendance_date}</h1>
       <p className="mt-1 text-sm text-neutral-600">
         {DAY_STATUS_LABEL[day.status]} · {entries.length} {entries.length === 1 ? "entry" : "entries"}

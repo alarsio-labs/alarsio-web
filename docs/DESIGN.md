@@ -161,6 +161,19 @@ one real `<form>`, every step stays in the DOM so its fields submit, and without
 show one under another with the submit button. Focus moves to the new step's heading and a polite live
 region names it. Used by Create organisation (name, where you work, check and create).
 
+## 2e · The other app pages
+
+Every signed-in page sits in `app/(app)/layout.tsx`: the v2 header (wordmark to the dashboard, the
+signed-in email, Sign out) over the cream ground. The pages keep their markup; `app/(app)/app.css`
+restyles them from one place. Inside `.app`, Tailwind's neutral scale, `white` and every radius point at
+v2 values (warm ink and stone, paper, zero), each text step checked AA on cream, paper and the light
+fills. Unlayered base rules set `h1` and `h2` in Anton and table headers in mono, give the "← back"
+links (`app-back`) a mono label and a 44 px target, and give the pages' own ink buttons the v2 label.
+`components/form.tsx` (Field, inputClass, buttonClass, Notice) now draws the v2 pieces, so every form
+changed with it. `buttonClass` is full width as a Tailwind class so `sm:w-auto` can narrow it; a button
+beside a field uses `buttonBase`, because a plain `w-auto` loses to `w-full`. The invite page moved to
+`app/(auth)/invite/[token]` (same URL) to use the sign-in layout.
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only
@@ -176,5 +189,4 @@ region names it. Used by Create organisation (name, where you work, check and cr
   mobile.
 - **Phone first.** Check 375 px. No horizontal page scroll; check each poster line too.
 - **English only** in the MVP. **No dark mode** in the MVP.
-- **The app's own screens** (dashboard, forms, tables) move to these tokens in later PRs;
-  until then they keep their current neutral styles.
+- **Every page uses these tokens**, the app pages through `app/(app)/app.css` (section 2e).

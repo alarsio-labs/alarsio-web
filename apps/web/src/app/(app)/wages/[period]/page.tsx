@@ -89,7 +89,7 @@ export default async function WagePeriodPage({
 
   return (
     <main className="mx-auto max-w-6xl px-4 py-10">
-      <Link href={`/wages?org=${org}`} className="text-sm underline">← Wage periods</Link>
+      <Link href={`/wages?org=${org}`} className="app-back">← Wage periods</Link>
       <h1 className="mt-4 text-2xl font-semibold">
         {period.start_date} to {period.end_date}{" "}
         <span className="ml-2 rounded bg-neutral-200 px-2 py-0.5 text-sm font-medium text-neutral-800">
