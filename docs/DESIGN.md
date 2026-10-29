@@ -150,6 +150,17 @@ the member's role as a `red-deep` mono tag, and a ruled grid of page links (mono
 organisation, the band reads "Create your organisation" and the v2 form takes its place. The form
 pieces (`components/v2-form.tsx`, `app/v2-form.css`) are shared with the sign-in pages.
 
+## 2d · Stepper
+
+`components/v2-stepper.tsx` (styles in `app/v2-form.css`), after the AnimatedStepper pattern but native:
+no animation library and no icon set. Square 44 px numbered indicators (the active one with a red
+border, done ones ink with a drawn check) joined by a hairline meter with a red fill; the new step
+slides 20 px in from the side it comes from; the container eases to each step's height. Continue checks
+only the current step's fields; an indicator jumps back to any step already reached. It sits inside
+one real `<form>`, every step stays in the DOM so its fields submit, and without JavaScript all steps
+show one under another with the submit button. Focus moves to the new step's heading and a polite live
+region names it. Used by Create organisation (name, where you work, check and create).
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only

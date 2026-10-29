@@ -17,3 +17,40 @@
 .au-foot a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
 .au-foot a:hover { color: var(--red-deep); }
 .au-body { margin-top: 20px; font-size: 17px; line-height: 1.6; color: var(--muted); max-width: 40ch; }
+
+/* Stepper (components/v2-stepper.tsx). Square indicators joined by a meter; the
+   viewport eases to each step's height. Reduced motion is handled in globals.css. */
+.st { display: grid; gap: 28px; }
+.st-steps { display: flex; align-items: flex-start; }
+.st-step { display: grid; grid-template-columns: auto 1fr; grid-template-rows: auto auto; column-gap: 12px; row-gap: 8px; flex: 1; min-width: 0; }
+.st-step:last-child { flex: 0 0 auto; }
+.st-dot {
+  grid-row: 1; grid-column: 1; display: inline-flex; align-items: center; justify-content: center;
+  width: 44px; height: 44px; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink);
+  font-size: 12px; letter-spacing: 0; transition: background-color 0.3s var(--ease), color 0.3s var(--ease), border-color 0.3s var(--ease);
+}
+.st-dot:enabled { cursor: pointer; }
+.st-dot:enabled:hover { background: var(--cream); }
+.st-dot:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.st-todo .st-dot { border-color: var(--hair); color: var(--muted); background: transparent; }
+.st-active .st-dot { border-color: var(--red); border-width: 2px; }
+.st-done .st-dot { background: var(--ink); color: var(--cream); }
+.st-done .st-dot:enabled:hover { background: #000; }
+.st-check { width: 16px; height: 16px; }
+.st-step-title { grid-row: 2; grid-column: 1 / -1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; color: var(--muted); }
+.st-active .st-step-title { color: var(--ink); }
+.st-bar { grid-row: 1; grid-column: 2; align-self: center; position: relative; height: 1px; margin-right: 12px; background: var(--hair); }
+.st-bar i { position: absolute; left: 0; top: -1px; height: 3px; width: 100%; background: var(--red); transform-origin: 0 50%; transition: transform 0.5s cubic-bezier(0.33, 1, 0.68, 1); }
+/* Phones: numbers only; the step heading below says which step it is. */
+@media (max-width: 480px) { .st-step-title { display: none; } }
+
+.st-viewport { position: relative; overflow: hidden; }
+.st-on .st-viewport { transition: height 0.4s var(--ease); }
+.st:not(.st-on) .st-panel + .st-panel { margin-top: 36px; padding-top: 28px; border-top: 1px solid var(--hair); }
+.st-panel { padding: 2px; }
+.st-title { font-size: clamp(34px, 5vw, 52px); margin-top: 6px; outline: none; }
+.st-body { display: grid; gap: 18px; margin-top: 22px; }
+.st-foot { display: flex; gap: 10px; justify-content: flex-end; }
+.st-foot .st-next { flex: 1; cursor: pointer; }
+.st-foot .st-back { cursor: pointer; background: transparent; }
+.st-foot button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }

@@ -4,10 +4,12 @@ import { isAppRole, type AppRole } from "@alarsio/types";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { orgLinks } from "@/lib/dashboard/links";
-import { AuthField, AuthNotice, authButton, authInput } from "@/components/v2-form";
+import { AuthNotice } from "@/components/v2-form";
+import { timezoneOptions } from "@/lib/dashboard/org-form";
 import { FieldCanvas } from "@/components/landing/field-canvas";
 import { signOut } from "../../(auth)/actions";
 import { createOrganization } from "./actions";
+import { CreateOrgWizard } from "./create-org-wizard";
 import { anton, mono } from "../../fonts";
 import "../../landing.css";
 import "../../v2-form.css";
@@ -107,12 +109,7 @@ export default async function DashboardPage({
             <p className="au-body">
               You will be its owner. Joining someone else&apos;s? Open the invite link they sent you.
             </p>
-            <form action={createOrganization} className="db-create-form">
-              <AuthField label="Organisation name">
-                <input name="name" required maxLength={120} className={authInput} />
-              </AuthField>
-              <button type="submit" className={authButton}>Create organisation</button>
-            </form>
+            <CreateOrgWizard action={createOrganization} timezones={timezoneOptions(Intl.supportedValuesOf("timeZone"))} />
           </div>
         )}
       </main>

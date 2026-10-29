@@ -43,6 +43,11 @@
 .db-link:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
 
 /* No organisation yet */
-.db-create { max-width: 460px; }
 .db-create .au-body { margin-top: 0; }
-.db-create-form { display: grid; gap: 18px; margin-top: 28px; }
+.db-create-form { margin-top: 28px; }
+.db-create { max-width: 560px; }
+.db-fixed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 48px; padding: 12px 14px; border: 1.5px dashed var(--hair); background: transparent; }
+.db-review { display: grid; border-top: 1.5px solid var(--ink); }
+.db-review div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); }
+.db-review dd { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
+.db-next { color: var(--muted); }
