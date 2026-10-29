@@ -324,6 +324,16 @@ Unticked until a download runs end to end against the team project (#58), as wit
 
 ---
 
+## Web landing page (not a module)
+
+*The public page at `/` (docs/DESIGN.md section 4): what Alarsio does, for contractors running 2 to 20
+sites, with "Join the pilot" going to the existing sign-up. It owns no table and reads no data; a
+signed-in visitor goes to `/dashboard` as before. Every claim on it is a row above. The product frames
+are drawn in HTML from the app's real words. `lib/landing/content.test.ts` checks the anchors, the CTA
+targets and that nothing says "submitted". It adds no row and ticks none.*
+
+---
+
 ## Explicitly NOT in the MVP
 
 Do not build these. See `docs/PRD.md` §6.7 for the full list and reasoning.

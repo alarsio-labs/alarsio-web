@@ -142,8 +142,10 @@ until the pilot produces real ones.
    for example "Your site record. / Even with no signal. / Trusted at wage time." One `lead`
    sentence from the PRD promise. Four ticks: verified check-in on site · attendance in one
    tap · a five-minute daily report · wages from approved attendance. Buttons: **Join the
-   pilot** (primary) and **Sign in** (secondary). Right side: the phone's check-in screen
-   with its "On the server" chip, overlapping the owner's `/overview` in a browser frame.
+   pilot** (primary) and **See how it works** (secondary; Sign in is in the header). Right
+   side: the phone's check-in screen with its "On the server" chip, overlapping only the
+   left padding of the owner's `/overview` in a browser frame. Below 640 px the hero shows
+   the overview alone, because the phone screens follow in section 4.
 3. **Problem strip.** Three short cards on `canvas`: paper registers · WhatsApp and Excel ·
    the same record typed two or three times, then an argument at wage time.
 4. **"A day on site" tabbed panel.** Tabs: Check in · Mark attendance · Daily report ·
@@ -154,12 +156,13 @@ until the pilot produces real ones.
 6. **"From the site to the office" 2 × 2 cards:** Owner overview · Approve attendance ·
    Wage summary and export · Your data stays yours (owner export, audit log).
 7. **Roles strip.** Owner · Project manager · Supervisor · Accountant, one line each.
-8. **Dark band.** "Run 2 to 20 sites? Join the pilot." One primary button. The button opens
-   a `mailto:` link to the team mailbox until there is a form; a form that stores leads is
-   a new feature and needs its own row in FEATURES.
+8. **Dark band.** "Run 2 to 20 sites? Join the pilot." **Join the pilot** goes to `/sign-up`,
+   the existing owner sign-up, so the page collects nothing itself. A form that stores leads
+   is a new feature and needs its own row in FEATURES.
 9. **FAQ.** Four questions: does it work offline · which phones · who sees what · can I
    export my data.
-10. **Footer.** Wordmark, one sentence, links (Sign in, Privacy, Terms), copyright.
+10. **Footer.** Wordmark, one sentence, copyright. Privacy and Terms links are added once
+    those pages exist; the page never links to a page that is not there.
 
 **Route:** the page lives at `/`. A signed-in visitor goes straight to `/dashboard`.
 
@@ -168,8 +171,10 @@ until the pilot produces real ones.
 ## 5 · Rules
 
 - **Phone first.** Design at 375 px first, then widen. No horizontal scroll at any width.
-- **Real screens only.** Product images come from the running app with demo data, never
-  from a mock-up that the app cannot show.
+- **Real screens only.** A product image shows only what the app can show, with its real
+  words and states (`apps/mobile`, `/overview`) and demo data. Until there are screenshots
+  from a phone, the frames are drawn in HTML (`components/landing/screens.tsx`); when a
+  screen's words change in the app, change them there too.
 - **Performance.** No third-party scripts, trackers or chat widgets. Images in AVIF or WebP
   with fixed width and height, the hero screen loaded first and the rest lazily. Target
   Lighthouse 90 or more on mobile.
