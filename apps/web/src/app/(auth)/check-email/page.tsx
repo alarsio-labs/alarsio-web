@@ -1,15 +1,14 @@
 import Link from "next/link";
-import { AuthCard } from "@/components/form";
+import { AuthFoot, AuthHeading } from "../ui";
 
 export default function CheckEmailPage() {
   return (
-    <AuthCard title="Check your email">
-      <p className="text-neutral-700">
-        We sent a confirmation link. Open it on any device to finish, then sign in.
-      </p>
-      <p className="mt-6 text-sm">
-        <Link href="/sign-in" className="underline">Back to sign in</Link>
-      </p>
-    </AuthCard>
+    <>
+      <AuthHeading eyebrow="One more step" title="Check your email" />
+      <p className="au-body">We sent a confirmation link. Open it on any device to finish, then sign in.</p>
+      <AuthFoot>
+        <Link href="/sign-in">Back to sign in</Link>
+      </AuthFoot>
+    </>
   );
 }

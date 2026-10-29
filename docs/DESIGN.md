@@ -130,6 +130,16 @@ and unobserves on entry.
 
 ---
 
+## 2b · Sign in, sign up, check email
+
+Same tokens and fonts (`app/fonts.ts`, `landing.css`), laid out in `app/(auth)/layout.tsx`: a loam
+panel with the drifting site-grid canvas, the wordmark, "Site records with no signal" and the hero's
+mono metadata, beside the form on cream. On phones the panel is a band above the form, without the
+metadata. The form pieces are in `app/(auth)/ui.tsx`: a mono eyebrow and an Anton title, mono labels,
+48 px paper inputs with a 1.5 px ink border and zero radius, a full-width ink button, an error notice
+with a red left rule (`role="alert"`), and a hairline-ruled foot for the other link. Only these three
+pages use them; the app's pages keep `components/form.tsx` for now.
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only

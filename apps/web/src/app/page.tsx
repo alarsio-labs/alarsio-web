@@ -2,16 +2,13 @@ import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Anton, Martian_Mono } from "next/font/google";
 import { supabaseServer } from "@/lib/supabase/server";
 import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "@/lib/landing/content";
 import { LandingMotion } from "@/components/landing/landing-motion";
 import { Words } from "@/components/landing/words";
+import { anton, mono } from "./fonts";
 import "./landing.css";
 
-// Self-hosted at build time by next/font, like Inter in the layout.
-const anton = Anton({ weight: "400", subsets: ["latin"], variable: "--font-anton", display: "swap" });
-const mono = Martian_Mono({ weight: "400", subsets: ["latin"], variable: "--font-mono", display: "swap" });
 
 export const metadata: Metadata = {
   title: "Alarsio · Site records with no signal",
