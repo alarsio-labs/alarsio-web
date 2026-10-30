@@ -174,6 +174,12 @@ changed with it. `buttonClass` is full width as a Tailwind class so `sm:w-auto` 
 beside a field uses `buttonBase`, because a plain `w-auto` loses to `w-full`. The invite page moved to
 `app/(auth)/invite/[token]` (same URL) to use the sign-in layout.
 
+**Responsive and touch.** Checked at 320, 375, 768, 1024 and 1440 px on every page: no page scrolls
+sideways (wide tables scroll inside their own box). Every control is at least 44 px to tap:
+stand-alone text links get 12 px of tap area above and below (cancelled by a negative margin, so the
+layout does not move), checkboxes are 20 px inside a 44 px label, the file picker is a v2 button, and
+every button on an app page has a 44 px minimum (`v2-form.css`, `app.css`).
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only

@@ -69,3 +69,8 @@
   display: inline-flex; align-items: center; justify-content: center; min-height: 44px;
   font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
 }
+
+/* Every button on an app page is at least 44 px tall (red "Remove personal details",
+   approve and reject buttons, and any written with its own classes). :where keeps
+   this at zero specificity, so a component's own height still wins. */
+:where(.app) :where(main) :where(button) { min-height: 44px; }

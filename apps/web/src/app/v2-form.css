@@ -57,3 +57,18 @@ textarea.au-input { padding: 12px 14px; min-height: 96px; line-height: 1.5; resi
 .st-foot button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 .au-body-block { display: grid; gap: 16px; margin-top: 24px; }
+
+/* Touch targets on every app and sign-in page (docs/DESIGN.md: at least 44 px).
+   Stand-alone text links get 12 px of tap area above and below, cancelled by a
+   negative margin so the layout does not move. Links inside running text are left
+   alone. Checkboxes grow to 20 px inside a 44 px label; the file picker is a v2 button. */
+:where(.app, .au) main a.underline:not(p a, td a, li > span a) {
+  display: inline-block; padding-block: 12px; margin-block: -12px;
+}
+:where(.app, .au) main input[type="checkbox"] { width: 20px; height: 20px; accent-color: var(--ink); cursor: pointer; }
+:where(.app, .au) main label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; cursor: pointer; }
+:where(.app, .au) main input[type="file"] { min-height: 44px; font-size: 14px; }
+:where(.app, .au) main input[type="file"]::file-selector-button {
+  min-height: 44px; margin-right: 12px; padding: 0 16px; border: 1.5px solid var(--ink); background: var(--paper); color: var(--ink);
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase; cursor: pointer;
+}
