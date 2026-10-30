@@ -4,8 +4,8 @@ import { useEffect, useRef } from "react";
 import { heroField } from "./plates";
 
 // The drifting site-grid field on its own, for the sign-in pages' dark panel.
-// It animates only while on screen and the tab is visible, and draws one still
-// frame under reduced motion.
+// It animates at about 30 fps, only while on screen and the tab is visible, and
+// draws one still frame under reduced motion.
 export function FieldCanvas({ className }: { className?: string }) {
   const ref = useRef<HTMLCanvasElement>(null);
 
@@ -16,7 +16,8 @@ export function FieldCanvas({ className }: { className?: string }) {
     let size = { w: 0, h: 0 };
     let ctx: CanvasRenderingContext2D | null = null;
     const fit = () => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+      // 1x, not retina: faint strokes gain nothing from it, and it is 4x fewer pixels.
+      const dpr = 1;
       size = { w: c.clientWidth, h: c.clientHeight };
       c.width = Math.round(size.w * dpr);
       c.height = Math.round(size.h * dpr);
@@ -35,9 +36,12 @@ export function FieldCanvas({ className }: { className?: string }) {
     });
     vis.observe(c);
     let raf = 0;
+    let lastDraw = 0;
     const loop = (ms: number) => {
       raf = requestAnimationFrame(loop);
-      if (on && !document.hidden && ctx) heroField(ctx, size.w, size.h, ms / 1000);
+      if (!on || document.hidden || !ctx || ms - lastDraw < 32) return;
+      lastDraw = ms;
+      heroField(ctx, size.w, size.h, ms / 1000);
     };
     raf = requestAnimationFrame(loop);
     return () => {
