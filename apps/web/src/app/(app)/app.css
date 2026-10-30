@@ -47,10 +47,18 @@
 /* The page frame under the top bar and tabs (components/app/app-frame.tsx). */
 :where(.app) .app-body { padding-bottom: 64px; }
 .app-back {
-  display: inline-flex; align-items: center; min-height: 44px; gap: 8px;
+  display: inline-flex; align-items: center; min-height: 44px; gap: 8px; margin-bottom: 4px;
   font-family: var(--font-mono), ui-monospace, monospace; font-size: 10.5px; letter-spacing: 0.18em; text-transform: uppercase;
   color: var(--ink); text-decoration: none;
 }
+
+/* Vertical rhythm on every working screen: the page's rows sit 24 px apart on a phone
+   and 32 px apart from 768 px; the fields of a form sit 16 px apart, not 12. Unlayered,
+   so these beat the pages' gap-6 and space-y-3 utilities without editing each page. */
+@media (min-width: 768px) { :where(.app) main.gap-6 { gap: 32px; } }
+:where(.app) main :is(.space-y-3, .space-y-2) > :not(:last-child) { margin-bottom: 16px; }
+:where(.app) main .space-y-4 > :not(:last-child) { margin-bottom: 20px; }
+:where(.app) main p { line-height: 1.5; }
 .app-back:hover { color: var(--red-deep); }
 
 /* Pages' own ink buttons ("New site", "Show", "Filter") take the v2 button's mono

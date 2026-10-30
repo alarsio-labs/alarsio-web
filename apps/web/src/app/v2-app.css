@@ -46,10 +46,12 @@
 }
 
 /* Page head */
-.ax-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+/* Air around the title: 10 px under the eyebrow (12 px from 768 px), line-height 1 so
+   the descenders are never cropped, and 4 px under the head before the page's first row. */
+.ax-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; padding-bottom: 4px; }
 .ax-eyebrow { color: var(--muted); }
-.ax-title { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.02em; line-height: 0.92; font-size: 35px; margin-top: 6px; color: var(--ink); }
-@media (min-width: 768px) { .ax-title { font-size: 56px; } }
+.ax-title { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.02em; line-height: 1; font-size: 35px; margin-top: 10px; color: var(--ink); }
+@media (min-width: 768px) { .ax-title { font-size: 56px; margin-top: 12px; } }
 
 /* Buttons */
 .ax-btn {
@@ -76,19 +78,22 @@
 
 /* Cards and numbers */
 .ax-card { background: var(--paper); border: 1.5px solid var(--ink); min-width: 0; }
-.ax-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 16px 18px 0; }
+.ax-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 18px 20px 0; }
 .ax-card-title { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; font-size: 26px; line-height: 1; }
-.ax-card-body { padding: 16px 18px 18px; font-size: 15px; }
-.ax-stat { background: var(--paper); border: 1.5px solid var(--ink); padding: 14px 16px; min-width: 0; }
+.ax-card-body { padding: 18px 20px 20px; font-size: 15px; line-height: 1.5; }
+.ax-card-head + .ax-card-body { padding-top: 16px; }
+/* A line of text before a form in a card ("Find on map") sits 16 px above it. */
+.ax-card-body > :is(p, div) + form { margin-top: 16px; }
+.ax-stat { background: var(--paper); border: 1.5px solid var(--ink); padding: 16px 18px; min-width: 0; }
 .ax-stat-label { color: var(--muted); display: flex; align-items: center; gap: 8px; }
-.ax-stat-value { font-family: var(--font-anton), Impact, sans-serif; font-size: 44px; line-height: 1; margin-top: 10px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ax-stat-value { font-family: var(--font-anton), Impact, sans-serif; font-size: 44px; line-height: 1; margin-top: 12px; font-variant-numeric: tabular-nums; color: var(--ink); }
 .ax-stat-alert .ax-stat-label, .ax-stat-alert .ax-stat-value { color: var(--red-deep); }
 .ax-stat-alert .ax-stat-label::before { content: ""; width: 8px; height: 8px; background: var(--red); flex: none; }
 
 /* Tables: scroll inside the card, first column pinned, never squashed. */
 .ax-table-wrap { overflow-x: auto; }
 .ax-table { width: 100%; border-collapse: collapse; font-size: 15px; }
-.ax-table :is(th, td) { padding: 12px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--hair); }
+.ax-table :is(th, td) { padding: 12px 20px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--hair); line-height: 1.45; }
 .ax-table thead th { color: var(--muted); border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
 .ax-table tbody th { font-weight: 600; }
 .ax-table :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); box-shadow: inset -1px 0 0 var(--hair); }
@@ -117,4 +122,4 @@
 .at-list { display: grid; }
 .at-list > li { padding: 16px 0; border-top: 1px solid var(--hair); }
 .at-list > li:first-child { border-top: 0; padding-top: 0; }
-.at-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; }
+.at-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 14px; }
