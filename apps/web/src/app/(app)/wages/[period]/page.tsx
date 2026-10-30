@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
-import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { Field, buttonClass, inputClass } from "@/components/form";
+import { Button, buttonClasses } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
+import { dayLabel } from "@/lib/app/dates";
 import { readPeriod, readSummaryRows } from "@/lib/wages/read";
 import { formatIst } from "@/lib/wages/time";
 import { formatRupees, summaryTable, NUMERIC_COLUMNS } from "@/lib/wages/summary";
@@ -87,105 +93,100 @@ export default async function WagePeriodPage({
   const noRate = (summary?.rows ?? []).filter((r) => r.no_rate_days > 0);
   const exportBase = `/wages/${periodId}/export?org=${org}`;
 
+  const num = (i: number) => (NUMERIC_COLUMNS.has(i) ? "ax-num" : undefined);
+
   return (
-    <main className="mx-auto max-w-6xl px-4 py-10">
-      <Link href={`/wages?org=${org}`} className="app-back">← Wage periods</Link>
-      <h1 className="mt-4 text-2xl font-semibold">
-        {period.start_date} to {period.end_date}{" "}
-        <span className="ml-2 rounded bg-neutral-200 px-2 py-0.5 text-sm font-medium text-neutral-800">
-          {locked ? "Locked" : "Draft"}
-        </span>
-      </h1>
-      <p className="mt-2 text-sm text-neutral-600">
-        Approved attendance only. {period.calculated_at ? `Calculated ${formatIst(period.calculated_at) ?? "at an unknown time"} IST.` : "Not calculated yet."}
-      </p>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={`/wages?org=${org}`} className="app-back">← Wage periods</Link>
+        <PageHead
+          eyebrow={period.period_type === "month" ? "Monthly wage period" : "Weekly wage period"}
+          title={`${dayLabel(period.start_date)} to ${dayLabel(period.end_date)}`}
+        />
+        <p className="at-meta">
+          <StatusTag tone={locked ? "ink" : "muted"}>{locked ? "Locked" : "Draft"}</StatusTag>
+          <span>
+            Approved attendance only.{" "}
+            {period.calculated_at ? `Calculated ${formatIst(period.calculated_at) ?? "at an unknown time"} IST.` : "Not calculated yet."}
+          </span>
+        </p>
+      </div>
 
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
-      {saved && !error && <div className="mt-6"><Notice kind="info">Saved.</Notice></div>}
-      {summary && summary.dropped > 0 && (
-        <div className="mt-6">
-          <Notice kind="error">Some rows could not be shown. Reload, and tell the team if this stays.</Notice>
-        </div>
-      )}
-      {!summary && <div className="mt-6"><Notice kind="error">The summary could not be read. Reload and try again.</Notice></div>}
+      {error && <Notice kind="error">{error}</Notice>}
+      {saved && !error && <Notice kind="info">Saved.</Notice>}
+      {summary && summary.dropped > 0 && <Notice kind="error">Some rows could not be shown. Reload, and tell the team if this stays.</Notice>}
+      {!summary && <Notice kind="error">The summary could not be read. Reload and try again.</Notice>}
       {noRate.length > 0 && (
-        <div className="mt-6">
-          <Notice kind="error">
-            No rate for payable days: {noRate.map((r) => r.worker_code).join(", ")}. A rate is added on the worker&apos;s page. The
-            period cannot be locked until every payable day has one.
-          </Notice>
-        </div>
+        <Notice kind="error">
+          No rate for payable days: {noRate.map((r) => r.worker_code).join(", ")}. A rate is added on the worker&apos;s page. The
+          period cannot be locked until every payable day has one.
+        </Notice>
       )}
 
-      <div className="mt-6 flex flex-wrap items-center gap-3">
+      <div className="flex flex-wrap items-center gap-3">
         {!locked && (
           <form action={calculatePeriod}>
             <input type="hidden" name="org_id" value={org} />
             <input type="hidden" name="period_id" value={periodId} />
-            <button type="submit" className="rounded-md border border-neutral-900 px-4 py-2 font-medium hover:bg-neutral-100">
-              Calculate
-            </button>
+            <Button type="submit" variant="secondary">Calculate</Button>
           </form>
         )}
         {!locked && (
           <form action={lockPeriod}>
             <input type="hidden" name="org_id" value={org} />
             <input type="hidden" name="period_id" value={periodId} />
-            <button type="submit" className="rounded-md bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-700">
-              Lock period
-            </button>
+            <Button type="submit">Lock period</Button>
           </form>
         )}
-        <a href={`${exportBase}&format=csv`} className="text-sm underline">Download CSV</a>
-        <a href={`${exportBase}&format=xlsx`} className="text-sm underline">Download Excel</a>
+        {/* File downloads, not pages: plain links, so nothing prefetches them. */}
+        <a href={`${exportBase}&format=csv`} className={buttonClasses("secondary")}>Download CSV</a>
+        <a href={`${exportBase}&format=xlsx`} className={buttonClasses("secondary")}>Download Excel</a>
       </div>
 
-      <section className="mt-8 overflow-x-auto">
+      <Card title="Summary" id="wg-summary">
         {!table || table.body.length === 0 ? (
-          <p className="text-sm text-neutral-600">
-            No lines yet. Press Calculate to read the approved days of this period.
-          </p>
+          <p className="ax-empty">No lines yet. Press Calculate to read the approved days of this period.</p>
         ) : (
-          <table className="w-full min-w-[56rem] border-collapse text-sm">
-            <thead>
-              <tr className="border-b border-neutral-300 text-left">
-                {table.header.map((h, i) => (
-                  <th key={h} className={`px-2 py-2 font-medium ${NUMERIC_COLUMNS.has(i) ? "text-right" : ""}`}>{h}</th>
-                ))}
-              </tr>
-            </thead>
-            <tbody>
-              {table.body.map((cells, r) => (
-                <tr key={summary?.rows[r]?.worker_id ?? r} className="border-b border-neutral-200">
-                  {cells.map((c, i) => (
-                    <td key={i} className={`px-2 py-2 ${NUMERIC_COLUMNS.has(i) ? "text-right tabular-nums" : ""}`}>
-                      {i === 4 && c === "" && (summary?.rows[r]?.no_rate_days ?? 0) > 0 ? (
-                        <span className="rounded bg-red-100 px-2 py-0.5 text-xs font-medium text-red-800">no rate</span>
-                      ) : (
-                        c
-                      )}
-                    </td>
-                  ))}
+          <div className="ax-table-wrap">
+            <table className="ax-table" style={{ minWidth: 896 }}>
+              <caption className="sr-only">Wage summary for this period</caption>
+              <thead>
+                <tr>
+                  {table.header.map((h, i) => <th key={h} scope="col" className={num(i)}>{h}</th>)}
                 </tr>
-              ))}
-              <tr className="font-semibold">
-                {table.totals.map((c, i) => (
-                  <td key={i} className={`px-2 py-2 ${NUMERIC_COLUMNS.has(i) ? "text-right tabular-nums" : ""}`}>{c}</td>
+              </thead>
+              <tbody>
+                {table.body.map((cells, r) => (
+                  <tr key={summary?.rows[r]?.worker_id ?? r}>
+                    {cells.map((c, i) => {
+                      const content =
+                        i === 4 && c === "" && (summary?.rows[r]?.no_rate_days ?? 0) > 0 ? <StatusTag tone="action">No rate</StatusTag> : c;
+                      return i === 0 ? (
+                        <th key={i} scope="row" className={num(i)}>{content}</th>
+                      ) : (
+                        <td key={i} className={num(i)}>{content}</td>
+                      );
+                    })}
+                  </tr>
                 ))}
-              </tr>
-            </tbody>
-          </table>
+                <tr className="font-semibold">
+                  {table.totals.map((c, i) =>
+                    i === 0 ? <th key={i} scope="row" className={num(i)}>{c}</th> : <td key={i} className={num(i)}>{c}</td>
+                  )}
+                </tr>
+              </tbody>
+            </table>
+          </div>
         )}
-      </section>
+      </Card>
 
       {!locked && summary && summary.rows.length > 0 && (
-        <section className="mt-10 max-w-lg">
-          <h2 className="text-lg font-medium">Add an adjustment</h2>
-          <p className="mt-1 text-sm text-neutral-600">
+        <Card title="Add an adjustment" id="wg-adjust">
+          <p className="ax-empty">
             A paid leave day, an advance recovered, or a difference from a correction after a lock. It is a new row with a
             reason; it is never edited later.
           </p>
-          <form action={addAdjustment} className="mt-3 space-y-4">
+          <form action={addAdjustment} className="mt-3 max-w-lg space-y-4">
             <input type="hidden" name="org_id" value={org} />
             <input type="hidden" name="period_id" value={periodId} />
             <Field label="Worker">
@@ -203,32 +204,31 @@ export default async function WagePeriodPage({
             </Field>
             <button type="submit" className={buttonClass}>Add adjustment</button>
           </form>
-        </section>
+        </Card>
       )}
 
       {locked && (
-        <section className="mt-10">
-          <h2 className="text-lg font-medium">Attendance changed after the lock</h2>
+        <Card title="Attendance changed after the lock" id="wg-changes">
           {changesMayBeCut && (
-            <div className="mt-3">
+            <div className="mb-3">
               <Notice kind="error">
                 This list shows the first 1000 changes and may be incomplete. Ask the owner to reopen the period and recalculate it.
               </Notice>
             </div>
           )}
           {changes.length === 0 ? (
-            <p className="mt-2 text-sm text-neutral-600">Attendance still matches what this period was locked with.</p>
+            <p className="ax-empty">Attendance still matches what this period was locked with.</p>
           ) : (
             <>
-              <p className="mt-1 text-sm text-neutral-600">
+              <p className="ax-empty">
                 A locked period never changes by itself. Pay a difference as an adjustment in the next open period, or ask the
                 owner to reopen this one.
               </p>
-              <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
+              <ul className="ov-todo mt-3">
                 {changes.map((c) => (
-                  <li key={`${c.worker_id}-${c.work_date}-${c.change}`} className="flex flex-wrap justify-between gap-2 px-4 py-2">
+                  <li key={`${c.worker_id}-${c.work_date}-${c.change}`}>
                     <span>
-                      {names.get(c.worker_id) ?? "Worker"} · {c.work_date} ·{" "}
+                      {names.get(c.worker_id) ?? "Worker"} · {dayLabel(c.work_date)} ·{" "}
                       {c.change === "approved_after_lock" ? "approved after the lock" : "corrected"}
                     </span>
                     <span className="tabular-nums">
@@ -240,14 +240,13 @@ export default async function WagePeriodPage({
               </ul>
             </>
           )}
-        </section>
+        </Card>
       )}
 
       {locked && isOwner === true && (
-        <section className="mt-10 max-w-lg">
-          <h2 className="text-lg font-medium">Reopen this period</h2>
-          <p className="mt-1 text-sm text-neutral-600">Only the owner can reopen a locked period. The reason is kept.</p>
-          <form action={reopenPeriod} className="mt-3 space-y-4">
+        <Card title="Reopen this period" id="wg-reopen">
+          <p className="ax-empty">Only the owner can reopen a locked period. The reason is kept.</p>
+          <form action={reopenPeriod} className="mt-3 max-w-lg space-y-4">
             <input type="hidden" name="org_id" value={org} />
             <input type="hidden" name="period_id" value={periodId} />
             <Field label="Reason">
@@ -255,7 +254,7 @@ export default async function WagePeriodPage({
             </Field>
             <button type="submit" className={buttonClass}>Reopen period</button>
           </form>
-        </section>
+        </Card>
       )}
     </main>
   );
