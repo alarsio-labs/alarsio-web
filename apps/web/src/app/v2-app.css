@@ -94,3 +94,16 @@
 .ax-table :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); box-shadow: inset -1px 0 0 var(--hair); }
 .ax-table .ax-num { text-align: right; font-variant-numeric: tabular-nums; }
 .ax-empty { color: var(--muted); }
+
+/* A row header in a DataTable is body text, not a mono label: the theme layer in
+   app.css styles every th as mono, so this resets the ones in the body. */
+.ax-table tbody th { font-family: inherit; font-size: 15px; letter-spacing: normal; text-transform: none; color: var(--ink); }
+
+/* Overview (app/(app)/overview): two columns that stack under 900 px. */
+.ov-columns { display: grid; gap: 24px; }
+@media (min-width: 900px) { .ov-columns { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; } }
+.ov-site-status { color: var(--muted); font-weight: 400; }
+.ov-tags { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.ov-todo { display: grid; }
+.ov-todo li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--hair); }
+.ov-todo li:first-child { border-top: 0; padding-top: 0; }

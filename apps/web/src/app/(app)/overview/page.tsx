@@ -1,12 +1,19 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
-import { isSiteRow, type ReportStatus } from "@/lib/reports/rows";
+import { isSiteRow } from "@/lib/reports/rows";
 import { parseOverviewParams } from "@/lib/overview/params";
 import { isAlertRow, isApprovedDayRow, isOverviewExceptionRow, isOverviewReportRow, strictRows } from "@/lib/overview/rows";
-import { buildBoard, sortBoard, summarise, type AttendanceState } from "@/lib/overview/board";
+import { buildBoard, sortBoard, type BoardRow } from "@/lib/overview/board";
+import { DAY_WORD, eyebrowFor, needsYou, overviewStats, reportWord } from "@/lib/overview/screen";
 import { inputClass } from "@/components/form";
+import { ButtonLink } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatCard } from "@/components/app/stat-card";
+import { StatusTag } from "@/components/app/status-tag";
 
 // One day of 20 sites is 20 reports and a few exceptions; approved days are one row
 // per worker, so their cap is the one a large roster could reach. Each read is
@@ -16,21 +23,6 @@ const REPORT_LIMIT = 500;
 const EXCEPTION_LIMIT = 1000;
 const APPROVED_LIMIT = 5000;
 const ALERT_LIMIT = 1000;
-
-const ATTENDANCE_TEXT: Record<AttendanceState, string> = {
-  approved: "Attendance approved",
-  awaiting_review: "Attendance waiting for review",
-  sent_back: "Attendance sent back",
-  not_recorded: "No attendance recorded"
-};
-
-const REPORT_TEXT: Record<ReportStatus, string> = {
-  submitted: "Report filed",
-  rejected: "Report sent back",
-  reviewed: "Report reviewed"
-};
-
-const plural = (n: number, one: string, many = `${one}s`) => `${n} ${n === 1 ? one : many}`;
 
 export default async function OverviewPage({
   searchParams
@@ -52,8 +44,10 @@ export default async function OverviewPage({
   // Everything below runs as the signed-in user, and only through published views
   // (ADR-041): RLS shows an owner or project manager every site of the organisation,
   // a supervisor only theirs, an accountant no site, and nothing of another organisation.
-  const [{ data: isMember }, siteRes, reportRes, exceptionRes, approvedRes, alertRes] = await Promise.all([
+  const [{ data: isMember }, { data: isOwner }, siteRes, reportRes, exceptionRes, approvedRes, alertRes] = await Promise.all([
     supabase.rpc("is_org_member", { p_org_id: org }),
+    // Only the owner may export (export_org_data checks again); this only draws the button.
+    supabase.rpc("is_org_owner", { p_org_id: org }),
     supabase.from("site_directory").select("id, name, status").eq("org_id", org).order("name").order("id").limit(SITE_LIMIT),
     supabase
       .from("daily_report_status")
@@ -100,7 +94,8 @@ export default async function OverviewPage({
   const approvedDays = read.approvedDays ?? [];
   const alerts = read.alerts ?? [];
   const board = sortBoard(buildBoard({ sites, reports, exceptions, approvedDays, alerts }));
-  const s = summarise(board);
+  const stats = overviewStats(board);
+  const todo = needsYou(board, org, date);
   const capped = [
     sites.length === SITE_LIMIT && `${SITE_LIMIT} sites`,
     reports.length === REPORT_LIMIT && `${REPORT_LIMIT} reports`,
@@ -110,94 +105,102 @@ export default async function OverviewPage({
   ].filter((c): c is string => typeof c === "string");
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mt-4 text-2xl font-semibold">Overview</h1>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead
+        eyebrow={eyebrowFor(date)}
+        title="Overview"
+        action={isOwner === true ? <ButtonLink href={`/export?org=${org}`}>Export data</ButtonLink> : undefined}
+      />
 
-      <form method="get" className="mt-6 flex flex-wrap items-end gap-3">
+      <form method="get" className="flex flex-wrap items-end gap-3">
         <input type="hidden" name="org" value={org} />
-        <label className="text-sm">
-          Day
-          <input type="date" name="date" defaultValue={date} className={`${inputClass} mt-1`} />
+        <label className="au-field-row">
+          <span className="ax-eyebrow">Day</span>
+          <input type="date" name="date" defaultValue={date} className={inputClass} />
         </label>
-        <button type="submit" className="rounded-md bg-neutral-900 px-4 py-2 text-white hover:bg-neutral-700">Show</button>
+        <button type="submit" className="ax-btn ax-btn-secondary">Show</button>
       </form>
-      <p className="mt-2 text-xs text-neutral-500">
-        Dates are in India time (IST). Only what has reached the server is shown: a report or attendance saved on a
-        phone with no signal appears after it syncs. Low stock is the balance now, whatever the day.
-      </p>
 
       {failed ? (
-        <p className="mt-6 rounded-md bg-red-50 px-4 py-3 text-sm text-red-800">
-          This day could not be loaded. Reload the page; nothing is shown until every part has loaded.
-        </p>
+        <Notice kind="error">This day could not be loaded. Reload the page; nothing is shown until every part has loaded.</Notice>
       ) : (
-      <>
-      <dl className="mt-6 grid grid-cols-2 gap-3 text-sm sm:grid-cols-3">
-        {[
-          ["Active sites", s.activeSites],
-          ["Reports filed", s.filed],
-          ["Reports not filed", s.notFiled],
-          ["Reports sent back", s.sentBack],
-          ["No attendance recorded", s.attendanceNotRecorded],
-          ["Flagged reports", s.flagged],
-          ["Waiting for a review", s.waitingForReview]
-        ].map(([label, value]) => (
-          <div key={label} className="rounded-md border border-neutral-200 px-3 py-2">
-            <dt className="text-neutral-500">{label}</dt>
-            <dd className="text-xl font-semibold">{value}</dd>
-          </div>
-        ))}
-      </dl>
+        <>
+          {todo.length > 0 ? (
+            <Notice kind="error">
+              {todo.length === 1 ? "One thing needs you" : `${todo.length} things need you`} today. Only what has reached the server
+              is shown: a record saved on a phone with no signal appears after it syncs.
+            </Notice>
+          ) : (
+            <Notice kind="info">
+              Nothing needs you today. Only what has reached the server is shown: a record saved on a phone with no signal appears
+              after it syncs.
+            </Notice>
+          )}
 
-      {board.length === 0 ? (
-        <p className="mt-8 text-sm text-neutral-600">No sites to show for this day.</p>
-      ) : (
-        <ul className="mt-6 divide-y divide-neutral-200 rounded-md border border-neutral-200">
-          {board.map((r) => (
-            <li key={r.siteId} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-4">
-                <span className="min-w-0 truncate font-medium">
-                  {r.siteName}
-                  {r.siteStatus !== "active" && <span className="ml-2 text-xs font-normal text-neutral-500">{r.siteStatus}</span>}
-                </span>
-                <span className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                  {r.report?.seriousBlocker && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Serious blocker</span>}
-                  {r.report?.safetyIncident && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Safety incident</span>}
-                </span>
-              </div>
-              <div className="mt-1 flex flex-wrap gap-x-4 gap-y-1 text-sm text-neutral-600">
-                {r.report ? (
-                  <Link
-                    href={`/reports/${r.report.id}?org=${org}`}
-                    className={r.report.status === "rejected" ? "text-amber-800 underline" : "underline"}
-                  >
-                    {REPORT_TEXT[r.report.status]} · {r.report.headcount ?? "–"} workers
-                  </Link>
-                ) : (
-                  <span className="text-amber-800">Report not filed</span>
-                )}
-                <Link href={`/attendance?org=${org}&site=${r.siteId}&from=${date}&to=${date}&status=all`} className="underline">
-                  {ATTENDANCE_TEXT[r.attendance]}
-                </Link>
-                {r.geofenceFlags > 0 && <span>{plural(r.geofenceFlags, "geofence flag")}</span>}
-                {r.visitsNotClosed > 0 && <span>{plural(r.visitsNotClosed, "visit", "visits")} not checked out</span>}
-                {r.pendingCorrections > 0 && <span>{plural(r.pendingCorrections, "correction")} waiting</span>}
-                {r.lowStock > 0 && (
-                  <Link href={`/materials?org=${org}&site=${r.siteId}`} className="underline">
-                    {plural(r.lowStock, "material")} low or below zero
-                  </Link>
-                )}
-              </div>
-            </li>
-          ))}
-        </ul>
-      )}
-      {capped.length > 0 && (
-        <p className="mt-3 text-sm text-neutral-600">
-          Reached the limit of {capped.join(", ")}; some rows are left out, so this page may undercount.
-        </p>
-      )}
-      </>
+          <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+            <StatCard label="Active sites" value={stats.activeSites} />
+            <StatCard label="Headcount reported" value={stats.headcountReported} />
+            <StatCard label="To approve" value={stats.toApprove} alertAbove0 />
+            <StatCard label="Low stock" value={stats.lowStock} alertAbove0 />
+          </div>
+
+          <div className="ov-columns">
+            <Card title="Today by site" id="ov-sites">
+              <DataTable<BoardRow>
+                caption="Today by site"
+                rows={board}
+                rowKey={(r) => r.siteId}
+                minWidth={560}
+                empty="No sites to show for this day."
+                columns={[
+                  {
+                    key: "site",
+                    label: "Site",
+                    render: (r) => (
+                      <>
+                        {r.siteName}
+                        {r.siteStatus !== "active" && <span className="ov-site-status"> · {r.siteStatus}</span>}
+                      </>
+                    )
+                  },
+                  { key: "headcount", label: "Headcount", numeric: true, render: (r) => r.report?.headcount ?? "—" },
+                  { key: "day", label: "Day status", render: (r) => <StatusTag>{DAY_WORD[r.attendance]}</StatusTag> },
+                  {
+                    key: "report",
+                    label: "Report",
+                    render: (r) => (
+                      <span className="ov-tags">
+                        <StatusTag>{reportWord(r)}</StatusTag>
+                        {r.report?.seriousBlocker && <StatusTag tone="action">Serious blocker</StatusTag>}
+                        {r.report?.safetyIncident && <StatusTag tone="action">Safety incident</StatusTag>}
+                        {r.report?.flagged && !r.report.seriousBlocker && !r.report.safetyIncident && <StatusTag>Flagged</StatusTag>}
+                      </span>
+                    )
+                  }
+                ]}
+              />
+            </Card>
+
+            <Card title="Needs you" id="ov-todo">
+              {todo.length === 0 ? (
+                <p className="ax-empty">Nothing to act on for this day.</p>
+              ) : (
+                <ul className="ov-todo">
+                  {todo.map((t) => (
+                    <li key={t.key}>
+                      <span>{t.text}</span>
+                      <ButtonLink href={t.href} variant={t.primary ? "primary" : "secondary"}>{t.action}</ButtonLink>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </Card>
+          </div>
+
+          {capped.length > 0 && (
+            <p className="ax-empty">Reached the limit of {capped.join(", ")}; some rows are left out, so this page may undercount.</p>
+          )}
+        </>
       )}
     </main>
   );

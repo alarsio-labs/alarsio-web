@@ -347,3 +347,9 @@ Each step is a separate PR, reviewed by Ishant:
 2. **The frame and the home redirect** (with #135 and #140).
 3. **One PR per module** moving its pages to the components: Overview, Attendance, Reports,
    Sites, Materials, Workers, Wages, Team and Export.
+
+The Overview is the first module moved: `lib/overview/screen.ts` (tested) turns the existing board into
+the four stat cards, the "Today by site" table and the "Needs you" list. "Needs you" holds only what a
+manager can act on (a day or report to review, corrections, a flagged report, geofence flags or open
+visits, low stock); a sent-back report or day waits on its author and an unfiled report on the site, so
+the table shows those instead. The notice has the red rule only when something needs you.
