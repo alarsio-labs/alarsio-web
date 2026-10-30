@@ -360,3 +360,10 @@ card with the worker pinned, which is #138's fix in the shared table. Day and co
 Overview's words (`lib/attendance/screen.ts`): "Needs approval", "Approved", "Sent back", "Not started".
 Approve is the primary button and Reject the outline one; the form still sends `decision` and `reason`
 (`review-form.test.ts`).
+
+Then Sites, Materials, Daily reports, Workers, Wages, Team and Export moved the same way, one commit each:
+PageHead, Cards, DataTables with a pinned first column, and tags in ink, `red-deep` or muted. Every red
+button became an ordinary one, and each destructive action (archive a site, remove a worker's personal
+details) keeps its confirm step. A supervisor's home, Daily reports, says that reports are filed from the
+phone app. No page uses the green, amber or red chips any more; the theme layer in `app/(app)/app.css`
+now only backs anything not yet built from the components.
