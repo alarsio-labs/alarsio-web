@@ -1,5 +1,11 @@
 import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
+import { Button } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
+import type { StatusTone } from "@/lib/app/status";
 import { InviteForm } from "./invite-form";
 import { revokeInvite } from "./actions";
 
@@ -12,6 +18,10 @@ function isInviteRow(r: unknown): r is InviteRow {
   const o = r as Record<string, unknown>;
   return typeof o.id === "string" && typeof o.email === "string" && typeof o.role === "string" && typeof o.expires_at === "string";
 }
+
+// An open or accepted invite is ink; a revoked or expired one is muted. None asks
+// the owner to act, so none is red-deep.
+const INVITE_TONE: Record<string, StatusTone> = { Open: "ink", Accepted: "ink", Revoked: "muted", Expired: "muted" };
 
 function statusOf(i: InviteRow, now: number): string {
   if (i.accepted_at) return "Accepted";
@@ -52,40 +62,46 @@ export default async function TeamPage({
   const now = Date.now();
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <h1 className="mt-4 text-2xl font-semibold">{orgRow.name} · Team</h1>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead eyebrow={orgRow.name} title="Team" />
 
-      <section className="mt-8 max-w-sm">
-        <h2 className="text-lg font-medium">Invite someone</h2>
-        <div className="mt-4"><InviteForm orgId={org} /></div>
-      </section>
+      <div className="ov-columns">
+        <Card title="Invites" id="tm-invites">
+          <DataTable<InviteRow>
+            caption="Invites"
+            rows={rows}
+            rowKey={(i) => i.id}
+            minWidth={520}
+            empty="No invites yet."
+            columns={[
+              { key: "email", label: "Email", render: (i) => <span className="break-all">{i.email}</span> },
+              { key: "role", label: "Role", render: (i) => i.role.replace("_", " ") },
+              {
+                key: "status",
+                label: "Status",
+                render: (i) => {
+                  const status = statusOf(i, now);
+                  return (
+                    <span className="ov-tags items-center">
+                      <StatusTag tone={INVITE_TONE[status] ?? "ink"}>{status}</StatusTag>
+                      {status === "Open" && (
+                        <form action={revokeInvite}>
+                          <input type="hidden" name="invite_id" value={i.id} />
+                          <Button type="submit" variant="secondary">Revoke</Button>
+                        </form>
+                      )}
+                    </span>
+                  );
+                }
+              }
+            ]}
+          />
+        </Card>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">Invites</h2>
-        {rows.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">No invites yet.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200">
-            {rows.map((i) => {
-              const status = statusOf(i, now);
-              return (
-                <li key={i.id} className="flex items-center justify-between gap-4 px-4 py-3 text-sm">
-                  <span className="truncate">{i.email} <span className="text-neutral-500">· {i.role.replace("_", " ")}</span></span>
-                  <span className="flex items-center gap-3">
-                    <span className="text-neutral-600">{status}</span>
-                    {status === "Open" && (
-                      <form action={revokeInvite}>
-                        <input type="hidden" name="invite_id" value={i.id} />
-                        <button type="submit" className="underline">Revoke</button>
-                      </form>
-                    )}
-                  </span>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
+        <Card title="Invite someone" id="tm-invite">
+          <InviteForm orgId={org} />
+        </Card>
+      </div>
     </main>
   );
 }
