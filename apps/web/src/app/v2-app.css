@@ -107,3 +107,14 @@
 .ov-todo { display: grid; }
 .ov-todo li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--hair); }
 .ov-todo li:first-child { border-top: 0; padding-top: 0; }
+
+/* Attendance (app/(app)/attendance): the filter row wraps, the button sits on the
+   fields' baseline. */
+.at-filters { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); align-items: end; }
+.at-change { display: grid; gap: 4px; }
+.at-changes { display: grid; gap: 16px; margin-top: 12px; }
+@media (min-width: 640px) { .at-changes { grid-template-columns: 1fr 1fr; } }
+.at-list { display: grid; }
+.at-list > li { padding: 16px 0; border-top: 1px solid var(--hair); }
+.at-list > li:first-child { border-top: 0; padding-top: 0; }
+.at-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 10px; }

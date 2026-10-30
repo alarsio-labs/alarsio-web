@@ -353,3 +353,10 @@ the four stat cards, the "Today by site" table and the "Needs you" list. "Needs 
 manager can act on (a day or report to review, corrections, a flagged report, geofence flags or open
 visits, low stock); a sent-back report or day waits on its author and an unfiled report on the site, so
 the table shows those instead. The notice has the red rule only when something needs you.
+
+Attendance is second: the list is a `DataTable` (site, date, day status, corrections, flags) and the day
+page is Cards (review, result, exceptions, entries, corrections). The entries table scrolls inside its
+card with the worker pinned, which is #138's fix in the shared table. Day and correction tags use the
+Overview's words (`lib/attendance/screen.ts`): "Needs approval", "Approved", "Sent back", "Not started".
+Approve is the primary button and Reject the outline one; the form still sends `decision` and `reason`
+(`review-form.test.ts`).

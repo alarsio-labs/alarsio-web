@@ -5,9 +5,15 @@ import { UUID } from "@/lib/uuid";
 import { isSiteRow, rows } from "@/lib/reports/rows";
 import { parseAttendanceFilters } from "@/lib/attendance/filters";
 import { buildRows, filterRows, sortRows } from "@/lib/attendance/list";
-import { DAY_STATUS_LABEL, FLAG_LABEL } from "@/lib/attendance/labels";
+import { FLAG_LABEL } from "@/lib/attendance/labels";
 import { isDayRow, isExceptionRow } from "@/lib/attendance/rows";
+import { dayTag } from "@/lib/attendance/screen";
+import { dayLabel } from "@/lib/app/dates";
 import { inputClass } from "@/components/form";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 
 // 31 days of 20 sites is 620 days, so the day cap is never reached at the scale
 // the product is built for. Geofence and not-closed rows are many per day, so their
@@ -91,21 +97,21 @@ export default async function AttendancePage({
   ].filter((c): c is string => typeof c === "string");
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mt-4 text-2xl font-semibold">Attendance</h1>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead eyebrow={`${dayLabel(f.from)} to ${dayLabel(f.to)} · Asia/Kolkata`} title="Attendance" />
 
-      <form method="get" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+      <form method="get" className="at-filters">
         <input type="hidden" name="org" value={org} />
-        <label className="text-sm">
-          Site
-          <select name="site" defaultValue={f.site ?? ""} className={`${inputClass} mt-1`}>
+        <label className="au-field-row">
+          <span className="ax-eyebrow">Site</span>
+          <select name="site" defaultValue={f.site ?? ""} className={inputClass}>
             <option value="">All sites</option>
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
-        <label className="text-sm">
-          Show
-          <select name="status" defaultValue={f.status} className={`${inputClass} mt-1`}>
+        <label className="au-field-row">
+          <span className="ax-eyebrow">Show</span>
+          <select name="status" defaultValue={f.status} className={inputClass}>
             <option value="needs_review">Needs review</option>
             <option value="open">Not reviewed</option>
             <option value="rejected">Rejected</option>
@@ -113,58 +119,61 @@ export default async function AttendancePage({
             <option value="all">All</option>
           </select>
         </label>
-        <div className="hidden sm:block" />
-        <label className="text-sm">
-          From
-          <input type="date" name="from" defaultValue={f.from} className={`${inputClass} mt-1`} />
+        <label className="au-field-row">
+          <span className="ax-eyebrow">From</span>
+          <input type="date" name="from" defaultValue={f.from} className={inputClass} />
         </label>
-        <label className="text-sm">
-          To
-          <input type="date" name="to" defaultValue={f.to} className={`${inputClass} mt-1`} />
+        <label className="au-field-row">
+          <span className="ax-eyebrow">To</span>
+          <input type="date" name="to" defaultValue={f.to} className={inputClass} />
         </label>
-        <div className="flex items-end">
-          <button type="submit" className="rounded-md bg-neutral-900 px-4 py-2 text-white hover:bg-neutral-700">Filter</button>
-        </div>
+        <button type="submit" className="ax-btn ax-btn-secondary">Filter</button>
       </form>
-      <p className="mt-2 text-xs text-neutral-500">Dates are in India time (IST). Up to 31 days at a time.</p>
+      <p className="ax-empty">Up to 31 days at a time.</p>
 
-      {list.length === 0 ? (
-        <p className="mt-8 text-sm text-neutral-600">Nothing matches.</p>
-      ) : (
-        <ul className="mt-6 divide-y divide-neutral-200 rounded-md border border-neutral-200">
-          {list.map((r) => {
-            const body = (
-              <>
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{siteName.get(r.siteId) ?? "Site"}</span>
-                  <span className="text-sm text-neutral-500">
-                    {r.date} · {r.dayStatus ? DAY_STATUS_LABEL[r.dayStatus] : "No attendance recorded"}
-                    {r.pendingCorrections > 0 && ` · ${r.pendingCorrections} correction${r.pendingCorrections === 1 ? "" : "s"} waiting`}
-                  </span>
-                </span>
-                <span className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                  {r.flags.filter((flag) => flag !== "correction_pending").map((flag) => (
-                    <span key={flag} className="rounded bg-amber-100 px-2 py-0.5 text-amber-900">{FLAG_LABEL[flag]}</span>
-                  ))}
-                </span>
-              </>
-            );
-            return (
-              <li key={r.key}>
-                {r.dayId ? (
-                  <Link href={`/attendance/${r.dayId}?org=${org}`} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-neutral-50">
-                    {body}
-                  </Link>
+      <Card title="Days" id="at-days">
+        <DataTable
+          caption="Attendance days"
+          rows={list}
+          rowKey={(r) => r.key}
+          minWidth={720}
+          empty="Nothing matches. Widen the dates or choose All."
+          columns={[
+            {
+              key: "site",
+              label: "Site",
+              render: (r) =>
+                r.dayId ? (
+                  <Link href={`/attendance/${r.dayId}?org=${org}`} className="underline">{siteName.get(r.siteId) ?? "Site"}</Link>
                 ) : (
-                  <div className="flex items-center justify-between gap-4 px-4 py-3">{body}</div>
-                )}
-              </li>
-            );
-          })}
-        </ul>
-      )}
+                  siteName.get(r.siteId) ?? "Site"
+                )
+            },
+            { key: "date", label: "Date", render: (r) => dayLabel(r.date) },
+            { key: "day", label: "Day status", render: (r) => <StatusTag>{dayTag(r.dayStatus)}</StatusTag> },
+            {
+              key: "corrections",
+              label: "Corrections",
+              numeric: true,
+              render: (r) => (r.pendingCorrections > 0 ? <StatusTag tone="action">{`${r.pendingCorrections} waiting`}</StatusTag> : "—")
+            },
+            {
+              key: "flags",
+              label: "Flags",
+              render: (r) => {
+                const flags = r.flags.filter((flag) => flag !== "correction_pending");
+                return flags.length === 0 ? "—" : (
+                  <span className="ov-tags">
+                    {flags.map((flag) => <StatusTag key={flag} tone="action">{FLAG_LABEL[flag]}</StatusTag>)}
+                  </span>
+                );
+              }
+            }
+          ]}
+        />
+      </Card>
       {capped.length > 0 && (
-        <p className="mt-3 text-sm text-neutral-600">
+        <p className="ax-empty">
           Showing only the newest {capped.join(", ")}; older ones are left out. Narrow the dates or the site to see them.
         </p>
       )}

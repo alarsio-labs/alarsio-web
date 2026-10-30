@@ -4,13 +4,9 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { isSiteRow, rows } from "@/lib/reports/rows";
-import {
-  DAY_STATUS_LABEL,
-  ENTRY_STATUS_LABEL,
-  EXCEPTION_LABEL,
-  REVIEW_STATUS_LABEL,
-  hoursLabel
-} from "@/lib/attendance/labels";
+import { ENTRY_STATUS_LABEL, EXCEPTION_LABEL, hoursLabel } from "@/lib/attendance/labels";
+import { correctionTag, dayTag } from "@/lib/attendance/screen";
+import { eyebrowFor } from "@/lib/app/dates";
 import { canReviewCorrection, canReviewDay, recordedByViewer } from "@/lib/attendance/review";
 import { istStamp } from "@/lib/attendance/time";
 import {
@@ -22,7 +18,11 @@ import {
   type CorrectionRow,
   type EntryRow
 } from "@/lib/attendance/rows";
-import { Notice } from "@/components/form";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 import { reviewCorrection, reviewDay } from "./actions";
 import { ReviewForm } from "./review-form";
 
@@ -30,10 +30,10 @@ const text = (v: string | null) => (v && v.trim() ? v : "–");
 
 function Change({ title, status, hours, note }: { title: string; status: EntryRow["status"]; hours: EntryRow["overtime_hours"]; note: string | null }) {
   return (
-    <div className="text-sm">
-      <p className="text-xs uppercase tracking-wide text-neutral-500">{title}</p>
-      <p className="mt-1">{ENTRY_STATUS_LABEL[status]} · {hoursLabel(hours)}</p>
-      <p className="whitespace-pre-wrap text-neutral-600">Note: {text(note)}</p>
+    <div className="at-change">
+      <p className="ax-eyebrow">{title}</p>
+      <p>{ENTRY_STATUS_LABEL[status]} · {hoursLabel(hours)}</p>
+      <p className="whitespace-pre-wrap ax-empty">Note: {text(note)}</p>
     </div>
   );
 }
@@ -124,100 +124,91 @@ export default async function AttendanceDayPage({
   const error = messageFor(query.error);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href={`/attendance?org=${org}`} className="app-back">← Attendance</Link>
-      <h1 className="mt-4 text-2xl font-semibold">{site?.name ?? "Site"} · {day.attendance_date}</h1>
-      <p className="mt-1 text-sm text-neutral-600">
-        {DAY_STATUS_LABEL[day.status]} · {entries.length} {entries.length === 1 ? "entry" : "entries"}
-        {day.recorded_by === user.id && " · opened by you"}
-      </p>
+    <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={`/attendance?org=${org}`} className="app-back">← Attendance</Link>
+        <PageHead eyebrow={eyebrowFor(day.attendance_date)} title={site?.name ?? "Site"} />
+        <p className="at-meta">
+          <StatusTag>{dayTag(day.status)}</StatusTag>
+          <span>{entries.length} {entries.length === 1 ? "entry" : "entries"}</span>
+          {day.recorded_by === user.id && <span className="ax-empty">Opened by you</span>}
+        </p>
+      </div>
 
-      {error && <div className="mt-4"><Notice kind="error">{error}</Notice></div>}
+      {error && <Notice kind="error">{error}</Notice>}
 
       {day.reviewed_at && (
-        <section className="mt-6 rounded-md border border-neutral-200 p-4 text-sm">
-          <h2 className="font-medium">{day.status === "approved" ? "Approved" : "Sent back"}</h2>
-          <p className="mt-1 text-neutral-600">{istStamp(day.reviewed_at)}</p>
+        <Card title={day.status === "approved" ? "Approved" : "Sent back"} id="at-reviewed">
+          <p className="ax-empty">{istStamp(day.reviewed_at)}</p>
           <p className="mt-2 whitespace-pre-wrap">{day.review_reason ?? "No note."}</p>
-        </section>
+        </Card>
       )}
 
       {showDayReview && (
-        <section className="mt-6 rounded-md border border-neutral-200 p-4">
-          <h2 className="font-medium">Review this day</h2>
-          <p className="mt-1 text-sm text-neutral-600">
-            Approving sends it to wages. Rejecting sends it back to the supervisor and needs a reason.
-          </p>
+        <Card title="Review this day" id="at-review">
+          <p className="ax-empty">Approving sends it to wages. Rejecting sends it back to the supervisor and needs a reason.</p>
           <ReviewForm action={reviewDay} fields={{ day_id: day.id, org_id: org }} label="Reason (needed to reject, optional to approve)" />
-        </section>
+        </Card>
       )}
       {mayReview && ownDay && (day.status === "open" || day.status === "rejected") && (
-        <div className="mt-6"><Notice kind="info">You recorded this day, so someone else must review it.</Notice></div>
+        <Notice kind="info">You recorded this day, so someone else must review it.</Notice>
       )}
 
       {exceptions.length > 0 && (
-        <section className="mt-8">
-          <h2 className="text-lg font-medium">Exceptions</h2>
-          <ul className="mt-3 space-y-2">
+        <Card title="Exceptions" id="at-exceptions">
+          <ul className="at-list">
             {exceptions.map((e) => (
-              <li key={`${e.kind}:${e.source_id}`} className="rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
-                <p className="font-medium">{EXCEPTION_LABEL[e.kind]}</p>
-                {e.distance_m !== null && <p>{Math.round(Number(e.distance_m))} m from the site pin</p>}
-                {e.reason && <p className="whitespace-pre-wrap">Reason: {e.reason}</p>}
-                {e.kind === "day_rejected" && e.changed_since_review === true && <p>Entries were edited after it was sent back.</p>}
-                {e.worker_id && <p>Worker: {who(e.worker_id)}</p>}
+              <li key={`${e.kind}:${e.source_id}`}>
+                <StatusTag tone="action">{EXCEPTION_LABEL[e.kind]}</StatusTag>
+                <div className="at-change mt-2">
+                  {e.distance_m !== null && <p>{Math.round(Number(e.distance_m))} m from the site pin</p>}
+                  {e.reason && <p className="whitespace-pre-wrap">Reason: {e.reason}</p>}
+                  {e.kind === "day_rejected" && e.changed_since_review === true && <p>Entries were edited after it was sent back.</p>}
+                  {e.worker_id && <p>Worker: {who(e.worker_id)}</p>}
+                </div>
               </li>
             ))}
           </ul>
-        </section>
+        </Card>
       )}
 
-      <section className="mt-8">
-        <h2 className="text-lg font-medium">Entries</h2>
-        {entries.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">No entries recorded.</p>
-        ) : (
-          // Scrolls inside its own box on a phone, so the page never scrolls sideways (#138).
-          <div className="mt-3 overflow-x-auto">
-          <table className="w-full min-w-[32rem] text-left text-sm">
-            <thead className="text-xs uppercase tracking-wide text-neutral-500">
-              <tr><th className="py-1 pr-3">Worker</th><th className="py-1 pr-3">Status</th><th className="py-1 pr-3">Overtime</th><th className="py-1">Note</th></tr>
-            </thead>
-            <tbody className="divide-y divide-neutral-200">
-              {entries.map((e) => (
-                <tr key={e.id}>
-                  <td className="py-2 pr-3">{who(e.worker_id)}</td>
-                  <td className="py-2 pr-3">{ENTRY_STATUS_LABEL[e.status]}</td>
-                  <td className="py-2 pr-3">{hoursLabel(e.overtime_hours)}</td>
-                  <td className="whitespace-pre-wrap py-2">{text(e.note)}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-          </div>
-        )}
-      </section>
+      <Card title="Entries" id="at-entries">
+        {/* Scrolls inside its card on a phone with the worker pinned, so the page never scrolls sideways (#138). */}
+        <DataTable<EntryRow>
+          caption="Attendance entries"
+          rows={entries}
+          rowKey={(e) => e.id}
+          minWidth={560}
+          empty="No entries recorded."
+          columns={[
+            { key: "worker", label: "Worker", render: (e) => who(e.worker_id) },
+            { key: "status", label: "Status", render: (e) => ENTRY_STATUS_LABEL[e.status] },
+            { key: "overtime", label: "Overtime", numeric: true, render: (e) => hoursLabel(e.overtime_hours) },
+            { key: "note", label: "Note", render: (e) => <span className="whitespace-pre-wrap">{text(e.note)}</span> }
+          ]}
+        />
+      </Card>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">Corrections</h2>
+      <Card title="Corrections" id="at-corrections">
         {corrections.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">No corrections.</p>
+          <p className="ax-empty">No corrections.</p>
         ) : (
-          <ol className="mt-3 space-y-4">
+          <ol className="at-list">
             {corrections.map((c) => (
-              <li key={c.id} className="rounded-md border border-neutral-200 p-4 text-sm">
-                <p className="font-medium">
-                  {who(c.worker_id)} · {REVIEW_STATUS_LABEL[c.review_status]}
-                  {c.proposed_by === user.id && " · proposed by you"}
+              <li key={c.id}>
+                <p className="at-meta mt-0">
+                  <strong>{who(c.worker_id)}</strong>
+                  <StatusTag>{correctionTag(c.review_status)}</StatusTag>
+                  {c.proposed_by === user.id && <span className="ax-empty">Proposed by you</span>}
                 </p>
-                <p className="mt-1 text-neutral-600">Proposed {istStamp(c.created_at)}</p>
-                <div className="mt-3 grid gap-4 sm:grid-cols-2">
+                <p className="mt-1 ax-empty">Proposed {istStamp(c.created_at)}</p>
+                <div className="at-changes">
                   <Change title="Before" status={c.old_status} hours={c.old_overtime_hours} note={c.old_note} />
                   <Change title="Proposed" status={c.new_status} hours={c.new_overtime_hours} note={c.new_note} />
                 </div>
                 <p className="mt-3 whitespace-pre-wrap">Reason: {c.reason}</p>
                 {c.reviewed_at && (
-                  <p className="mt-2 text-neutral-600">
+                  <p className="mt-2 ax-empty">
                     {c.review_status === "approved" ? "Approved" : "Rejected"} {istStamp(c.reviewed_at)}
                     {c.review_reason && ` · ${c.review_reason}`}
                   </p>
@@ -236,7 +227,7 @@ export default async function AttendanceDayPage({
             ))}
           </ol>
         )}
-      </section>
+      </Card>
     </main>
   );
 }

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BoardRow } from "./board";
-import { eyebrowFor, needsYou, overviewStats, reportWord } from "./screen";
+import { needsYou, overviewStats, reportWord } from "./screen";
 
 const row = (over: Partial<BoardRow> = {}): BoardRow => ({
   siteId: "s1",
@@ -73,12 +73,5 @@ describe("reportWord", () => {
     expect(reportWord(row({ report: report("submitted") }))).toBe("Filed");
     expect(reportWord(row({ report: report("rejected") }))).toBe("Sent back");
     expect(reportWord(row({ report: report("reviewed") }))).toBe("Reviewed");
-  });
-});
-
-describe("eyebrowFor", () => {
-  it("names the weekday, the date and the timezone", () => {
-    expect(eyebrowFor("2026-10-30")).toBe("Fri 30 Oct · Asia/Kolkata");
-    expect(eyebrowFor("2026-01-01")).toBe("Thu 1 Jan · Asia/Kolkata");
   });
 });

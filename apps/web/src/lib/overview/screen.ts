@@ -1,5 +1,7 @@
 import type { AttendanceState, BoardRow } from "./board";
 
+export { eyebrowFor } from "@/lib/app/dates";
+
 // What the Overview screen shows (docs/DESIGN.md section 4, "Owner/PM Overview"),
 // built only from the board, which reads published views (ADR-041). No number here
 // has a source of its own: each one is a sum over the board's rows.
@@ -73,15 +75,4 @@ export function needsYou(rows: readonly BoardRow[], org: string, date: string): 
     }
   }
   return out;
-}
-
-const DAY = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-const MONTH = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
-
-/** "Thu 30 Oct · Asia/Kolkata" for a YYYY-MM-DD day. The page's days are India time. */
-export function eyebrowFor(date: string): string {
-  const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return "Asia/Kolkata";
-  const day = new Date(Date.UTC(y, m - 1, d)).getUTCDay();
-  return `${DAY[day]} ${d} ${MONTH[m - 1]} · Asia/Kolkata`;
 }
