@@ -5,18 +5,21 @@ import { DAY_RECORD } from "@/lib/landing/content";
 import { phaseOf, railOverflow, span, stageProgress } from "@/lib/landing/stage";
 import { PLATES, contours, heroField, type Draw } from "./plates";
 
-// The landing page's one scroll driver (docs/DESIGN.md section 2). It writes custom
-// properties on :root and touches DOM text only when a phase index changes. Without
-// it, or under reduced motion, the page is complete and still.
+// The landing page's one scroll driver (docs/DESIGN.md section 2). It writes each
+// stage's custom properties on that stage, only when they change, and touches DOM
+// text only when a phase index changes. Without it, or under reduced motion, the
+// page is complete and still.
 export function LandingMotion() {
   useEffect(() => {
     const root = document.documentElement;
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cleanups: (() => void)[] = [];
 
-    // Canvases: size to the box at DPR up to 2; animate only while on screen and the tab is visible.
-    const sizeCanvas = (c: HTMLCanvasElement) => {
-      const dpr = Math.min(2, window.devicePixelRatio || 1);
+    // Canvases: size to the box (still plates at DPR up to 2, the live fields at 1:
+    // faint strokes gain nothing from retina, and it is 4x fewer pixels a frame).
+    // Live fields animate only on screen, with the tab visible, at about 30 fps.
+    const sizeCanvas = (c: HTMLCanvasElement, maxDpr = 2) => {
+      const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
       const w = c.clientWidth, h = c.clientHeight;
       c.width = Math.round(w * dpr);
       c.height = Math.round(h * dpr);
@@ -43,7 +46,7 @@ export function LandingMotion() {
       const c = document.querySelector<HTMLCanvasElement>(sel);
       if (c) live.push({ c, draw, on: false });
     }
-    let sized = live.map((l) => sizeCanvas(l.c));
+    let sized = live.map((l) => sizeCanvas(l.c, 1));
     live.forEach((l, i) => {
       const s = sized[i];
       if (s?.ctx) l.draw(s.ctx, s.w, s.h, 0);
@@ -54,7 +57,7 @@ export function LandingMotion() {
     let schedule = () => {};
     const onResize = () => {
       drawStills();
-      sized = live.map((l) => sizeCanvas(l.c));
+      sized = live.map((l) => sizeCanvas(l.c, 1));
       live.forEach((l, i) => {
         const s = sized[i];
         if (s?.ctx) l.draw(s.ctx, s.w, s.h, 0);
@@ -93,9 +96,11 @@ export function LandingMotion() {
     cleanups.push(() => vis.disconnect());
 
     let raf = 0;
+    let lastDraw = 0;
     const loop = (ms: number) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden) return;
+      if (document.hidden || ms - lastDraw < 32) return;
+      lastDraw = ms;
       live.forEach((l, i) => {
         const s = sized[i];
         if (l.on && s?.ctx) l.draw(s.ctx, s.w, s.h, ms / 1000);
@@ -119,12 +124,23 @@ export function LandingMotion() {
     };
     measure();
 
-    const progress = (el: HTMLElement | null) => {
-      if (!el) return 0;
+    // Each stage's variables are written on that stage, not on :root (a change on
+    // :root restyles the whole page), only when the value changed, and only while the
+    // stage is within a screen of the viewport. Its own subtree inherits them.
+    const near = (el: HTMLElement) => {
+      const r = el.getBoundingClientRect();
+      return r.bottom > -window.innerHeight && r.top < 2 * window.innerHeight;
+    };
+    const progress = (el: HTMLElement) => {
       const r = el.getBoundingClientRect();
       return stageProgress(r.top, r.height, window.innerHeight);
     };
-    const set = (k: string, v: string) => root.style.setProperty(k, v);
+    const written = new Map<string, string>();
+    const set = (el: HTMLElement, k: string, v: string) => {
+      if (written.get(k) === v) return;
+      written.set(k, v);
+      el.style.setProperty(k, v);
+    };
 
     let phase = -1;
     let chapter = -1;
@@ -140,43 +156,51 @@ export function LandingMotion() {
     let ticking = false;
     const frame = () => {
       ticking = false;
-      const doc = document.documentElement;
-      set("--page-p", String(window.scrollY / Math.max(1, doc.scrollHeight - window.innerHeight)));
 
-      const ph = progress(hero);
-      set("--hero-type-y", `${(-90 * span(ph, 0, 0.8)).toFixed(2)}px`);
-      set("--hero-type-scale", (1 - 0.26 * span(ph, 0.1, 0.9)).toFixed(4));
-      set("--hero-type-alpha", (1 - span(ph, 0.35, 0.9)).toFixed(4));
-      set("--hero-meta-alpha", (1 - span(ph, 0, 0.4)).toFixed(4));
-
-      const pm = progress(manifesto);
-      set("--manifesto-wipe", `${(100 * span(pm, 0.08, 0.85)).toFixed(2)}%`);
-      set("--manifesto-scale", (1 + 0.05 * pm).toFixed(4));
-
-      const pr = progress(rail);
-      set("--rail-x", `${(-pr * overflow).toFixed(1)}px`);
-      set("--rail-p", pr.toFixed(4));
-
-      const pk = progress(record);
-      set("--packet-alpha", span(pk, 0, 0.12).toFixed(4));
-      set("--packet-enter", `${(38 * (1 - span(pk, 0, 0.22))).toFixed(2)}px`);
-      set("--packet-scale", (0.78 + 0.22 * span(pk, 0, 0.28)).toFixed(4));
-      set("--packet-cut", span(pk, 0.84, 0.98).toFixed(4));
-      set("--packet-meter", pk.toFixed(4));
-      set("--packet-copy-x", `${(-28 * span(pk, 0, 0.3)).toFixed(2)}px`);
-      const nextPhase = phaseOf(span(pk, 0.18, 0.82), DAY_RECORD.status.length);
-      if (nextPhase !== phase) {
-        phase = nextPhase;
-        applyPhase(phase);
+      if (hero && near(hero)) {
+        const ph = progress(hero);
+        set(hero, "--hero-type-y", `${(-90 * span(ph, 0, 0.8)).toFixed(1)}px`);
+        set(hero, "--hero-type-scale", (1 - 0.26 * span(ph, 0.1, 0.9)).toFixed(3));
+        set(hero, "--hero-type-alpha", (1 - span(ph, 0.35, 0.9)).toFixed(3));
+        set(hero, "--hero-meta-alpha", (1 - span(ph, 0, 0.4)).toFixed(3));
       }
 
-      const pw = progress(wages);
-      set("--season-y", `${(-4 + 8 * pw).toFixed(3)}%`);
-      set("--season-scale", (1.1 - 0.045 * pw).toFixed(4));
-      const nextChapter = phaseOf(pw, chapters.length || 1);
-      if (nextChapter !== chapter) {
-        chapter = nextChapter;
-        chapters.forEach((c, i) => c.classList.toggle("is-on", i === chapter));
+      if (manifesto && near(manifesto)) {
+        const pm = progress(manifesto);
+        set(manifesto, "--manifesto-wipe", `${(100 * span(pm, 0.08, 0.85)).toFixed(1)}%`);
+        set(manifesto, "--manifesto-scale", (1 + 0.05 * pm).toFixed(3));
+      }
+
+      if (rail && near(rail)) {
+        const pr = progress(rail);
+        set(rail, "--rail-x", `${(-pr * overflow).toFixed(1)}px`);
+        set(rail, "--rail-p", pr.toFixed(3));
+      }
+
+      if (record && near(record)) {
+        const pk = progress(record);
+        set(record, "--packet-alpha", span(pk, 0, 0.12).toFixed(3));
+        set(record, "--packet-enter", `${(38 * (1 - span(pk, 0, 0.22))).toFixed(1)}px`);
+        set(record, "--packet-scale", (0.78 + 0.22 * span(pk, 0, 0.28)).toFixed(3));
+        set(record, "--packet-cut", span(pk, 0.84, 0.98).toFixed(3));
+        set(record, "--packet-meter", pk.toFixed(3));
+        set(record, "--packet-copy-x", `${(-28 * span(pk, 0, 0.3)).toFixed(1)}px`);
+        const nextPhase = phaseOf(span(pk, 0.18, 0.82), DAY_RECORD.status.length);
+        if (nextPhase !== phase) {
+          phase = nextPhase;
+          applyPhase(phase);
+        }
+      }
+
+      if (wages && near(wages)) {
+        const pw = progress(wages);
+        set(wages, "--season-y", `${(-4 + 8 * pw).toFixed(2)}%`);
+        set(wages, "--season-scale", (1.1 - 0.045 * pw).toFixed(4));
+        const nextChapter = phaseOf(pw, chapters.length || 1);
+        if (nextChapter !== chapter) {
+          chapter = nextChapter;
+          chapters.forEach((c, i) => c.classList.toggle("is-on", i === chapter));
+        }
       }
     };
     schedule = () => {
