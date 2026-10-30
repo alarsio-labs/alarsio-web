@@ -7,28 +7,37 @@ const HAIR = "rgba(23,23,23,.16)";
 
 export type Draw = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
 
-/** Stage 1: short red strokes on a site grid, drifting on sines of time and index. */
+/** Stage 1: short red strokes on a site grid, drifting on sines of time and index.
+ *  Strokes are grouped into BUCKETS alpha levels and drawn as one path per level:
+ *  about 1000 stroke() calls a frame became 8 (Firefox stalled on the former). */
+const BUCKETS = 8;
+const paths: Path2D[] = [];
 export const heroField: Draw = (ctx, w, h, t) => {
   ctx.clearRect(0, 0, w, h);
   const gap = Math.max(22, Math.min(w, h) / 22);
   const cols = Math.ceil(w / gap) + 1;
   const rows = Math.ceil(h / gap) + 1;
-  ctx.lineCap = "square";
-  ctx.lineWidth = 1.5;
+  for (let b = 0; b < BUCKETS; b++) paths[b] = new Path2D();
   for (let r = 0; r < rows; r++) {
     for (let c = 0; c < cols; c++) {
       const i = r * cols + c;
-      const a = 0.05 + 0.14 * (0.5 + 0.5 * Math.sin(t * 0.6 + i * 0.37));
+      const level = 0.5 + 0.5 * Math.sin(t * 0.6 + i * 0.37);
       const ang = Math.sin(t * 0.25 + c * 0.21 + r * 0.13) * 0.5;
       const len = gap * (0.28 + 0.12 * Math.sin(t * 0.4 + i));
       const x = c * gap + Math.sin(t * 0.3 + r) * 2;
       const y = r * gap;
-      ctx.strokeStyle = `rgba(239,73,60,${a.toFixed(3)})`;
-      ctx.beginPath();
-      ctx.moveTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len);
-      ctx.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
-      ctx.stroke();
+      const path = paths[Math.min(BUCKETS - 1, Math.floor(level * BUCKETS))];
+      path?.moveTo(x - Math.cos(ang) * len, y - Math.sin(ang) * len);
+      path?.lineTo(x + Math.cos(ang) * len, y + Math.sin(ang) * len);
     }
+  }
+  ctx.lineCap = "square";
+  ctx.lineWidth = 1.5;
+  for (let b = 0; b < BUCKETS; b++) {
+    const path = paths[b];
+    if (!path) continue;
+    ctx.strokeStyle = `rgba(239,73,60,${(0.05 + 0.14 * ((b + 0.5) / BUCKETS)).toFixed(3)})`;
+    ctx.stroke(path);
   }
 };
 
@@ -41,7 +50,7 @@ export const contours: Draw = (ctx, w, h, t) => {
     ctx.strokeStyle = k % 5 === 4 ? RED : HAIR;
     ctx.lineWidth = k % 5 === 4 ? 1.5 : 1;
     ctx.beginPath();
-    for (let x = 0; x <= w; x += 8) {
+    for (let x = 0; x <= w; x += 16) {
       const y = base + Math.sin(x / 140 + k * 0.4 + t * 0.15) * 14 + Math.sin(x / 520 + k * 0.17 - t * 0.05) * 26;
       if (x === 0) ctx.moveTo(x, y);
       else ctx.lineTo(x, y);
