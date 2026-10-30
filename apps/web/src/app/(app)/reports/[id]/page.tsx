@@ -4,17 +4,17 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { canMarkReviewed, MAX_REVIEW_NOTE, MAX_SEND_BACK_REASON } from "@/lib/reports/review";
 import { UUID, isPhotoRow, isReportRow, isRevisionRow, isSiteRow, rows } from "@/lib/reports/rows";
-import { Notice, buttonClass, inputClass } from "@/components/form";
+import { inputClass } from "@/components/form";
+import { Button } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
+import { eyebrowFor } from "@/lib/app/dates";
+import { reportTag } from "@/lib/reports/screen";
 import { reviewReport, sendBackReport } from "./actions";
 
 const PHOTO_URL_SECONDS = 300;
-
-// "rejected" is shown as "Sent back" (ADR-042 D1). A draft never reaches this page.
-const STATUS_LABEL: Record<string, string> = {
-  submitted: "Not reviewed",
-  rejected: "Sent back",
-  reviewed: "Reviewed"
-};
 
 // The server's own time zone is not the viewer's, so say which one this is.
 // Days are UTC throughout (ADR-025 W4).
@@ -23,9 +23,9 @@ const stamp = (iso: string) =>
 
 function Block({ title, text }: { title: string; text: string | null }) {
   return (
-    <div className="mt-4">
-      <h3 className="text-sm font-medium text-neutral-700">{title}</h3>
-      <p className="mt-1 whitespace-pre-wrap text-sm">{text && text.trim() ? text : "–"}</p>
+    <div className="at-change mt-4 first:mt-0">
+      <h3 className="ax-eyebrow">{title}</h3>
+      <p className="whitespace-pre-wrap">{text && text.trim() ? text : "–"}</p>
     </div>
   );
 }
@@ -95,102 +95,100 @@ export default async function ReportPage({
     viewerId: user.id
   });
 
+  // A draft never reaches this page.
+  const tag = reportTag(report.status);
+
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-      <Link href={`/reports?org=${org}`} className="app-back">← Daily reports</Link>
-      <h1 className="mt-4 text-2xl font-semibold">{site?.name ?? "Site"} · {report.report_date}</h1>
-      <p className="mt-1 text-sm text-neutral-600">
-        {STATUS_LABEL[report.status] ?? "Not reviewed"} · {report.headcount ?? "–"} workers
-        {report.author_id === user.id && " · filed by you"}
-      </p>
-
-      {error && <div className="mt-4"><Notice kind="error">{error}</Notice></div>}
-
-      <div className="mt-4 flex flex-wrap gap-2 text-xs">
-        {report.serious_blocker && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Serious blocker</span>}
-        {report.safety_incident && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Safety incident</span>}
+    <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={`/reports?org=${org}`} className="app-back">← Daily reports</Link>
+        <PageHead eyebrow={eyebrowFor(report.report_date)} title={site?.name ?? "Site"} />
+        <p className="at-meta">
+          <StatusTag tone={tag.tone}>{tag.word}</StatusTag>
+          {report.serious_blocker && <StatusTag tone="action">Serious blocker</StatusTag>}
+          {report.safety_incident && <StatusTag tone="action">Safety incident</StatusTag>}
+          <span>{report.headcount ?? "–"} workers</span>
+          {report.author_id === user.id && <span className="ax-empty">Filed by you</span>}
+        </p>
       </div>
 
-      <Block title="Work done" text={report.work_done} />
-      <Block title="Blockers" text={report.blockers} />
-      <Block title="Next-day plan" text={report.next_day_plan} />
+      {error && <Notice kind="error">{error}</Notice>}
+
+      <Card title="Report" id="rp-report">
+        <Block title="Work done" text={report.work_done} />
+        <Block title="Blockers" text={report.blockers} />
+        <Block title="Next-day plan" text={report.next_day_plan} />
+      </Card>
 
       {report.reviewed_at && (
-        <section
-          className={`mt-6 rounded-md border p-4 text-sm ${report.status === "rejected" ? "border-amber-300 bg-amber-50" : "border-neutral-200"}`}
-        >
-          <h2 className="font-medium">{report.status === "rejected" ? "Sent back" : "Review"}</h2>
-          <p className="mt-1 text-neutral-600">{stamp(report.reviewed_at)}</p>
+        <Card title={report.status === "rejected" ? "Sent back" : "Review"} id="rp-reviewed">
+          <p className="ax-empty">{stamp(report.reviewed_at)}</p>
           <p className="mt-2 whitespace-pre-wrap">{report.review_note ?? "No note."}</p>
           {report.status === "rejected" && report.author_id === user.id && (
-            <p className="mt-2 text-neutral-700">Fix the report on your phone and give a reason to send it again.</p>
+            <div className="mt-3"><Notice kind="info">Fix the report on your phone and give a reason to send it again.</Notice></div>
           )}
-        </section>
+        </Card>
       )}
 
       {showReview && (
-        <form action={reviewReport} className="mt-6 space-y-3">
-          <input type="hidden" name="report_id" value={report.id} />
-          <input type="hidden" name="org_id" value={org} />
-          <label className="block text-sm font-medium text-neutral-700">
-            Review note (optional)
-            <textarea name="note" maxLength={MAX_REVIEW_NOTE} rows={3} className={`${inputClass} mt-1`} />
-          </label>
-          <button type="submit" className={buttonClass}>Mark reviewed</button>
-        </form>
+        <Card title="Review" id="rp-review">
+          <form action={reviewReport} className="space-y-3">
+            <input type="hidden" name="report_id" value={report.id} />
+            <input type="hidden" name="org_id" value={org} />
+            <label className="au-field-row">
+              <span className="ax-eyebrow">Review note (optional)</span>
+              <textarea name="note" maxLength={MAX_REVIEW_NOTE} rows={3} className={inputClass} />
+            </label>
+            <Button type="submit">Mark reviewed</Button>
+          </form>
+
+          <form action={sendBackReport} className="mt-6 space-y-3 border-t border-neutral-200 pt-6">
+            <input type="hidden" name="report_id" value={report.id} />
+            <input type="hidden" name="org_id" value={org} />
+            <label className="au-field-row">
+              <span className="ax-eyebrow">Reason to send it back (required)</span>
+              <textarea name="reason" required maxLength={MAX_SEND_BACK_REASON} rows={3} className={inputClass} />
+            </label>
+            <p className="ax-empty">The author sees this reason, fixes the report and sends it again with a reason of their own.</p>
+            <Button type="submit" variant="secondary">Send back</Button>
+          </form>
+        </Card>
       )}
 
-      {showReview && (
-        <form action={sendBackReport} className="mt-6 space-y-3 border-t border-neutral-200 pt-6">
-          <input type="hidden" name="report_id" value={report.id} />
-          <input type="hidden" name="org_id" value={org} />
-          <label className="block text-sm font-medium text-neutral-700">
-            Reason to send it back (required)
-            <textarea name="reason" required maxLength={MAX_SEND_BACK_REASON} rows={3} className={`${inputClass} mt-1`} />
-          </label>
-          <p className="text-xs text-neutral-500">The author sees this reason, fixes the report and sends it again with a reason of their own.</p>
-          <button type="submit" className="rounded-md border border-neutral-900 px-4 py-2 hover:bg-neutral-100">Send back</button>
-        </form>
-      )}
-
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">Photos</h2>
+      <Card title="Photos" id="rp-photos">
         {signed.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">No photos.</p>
+          <p className="ax-empty">No photos.</p>
         ) : (
-          <ul className="mt-3 grid grid-cols-2 gap-3">
+          <ul className="grid grid-cols-2 gap-3 sm:grid-cols-3">
             {signed.map((p) => (
-              <li key={p.id} className="text-sm">
+              <li key={p.id}>
                 {p.url ? (
-                  <img src={p.url} alt={p.caption ?? "Report photo"} className="w-full rounded-md border border-neutral-200" />
+                  <img src={p.url} alt={p.caption ?? "Report photo"} className="w-full border border-neutral-200" />
                 ) : (
-                  <div className="rounded-md border border-dashed border-neutral-300 p-6 text-neutral-500">Uploading from the phone</div>
+                  <div className="border border-dashed border-neutral-300 p-6 ax-empty">Uploading from the phone</div>
                 )}
-                {p.caption && <p className="mt-1 text-neutral-600">{p.caption}</p>}
+                {p.caption && <p className="mt-1 ax-empty">{p.caption}</p>}
               </li>
             ))}
           </ul>
         )}
-      </section>
+      </Card>
 
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">History</h2>
+      <Card title="History" id="rp-history">
         {revisions.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">Never edited after it was submitted.</p>
+          <p className="ax-empty">Never edited after it was submitted.</p>
         ) : (
-          <ol className="mt-3 space-y-4">
+          <ol className="at-list">
             {revisions.map((r) => (
-              <li key={r.id} className="rounded-md border border-neutral-200 p-4 text-sm">
-                <p className="font-medium">
-                  Edit {r.revision_no} · {stamp(r.edited_at)}
-                </p>
+              <li key={r.id}>
+                <p className="font-semibold">Edit {r.revision_no} · {stamp(r.edited_at)}</p>
                 {r.sent_back_reason && (
-                  <p className="mt-1 text-neutral-600">
+                  <p className="mt-1 ax-empty">
                     Answers the send-back{r.sent_back_at && ` of ${stamp(r.sent_back_at)}`}: {r.sent_back_reason}
                   </p>
                 )}
-                <p className="mt-1 text-neutral-600">Reason: {r.reason}</p>
-                <p className="mt-2 text-xs uppercase tracking-wide text-neutral-500">Before this edit</p>
+                <p className="mt-1 ax-empty">Reason: {r.reason}</p>
+                <p className="mt-3 ax-eyebrow">Before this edit</p>
                 <p className="mt-1">{r.headcount ?? "–"} workers{r.serious_blocker && " · serious blocker"}{r.safety_incident && " · safety incident"}</p>
                 <Block title="Work done" text={r.work_done} />
                 <Block title="Blockers" text={r.blockers} />
@@ -199,7 +197,7 @@ export default async function ReportPage({
             ))}
           </ol>
         )}
-      </section>
+      </Card>
     </main>
   );
 }

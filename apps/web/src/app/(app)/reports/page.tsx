@@ -4,7 +4,14 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { parseReportFilters } from "@/lib/reports/filters";
 import { sortReports } from "@/lib/reports/order";
 import { UUID, isReportStatusRow, isSiteRow, rows } from "@/lib/reports/rows";
+import { reportTag } from "@/lib/reports/screen";
+import { dayLabel } from "@/lib/app/dates";
 import { inputClass } from "@/components/form";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 
 const LIMIT = 200;
 
@@ -40,8 +47,11 @@ export default async function ReportsPage({
   if (f.flaggedOnly) query = query.eq("flagged", true);
 
   // Membership through Identity's published predicate, not its tables.
-  const [{ data: isMember }, { data: siteData }, { data: reportData }] = await Promise.all([
+  const [{ data: isMember }, { data: canManage }, { data: siteData }, { data: reportData }] = await Promise.all([
     supabase.rpc("is_org_member", { p_org_id: org }),
+    // A member who cannot manage sites here is a supervisor (an accountant has no Reports
+    // tab): their home is this page, and capture is on the phone (DESIGN.md section 4).
+    supabase.rpc("can_manage_sites", { p_org_id: org }),
     supabase.from("site_directory").select("id, name, status").eq("org_id", org).order("name"),
     query
   ]);
@@ -51,73 +61,78 @@ export default async function ReportsPage({
   const siteName = new Map(sites.map((s) => [s.id, s.name]));
   const reports = sortReports(rows(reportData, isReportStatusRow));
 
-  return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mt-4 text-2xl font-semibold">Daily reports</h1>
+  type Report = (typeof reports)[number];
 
-      <form method="get" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
+  return (
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead eyebrow={`${dayLabel(f.from)} to ${dayLabel(f.to)} · Asia/Kolkata`} title="Daily reports" />
+      {canManage === false && (
+        <Notice kind="info">Daily reports are filed from the Alarsio phone app. Here you can read yours and see what a manager said.</Notice>
+      )}
+
+      <form method="get" className="at-filters">
         <input type="hidden" name="org" value={org} />
-        <label className="text-sm">
-          Site
-          <select name="site" defaultValue={f.site ?? ""} className={`${inputClass} mt-1`}>
+        <label className="au-field-row">
+          <span className="ax-eyebrow">Site</span>
+          <select name="site" defaultValue={f.site ?? ""} className={inputClass}>
             <option value="">All sites</option>
             {sites.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
           </select>
         </label>
-        <label className="text-sm">
-          Status
-          <select name="status" defaultValue={f.status} className={`${inputClass} mt-1`}>
+        <label className="au-field-row">
+          <span className="ax-eyebrow">Status</span>
+          <select name="status" defaultValue={f.status} className={inputClass}>
             <option value="all">All</option>
             <option value="submitted">Not reviewed</option>
             <option value="rejected">Sent back</option>
             <option value="reviewed">Reviewed</option>
           </select>
         </label>
-        <label className="flex items-end gap-2 pb-2 text-sm">
+        <label className="au-field-row">
+          <span className="ax-eyebrow">From</span>
+          <input type="date" name="from" defaultValue={f.from} className={inputClass} />
+        </label>
+        <label className="au-field-row">
+          <span className="ax-eyebrow">To</span>
+          <input type="date" name="to" defaultValue={f.to} className={inputClass} />
+        </label>
+        <label>
           <input type="checkbox" name="flagged" value="1" defaultChecked={f.flaggedOnly} /> Flagged only
         </label>
-        <label className="text-sm">
-          From
-          <input type="date" name="from" defaultValue={f.from} className={`${inputClass} mt-1`} />
-        </label>
-        <label className="text-sm">
-          To
-          <input type="date" name="to" defaultValue={f.to} className={`${inputClass} mt-1`} />
-        </label>
-        <div className="flex items-end">
-          <button type="submit" className="rounded-md bg-neutral-900 px-4 py-2 text-white hover:bg-neutral-700">Filter</button>
-        </div>
+        <button type="submit" className="ax-btn ax-btn-secondary">Filter</button>
       </form>
-      <p className="mt-2 text-xs text-neutral-500">Up to 31 days at a time.</p>
+      <p className="ax-empty">Up to 31 days at a time.</p>
 
-      {reports.length === 0 ? (
-        <p className="mt-8 text-sm text-neutral-600">No reports match.</p>
-      ) : (
-        <ul className="mt-6 divide-y divide-neutral-200 rounded-md border border-neutral-200">
-          {reports.map((r) => (
-            <li key={r.id}>
-              <Link href={`/reports/${r.id}?org=${org}`} className="flex items-center justify-between gap-4 px-4 py-3 hover:bg-neutral-50">
-                <span className="min-w-0">
-                  <span className="block truncate font-medium">{siteName.get(r.site_id) ?? "Site"}</span>
-                  <span className="text-sm text-neutral-500">
-                    {r.report_date} · {r.headcount ?? "–"} workers · {r.photo_count} photo{r.photo_count === 1 ? "" : "s"}
+      <Card title="Reports" id="rp-list">
+        <DataTable<Report>
+          caption="Daily reports"
+          rows={reports}
+          rowKey={(r) => r.id}
+          minWidth={760}
+          empty="No reports match."
+          columns={[
+            { key: "site", label: "Site", render: (r) => <Link href={`/reports/${r.id}?org=${org}`} className="underline">{siteName.get(r.site_id) ?? "Site"}</Link> },
+            { key: "date", label: "Date", render: (r) => dayLabel(r.report_date) },
+            { key: "headcount", label: "Headcount", numeric: true, render: (r) => r.headcount ?? "—" },
+            { key: "photos", label: "Photos", numeric: true, render: (r) => r.photo_count },
+            {
+              key: "status",
+              label: "Status",
+              render: (r) => {
+                const t = reportTag(r.status);
+                return (
+                  <span className="ov-tags">
+                    <StatusTag tone={t.tone}>{t.word}</StatusTag>
+                    {r.serious_blocker && <StatusTag tone="action">Serious blocker</StatusTag>}
+                    {r.safety_incident && <StatusTag tone="action">Safety incident</StatusTag>}
                   </span>
-                </span>
-                <span className="flex flex-wrap items-center justify-end gap-2 text-xs">
-                  {r.serious_blocker && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Serious blocker</span>}
-                  {r.safety_incident && <span className="rounded bg-red-100 px-2 py-0.5 text-red-800">Safety incident</span>}
-                  <span className={r.status === "rejected" ? "text-amber-800" : "text-neutral-600"}>
-                    {r.status === "reviewed" ? "Reviewed" : r.status === "rejected" ? "Sent back" : "Not reviewed"}
-                  </span>
-                </span>
-              </Link>
-            </li>
-          ))}
-        </ul>
-      )}
-      {reports.length === LIMIT && (
-        <p className="mt-3 text-sm text-neutral-600">Showing the first {LIMIT}. Narrow the filters to see the rest.</p>
-      )}
+                );
+              }
+            }
+          ]}
+        />
+      </Card>
+      {reports.length === LIMIT && <p className="ax-empty">Showing the first {LIMIT}. Narrow the filters to see the rest.</p>}
     </main>
   );
 }
