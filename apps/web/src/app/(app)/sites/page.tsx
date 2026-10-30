@@ -60,7 +60,7 @@ export default async function SitesPage({
   const notice = params.archived === "1" ? "Site archived." : params.saved === "1" ? "Saved." : null;
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
+    <main className="mx-auto max-w-5xl px-4 py-10">
       <Link href="/dashboard" className="app-back">← Dashboard</Link>
       <div className="mt-4 flex items-center justify-between gap-3">
         <h1 className="text-2xl font-semibold">Sites</h1>

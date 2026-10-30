@@ -180,6 +180,11 @@ stand-alone text links get 12 px of tap area above and below (cancelled by a neg
 layout does not move), checkboxes are 20 px inside a 44 px label, the file picker is a v2 button, and
 every button on an app page has a 44 px minimum (`v2-form.css`, `app.css`).
 
+**Width.** List and table pages (overview, reports, attendance, workers, materials, sites, wages) use up
+to 1024 px (`max-w-5xl`); forms and detail pages stay at 576 to 768 px, because long input lines are
+harder to read. **Wide tables** scroll inside their own box with the first column pinned (`position:
+sticky`, its own ground and a 1 px line on its right edge), so a row's name or code stays in view.
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only

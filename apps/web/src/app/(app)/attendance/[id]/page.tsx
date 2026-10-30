@@ -177,7 +177,9 @@ export default async function AttendanceDayPage({
         {entries.length === 0 ? (
           <p className="mt-2 text-sm text-neutral-600">No entries recorded.</p>
         ) : (
-          <table className="mt-3 w-full text-left text-sm">
+          // Scrolls inside its own box on a phone, so the page never scrolls sideways (#138).
+          <div className="mt-3 overflow-x-auto">
+          <table className="w-full min-w-[32rem] text-left text-sm">
             <thead className="text-xs uppercase tracking-wide text-neutral-500">
               <tr><th className="py-1 pr-3">Worker</th><th className="py-1 pr-3">Status</th><th className="py-1 pr-3">Overtime</th><th className="py-1">Note</th></tr>
             </thead>
@@ -192,6 +194,7 @@ export default async function AttendanceDayPage({
               ))}
             </tbody>
           </table>
+          </div>
         )}
       </section>
 
@@ -208,7 +211,7 @@ export default async function AttendanceDayPage({
                   {c.proposed_by === user.id && " · proposed by you"}
                 </p>
                 <p className="mt-1 text-neutral-600">Proposed {istStamp(c.created_at)}</p>
-                <div className="mt-3 grid grid-cols-2 gap-4">
+                <div className="mt-3 grid gap-4 sm:grid-cols-2">
                   <Change title="Before" status={c.old_status} hours={c.old_overtime_hours} note={c.old_note} />
                   <Change title="Proposed" status={c.new_status} hours={c.new_overtime_hours} note={c.new_note} />
                 </div>

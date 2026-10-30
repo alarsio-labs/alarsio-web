@@ -74,3 +74,13 @@
    approve and reject buttons, and any written with its own classes). :where keeps
    this at zero specificity, so a component's own height still wins. */
 :where(.app) :where(main) :where(button) { min-height: 44px; }
+
+/* Wide tables on narrow screens scroll inside their own box (.overflow-x-auto); the
+   first column stays pinned so every row keeps its name or code in view. The pinned
+   cell needs a ground of its own, and a hairline on its right edge marks the seam. */
+:where(.app) main .overflow-x-auto > table :is(th, td):first-child {
+  position: sticky; left: 0; z-index: 1;
+  background: var(--cream);
+  box-shadow: inset -1px 0 0 var(--color-neutral-200);
+}
+:where(.app) main .overflow-x-auto > table thead.bg-neutral-50 :is(th, td):first-child { background: var(--color-neutral-50); }
