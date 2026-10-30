@@ -1,35 +1,32 @@
 import Link from "next/link";
 import { messageFor } from "@/lib/messages";
-import { Notice } from "@/components/form";
 import { toSiteRecord, type SiteRecord } from "@/lib/sites/rows";
+import { siteTag } from "@/lib/sites/screen";
+import { ButtonLink } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 import { requireSiteManager } from "./guard";
 
 const LIMIT = 500;
 
-const STATUS_TONE: Record<SiteRecord["status"], string> = {
-  planned: "bg-neutral-100 text-neutral-800",
-  active: "bg-green-100 text-green-800",
-  paused: "bg-amber-100 text-amber-800",
-  completed: "bg-blue-100 text-blue-800",
-  archived: "bg-neutral-200 text-neutral-600"
-};
-
-function SiteList({ org, sites }: { org: string; sites: SiteRecord[] }) {
+function SiteTable({ org, sites, caption }: { org: string; sites: SiteRecord[]; caption: string }) {
   return (
-    <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200">
-      {sites.map((s) => (
-        <li key={s.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
-          <span>
-            <Link href={`/sites/${s.id}?org=${org}`} className="font-medium underline">{s.name}</Link>
-            <span className="mt-0.5 block text-neutral-600">{s.address}</span>
-          </span>
-          <span className="flex shrink-0 flex-col items-end gap-1">
-            <span className={`rounded px-2 py-0.5 text-xs font-medium ${STATUS_TONE[s.status]}`}>{s.status}</span>
-            <span className="text-xs text-neutral-500">{s.geofence_radius_m} m radius</span>
-          </span>
-        </li>
-      ))}
-    </ul>
+    <DataTable<SiteRecord>
+      caption={caption}
+      rows={sites}
+      rowKey={(s) => s.id}
+      minWidth={640}
+      empty="None."
+      columns={[
+        { key: "name", label: "Site", render: (s) => <Link href={`/sites/${s.id}?org=${org}`} className="underline">{s.name}</Link> },
+        { key: "address", label: "Address", render: (s) => s.address },
+        { key: "status", label: "Status", render: (s) => { const t = siteTag(s.status); return <StatusTag tone={t.tone}>{t.word}</StatusTag>; } },
+        { key: "radius", label: "Geofence", numeric: true, render: (s) => `${s.geofence_radius_m} m` }
+      ]}
+    />
   );
 }
 
@@ -60,41 +57,30 @@ export default async function SitesPage({
   const notice = params.archived === "1" ? "Site archived." : params.saved === "1" ? "Saved." : null;
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <div className="mt-4 flex items-center justify-between gap-3">
-        <h1 className="text-2xl font-semibold">Sites</h1>
-        <Link href={`/sites/new?org=${org}`} className="rounded-md bg-neutral-900 px-4 py-2 text-sm font-medium text-white hover:bg-neutral-700">
-          New site
-        </Link>
-      </div>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead eyebrow={`${live.length} ${live.length === 1 ? "site" : "sites"} · ${archived.length} archived`} title="Sites" action={<ButtonLink href={`/sites/new?org=${org}`}>New site</ButtonLink>} />
 
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
-      {notice && !error && <div className="mt-6"><Notice kind="info">{notice}</Notice></div>}
-      {dropped > 0 && (
-        <div className="mt-6">
-          <Notice kind="error">Some sites could not be shown. Reload, and tell the team if this stays.</Notice>
-        </div>
-      )}
+      {error && <Notice kind="error">{error}</Notice>}
+      {notice && !error && <Notice kind="info">{notice}</Notice>}
+      {dropped > 0 && <Notice kind="error">Some sites could not be shown. Reload, and tell the team if this stays.</Notice>}
 
-      <section className="mt-8">
-        <h2 className="text-lg font-medium">Sites ({live.length})</h2>
+      <Card title={`Sites (${live.length})`} id="si-live">
         {live.length === 0 ? (
           // A failed read says so in the notice above; it must not read as an empty organisation.
-          !readError && <p className="mt-2 text-sm text-neutral-600">No sites yet. Create the first one.</p>
+          !readError && <p className="ax-empty">No sites yet. Create the first one.</p>
         ) : (
-          <SiteList org={org} sites={live} />
+          <SiteTable org={org} sites={live} caption="Sites" />
         )}
-      </section>
+      </Card>
 
       {archived.length > 0 && (
-        <section className="mt-10">
-          <h2 className="text-lg font-medium">Archived ({archived.length})</h2>
-          <p className="mt-1 text-sm text-neutral-600">Archived sites are read-only and keep their history.</p>
-          <SiteList org={org} sites={archived} />
-        </section>
+        <Card title={`Archived (${archived.length})`} id="si-archived">
+          <p className="ax-empty mb-3">Archived sites are read-only and keep their history.</p>
+          <SiteTable org={org} sites={archived} caption="Archived sites" />
+        </Card>
       )}
 
-      {raw.length >= LIMIT && <p className="mt-4 text-sm text-neutral-600">Showing the first {LIMIT} sites.</p>}
+      {raw.length >= LIMIT && <p className="ax-empty">Showing the first {LIMIT} sites.</p>}
     </main>
   );
 }

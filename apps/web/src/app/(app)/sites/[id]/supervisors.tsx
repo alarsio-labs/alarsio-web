@@ -1,4 +1,7 @@
-import { Notice, buttonBase, inputClass } from "@/components/form";
+import { inputClass } from "@/components/form";
+import { Button } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
 import {
   HISTORY_LIMIT,
   eligibleSupervisors,
@@ -28,8 +31,7 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
   const eligible = members && !archived ? eligibleSupervisors(members, open) : [];
 
   return (
-    <section className="mt-10">
-      <h2 className="text-lg font-medium">Supervisors</h2>
+    <Card title="Supervisors" id="si-supervisors">
 
       {members === null && (
         <div className="mt-3">
@@ -40,9 +42,9 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
       {open.length === 0 ? (
         <p className="mt-2 text-sm text-neutral-600">Nobody is assigned to this site.</p>
       ) : (
-        <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200">
+        <ul className="ov-todo mt-3">
           {open.map((a) => (
-            <li key={a.id} className="flex items-start justify-between gap-3 px-4 py-3 text-sm">
+            <li key={a.id}>
               <span>
                 <span className="font-medium">{who(a.user_id)}</span>
                 {roleOf(known, a.user_id) && <span className="text-neutral-500"> · {roleOf(known, a.user_id)}</span>}
@@ -55,7 +57,7 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
                   <input type="hidden" name="org_id" value={org} />
                   <input type="hidden" name="site_id" value={siteId} />
                   <input type="hidden" name="assignment_id" value={a.id} />
-                  <button type="submit" aria-label={`Remove ${who(a.user_id)}`} className="text-sm text-red-700 underline">Remove</button>
+                  <Button type="submit" variant="secondary" aria-label={`Remove ${who(a.user_id)}`}>Remove</Button>
                 </form>
               )}
             </li>
@@ -64,19 +66,19 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
       )}
 
       {!archived && eligible.length > 0 && (
-        <form action={assignSupervisor} className="mt-4 flex items-end gap-3">
+        <form action={assignSupervisor} className="mt-4 flex flex-wrap items-end gap-3">
           <input type="hidden" name="org_id" value={org} />
           <input type="hidden" name="site_id" value={siteId} />
-          <label className="flex-1 text-sm font-medium text-neutral-700">
-            Assign a supervisor
-            <select name="user_id" required defaultValue="" className={`${inputClass} mt-1`}>
+          <label className="au-field-row min-w-0 flex-1">
+            <span className="ax-eyebrow">Assign a supervisor</span>
+            <select name="user_id" required defaultValue="" className={inputClass}>
               <option value="" disabled>Choose a supervisor</option>
               {eligible.map((m) => (
                 <option key={m.user_id} value={m.user_id}>{memberLabel(known, m.user_id)}</option>
               ))}
             </select>
           </label>
-          <button type="submit" className={`${buttonBase} shrink-0`}>Assign</button>
+          <Button type="submit">Assign</Button>
         </form>
       )}
       {!archived && members !== null && eligible.length === 0 && (
@@ -87,10 +89,10 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
 
       {closed.length > 0 && (
         <>
-          <h3 className="mt-6 text-sm font-medium text-neutral-700">History</h3>
-          <ul className="mt-2 divide-y divide-neutral-200 rounded-md border border-neutral-200">
+          <h3 className="mt-6 ax-eyebrow">History</h3>
+          <ul className="ov-todo mt-2">
             {closed.map((a) => (
-              <li key={a.id} className="px-4 py-3 text-sm">
+              <li key={a.id} className="block">
                 <span className="font-medium">{who(a.user_id)}</span>
                 {roleOf(known, a.user_id) && <span className="text-neutral-500"> · {roleOf(known, a.user_id)}</span>}
                 <span className="mt-0.5 block text-neutral-600">
@@ -105,7 +107,7 @@ export function Supervisors({ org, siteId, archived, members, open, closed, capp
       {capped && (
         <p className="mt-2 text-xs text-neutral-500">Showing the newest {HISTORY_LIMIT} assignments. Older ones are not shown.</p>
       )}
-      <p className="mt-2 text-xs text-neutral-500">Dates are in UTC.</p>
-    </section>
+      <p className="mt-2 ax-empty">Dates are in UTC.</p>
+    </Card>
   );
 }

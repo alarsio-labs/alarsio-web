@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { messageFor } from "@/lib/messages";
-import { Notice } from "@/components/form";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
 import { requireSiteManager } from "../guard";
 import { SiteForm } from "../site-form";
 import { createSite } from "../actions";
@@ -15,14 +17,16 @@ export default async function NewSitePage({
   const error = messageFor(params.error);
 
   return (
-    <main className="mx-auto max-w-xl px-4 py-10">
-      <Link href={`/sites?org=${org}`} className="app-back">← Sites</Link>
-      <h1 className="mt-4 text-2xl font-semibold">New site</h1>
-      <p className="mt-1 text-sm text-neutral-600">
-        A new site starts as planned. You can change its status on the site&apos;s page.
-      </p>
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
-      <SiteForm action={createSite} org={org} submitLabel="Create site" />
+    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={`/sites?org=${org}`} className="app-back">← Sites</Link>
+        <PageHead eyebrow="Sites" title="New site" />
+      </div>
+      {error && <Notice kind="error">{error}</Notice>}
+      <Card>
+        <p className="ax-empty">A new site starts as planned. You can change its status on the site&apos;s page.</p>
+        <SiteForm action={createSite} org={org} submitLabel="Create site" />
+      </Card>
     </main>
   );
 }

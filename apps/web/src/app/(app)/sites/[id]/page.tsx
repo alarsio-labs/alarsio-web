@@ -2,7 +2,13 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
-import { Notice, buttonBase, inputClass } from "@/components/form";
+import { inputClass } from "@/components/form";
+import { Button, ButtonLink } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
+import { siteTag } from "@/lib/sites/screen";
 import { SITE_STATUSES, mapUrl } from "@/lib/sites/input";
 import { toSiteRecord } from "@/lib/sites/rows";
 import { HISTORY_LIMIT, splitAssignments, toAssignmentRecord, toMemberName } from "@/lib/sites/assignments";
@@ -66,99 +72,97 @@ export default async function SitePage({
   const saved = query.saved === "1";
   const map = mapUrl(site.latitude, site.longitude);
 
-  return (
-    <main className="mx-auto max-w-xl px-4 py-10">
-      <Link href={list} className="app-back">← Sites</Link>
-      <h1 className="mt-4 text-2xl font-semibold">{site.name}</h1>
+  const tag = siteTag(site.status);
 
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
-      {saved && !error && <div className="mt-6"><Notice kind="info">Saved.</Notice></div>}
+  return (
+    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={list} className="app-back">← Sites</Link>
+        <PageHead eyebrow="Site" title={site.name} />
+        <p className="at-meta"><StatusTag tone={tag.tone}>{tag.word}</StatusTag><span>{site.geofence_radius_m} m geofence</span></p>
+      </div>
+
+      {error && <Notice kind="error">{error}</Notice>}
+      {saved && !error && <Notice kind="info">Saved.</Notice>}
 
       {archived ? (
         <>
-        <section className="mt-6">
           <Notice kind="info">
             This site was archived on {site.archived_at ? site.archived_at.slice(0, 10) : "an earlier date"} (UTC). It is
             read-only, and its history stays.
           </Notice>
-          <dl className="mt-6 space-y-3 text-sm">
-            <div><dt className="font-medium">Address</dt><dd className="text-neutral-700">{site.address}</dd></div>
-            <div>
-              <dt className="font-medium">Pin</dt>
-              <dd className="text-neutral-700">
-                {site.latitude}, {site.longitude}
-                {map && (
-                  <>
-                    {" · "}
-                    <a href={map} target="_blank" rel="noopener noreferrer" className="underline">Find on map</a>
-                  </>
-                )}
-              </dd>
-            </div>
-            <div><dt className="font-medium">Geofence radius</dt><dd className="text-neutral-700">{site.geofence_radius_m} m</dd></div>
-          </dl>
-        </section>
-        <Supervisors org={org} siteId={site.id} archived members={members} open={open} closed={closed} capped={capped} />
+          <Card title="Details" id="si-details">
+            <dl className="db-review">
+              <div><dt className="ax-eyebrow">Address</dt><dd>{site.address}</dd></div>
+              <div>
+                <dt className="ax-eyebrow">Pin</dt>
+                <dd>
+                  {site.latitude}, {site.longitude}
+                  {map && (
+                    <>
+                      {" · "}
+                      <a href={map} target="_blank" rel="noopener noreferrer" className="underline">Find on map</a>
+                    </>
+                  )}
+                </dd>
+              </div>
+              <div><dt className="ax-eyebrow">Geofence radius</dt><dd>{site.geofence_radius_m} m</dd></div>
+            </dl>
+          </Card>
+          <Supervisors org={org} siteId={site.id} archived members={members} open={open} closed={closed} capped={capped} />
         </>
       ) : confirming ? (
-        <section className="mt-6 rounded-md border border-red-300 bg-red-50 p-4">
-          <h2 className="text-lg font-medium text-red-900">Archive {site.name}?</h2>
-          <ul className="mt-2 list-disc space-y-1 pl-5 text-sm text-red-900">
+        // A destructive action keeps its confirm step and the ordinary buttons: there is no red button.
+        <Card title={`Archive ${site.name}?`} id="si-confirm">
+          <Notice kind="error">This cannot be undone. There is no unarchive.</Notice>
+          <ul className="mt-4 list-disc space-y-1 pl-5">
             <li>Every supervisor and accountant assigned to this site is taken off it, and loses access to it.</li>
             <li>The site becomes read-only. Its name stays taken.</li>
-            <li>This cannot be undone. There is no unarchive.</li>
           </ul>
-          <div className="mt-4 flex items-center gap-4">
+          <div className="mt-4 flex flex-wrap items-center gap-3">
             <form action={archiveSite}>
               <input type="hidden" name="org_id" value={org} />
               <input type="hidden" name="site_id" value={site.id} />
-              <button type="submit" className="rounded-md bg-red-700 px-4 py-2 font-medium text-white hover:bg-red-800">
-                Yes, archive this site
-              </button>
+              <Button type="submit">Yes, archive this site</Button>
             </form>
-            <Link href={`/sites/${site.id}?org=${org}`} className="text-sm underline">Cancel</Link>
+            <ButtonLink href={`/sites/${site.id}?org=${org}`} variant="secondary">Cancel</ButtonLink>
           </div>
-        </section>
+        </Card>
       ) : (
         <>
-          <section className="mt-6">
-            <h2 className="text-lg font-medium">Status</h2>
-            <form action={setSiteStatus} className="mt-3 flex items-end gap-3">
+          <Card title="Status" id="si-status">
+            <form action={setSiteStatus} className="flex flex-wrap items-end gap-3">
               <input type="hidden" name="org_id" value={org} />
               <input type="hidden" name="site_id" value={site.id} />
-              <label className="flex-1 text-sm font-medium text-neutral-700">
-                Status
-                <select name="status" defaultValue={site.status} className={`${inputClass} mt-1`}>
+              <label className="au-field-row min-w-0 flex-1">
+                <span className="ax-eyebrow">Status</span>
+                <select name="status" defaultValue={site.status} className={inputClass}>
                   {SITE_STATUSES.map((s) => <option key={s} value={s}>{s}</option>)}
                 </select>
               </label>
-              <button type="submit" className={`${buttonBase} shrink-0`}>Change status</button>
+              <Button type="submit">Change status</Button>
             </form>
-            <p className="mt-1 text-xs text-neutral-500">Planned, active, paused and completed can be changed in any order.</p>
-          </section>
+            <p className="mt-2 ax-empty">Planned, active, paused and completed can be changed in any order.</p>
+          </Card>
 
           <Supervisors org={org} siteId={site.id} archived={false} members={members} open={open} closed={closed} capped={capped} />
 
-          <section className="mt-10">
-            <h2 className="text-lg font-medium">Details</h2>
+          <Card title="Details" id="si-details">
             {map && (
-              <p className="mt-1 text-sm">
+              <p className="mb-2">
                 <a href={map} target="_blank" rel="noopener noreferrer" className="underline">Find on map</a>
-                <span className="text-neutral-500"> (opens Google Maps)</span>
+                <span className="ax-empty"> (opens Google Maps)</span>
               </p>
             )}
             <SiteForm action={updateSite} org={org} site={site} submitLabel="Save changes" />
-          </section>
+          </Card>
 
-          <section className="mt-10 border-t border-neutral-200 pt-6">
-            <h2 className="text-lg font-medium">Archive</h2>
-            <p className="mt-1 text-sm text-neutral-600">
-              Archiving ends the site for good. You will be asked to confirm.
-            </p>
-            <Link href={`/sites/${site.id}?org=${org}&confirm=archive`} className="mt-3 inline-block text-sm text-red-700 underline">
-              Archive this site
-            </Link>
-          </section>
+          <Card title="Archive" id="si-archive">
+            <p className="ax-empty">Archiving ends the site for good. You will be asked to confirm.</p>
+            <div className="mt-3">
+              <ButtonLink href={`/sites/${site.id}?org=${org}&confirm=archive`} variant="secondary">Archive this site</ButtonLink>
+            </div>
+          </Card>
         </>
       )}
     </main>
