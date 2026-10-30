@@ -3,7 +3,10 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { EXPORT_TABLES } from "@/lib/export/tables";
 import { ownedOrganization } from "@/lib/export/supabase";
-import { Notice, buttonClass } from "@/components/form";
+import { buttonClass } from "@/components/form";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
 
 export default async function ExportPage({
   searchParams
@@ -24,34 +27,36 @@ export default async function ExportPage({
   const error = messageFor(params.error);
 
   return (
-    <main className="mx-auto max-w-2xl px-4 py-10">
-
+    <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 sm:py-10">
       {!org ? (
-        <div className="mt-6">
+        <>
+          <PageHead title="Export data" />
           <Notice kind="info">Export is not available for this organisation. Only its owner can export its data.</Notice>
-        </div>
+        </>
       ) : (
         <>
-          <h1 className="mt-4 text-2xl font-semibold">{org.name} · Export data</h1>
-          <p className="mt-2 text-sm text-neutral-600">
-            One ZIP file with a CSV for each kind of record below, and a manifest that counts the rows.
-            It holds what you can see in Alarsio today. Photo files are not included; each photo&apos;s
-            storage path is.
-          </p>
+          <PageHead eyebrow={org.name} title="Export data" />
+          {error && <Notice kind="error">{error}</Notice>}
 
-          {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
+          <Card title="What is in the file" id="ex-tables">
+            <p className="ax-empty">
+              One ZIP file with a CSV for each kind of record below, and a manifest that counts the rows. It holds what you can
+              see in Alarsio today. Photo files are not included; each photo&apos;s storage path is.
+            </p>
+            <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
+              {EXPORT_TABLES.map((t) => (
+                <li key={t.table} className="ax-mono">{t.table}.csv</li>
+              ))}
+            </ul>
+          </Card>
 
-          <ul className="mt-6 grid grid-cols-1 gap-x-6 gap-y-1 text-sm text-neutral-700 sm:grid-cols-2">
-            {EXPORT_TABLES.map((t) => (
-              <li key={t.table} className="font-mono">{t.table}.csv</li>
-            ))}
-          </ul>
-
-          <form method="post" action="/export/download" className="mt-8 max-w-xs">
-            <input type="hidden" name="org" value={org.id} />
-            <button type="submit" className={buttonClass}>Download</button>
-            <p className="mt-2 text-xs text-neutral-500">Up to 5 exports an hour. Large organisations may take a minute.</p>
-          </form>
+          <Card title="Download" id="ex-download">
+            <form method="post" action="/export/download" className="max-w-xs">
+              <input type="hidden" name="org" value={org.id} />
+              <button type="submit" className={buttonClass}>Download</button>
+              <p className="mt-2 ax-empty">Up to 5 exports an hour. Large organisations may take a minute.</p>
+            </form>
+          </Card>
         </>
       )}
     </main>
