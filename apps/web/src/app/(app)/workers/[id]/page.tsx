@@ -4,7 +4,12 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { formatDay, formatInstant, todayInIndia } from "@/lib/dates";
 import { messageFor, noticeFor } from "@/lib/messages";
 import { MAX_RATE, UUID, rateDateWindow } from "@/lib/workers/form";
-import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { Field, buttonClass, inputClass } from "@/components/form";
+import { Button } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 import { addRate, anonymize, assignToSite, saveWorker, unassign } from "./actions";
 
 type Worker = {
@@ -99,24 +104,24 @@ export default async function WorkerPage({
   );
 
   return (
-    <main className="mx-auto max-w-3xl px-4 py-10">
-      <Link href={`/workers?org=${org}`} className="app-back">← Workers</Link>
-      <h1 className="mt-4 text-2xl font-semibold">
-        {worker.full_name} <span className="font-mono text-base text-neutral-500">{worker.code}</span>
-      </h1>
-      <p className="text-sm text-neutral-600">
-        {worker.trade} · {worker.pay_type} · {worker.anonymized_at ? "personal details removed" : worker.status}
-      </p>
-
-      <div className="mt-6 space-y-2">
-        {error && <Notice kind="error">{error}</Notice>}
-        {notice && <Notice kind="info">{notice}</Notice>}
+    <main className="mx-auto grid max-w-3xl gap-6 px-4 py-8 sm:py-10">
+      <div>
+        <Link href={`/workers?org=${org}`} className="app-back">← Workers</Link>
+        <PageHead eyebrow={`Worker · ${worker.code}`} title={worker.full_name} />
+        <p className="at-meta">
+          <StatusTag tone={worker.status === "active" && !worker.anonymized_at ? "ink" : "muted"}>
+            {worker.anonymized_at ? "Personal details removed" : worker.status === "active" ? "Active" : "Inactive"}
+          </StatusTag>
+          <span>{worker.trade} · {worker.pay_type === "hourly" ? "Hourly" : "Daily"}</span>
+        </p>
       </div>
 
+      {error && <Notice kind="error">{error}</Notice>}
+      {notice && <Notice kind="info">{notice}</Notice>}
+
       {manage && (
-        <section className="mt-8 max-w-sm">
-          <h2 className="text-lg font-medium">Details</h2>
-          <form action={saveWorker} className="mt-4 space-y-3">
+        <Card title="Details" id="wk-details">
+          <form action={saveWorker} className="max-w-md space-y-3">
             {hidden}
             <Field label="Name">
               <input name="full_name" required maxLength={120} defaultValue={worker.full_name} className={inputClass} />
@@ -141,23 +146,22 @@ export default async function WorkerPage({
             </Field>
             <button type="submit" className={buttonClass}>Save</button>
           </form>
-        </section>
+        </Card>
       )}
 
       {canWages === true && (
-        <section className="mt-10">
-          <h2 className="text-lg font-medium">Wage rate</h2>
-          <p className="mt-1 text-sm text-neutral-600">
+        <Card title="Wage rate" id="wk-rates">
+          <p className="ax-empty">
             Per {worker.pay_type === "hourly" ? "hour" : "day"}. A new rate starts on its date; earlier rates stay for past wages.
           </p>
           {rates.length === 0 ? (
-            <p className="mt-3 text-sm text-neutral-600">No rate yet.</p>
+            <p className="mt-3 ax-empty">No rate yet.</p>
           ) : (
-            <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
+            <ul className="ov-todo mt-3">
               {rates.map((r) => (
-                <li key={r.id} className="flex justify-between px-3 py-2">
-                  <span>{rupees(r.rate)}</span>
-                  <span className="text-neutral-600">from {formatDay(r.effective_from)}</span>
+                <li key={r.id}>
+                  <span className="font-semibold tabular-nums">{rupees(r.rate)}</span>
+                  <span className="ax-empty">from {formatDay(r.effective_from)}</span>
                 </li>
               ))}
             </ul>
@@ -171,71 +175,69 @@ export default async function WorkerPage({
               <Field label="Starts on">
                 <input name="effective_from" type="date" required min={window.min} max={window.max} className={inputClass} />
               </Field>
-              <button type="submit" className={`${buttonClass} sm:w-auto`}>Add rate</button>
+              <Button type="submit">Add rate</Button>
             </form>
           )}
-        </section>
+        </Card>
       )}
 
       {canManage === true && (
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">Sites</h2>
-        {roster.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">Not on any site.</p>
-        ) : (
-          <ul className="mt-3 divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
-            {roster.map((r) => (
-              <li key={r.assignment_id} className="flex items-center justify-between gap-4 px-3 py-2">
-                <span>
-                  {siteName.get(r.site_id) ?? "Site"}{" "}
-                  <span className="text-neutral-500">
-                    · {formatInstant(r.assigned_at)}{r.unassigned_at ? ` – ${formatInstant(r.unassigned_at)}` : " – now"}
+        <Card title="Sites" id="wk-sites">
+          {roster.length === 0 ? (
+            <p className="ax-empty">Not on any site.</p>
+          ) : (
+            <ul className="ov-todo">
+              {roster.map((r) => (
+                <li key={r.assignment_id}>
+                  <span>
+                    {siteName.get(r.site_id) ?? "Site"}{" "}
+                    <span className="ax-empty">
+                      · {formatInstant(r.assigned_at)}{r.unassigned_at ? ` – ${formatInstant(r.unassigned_at)}` : " – now"}
+                    </span>
                   </span>
-                </span>
-                {manage && !r.unassigned_at && (
-                  <form action={unassign}>
-                    {hidden}
-                    <input type="hidden" name="assignment_id" value={r.assignment_id} />
-                    <button type="submit" className="underline" aria-label={`Remove from ${siteName.get(r.site_id) ?? "site"}`}>Remove</button>
-                  </form>
-                )}
-              </li>
-            ))}
-          </ul>
-        )}
-        {manage && active && assignable.length > 0 && (
-          <form action={assignToSite} className="mt-4 flex flex-wrap items-end gap-3">
-            {hidden}
-            <Field label="Add to site">
-              <select name="site_id" className={inputClass}>
-                {assignable.map((s) => (
-                  <option key={s.id} value={s.id}>{s.name}</option>
-                ))}
-              </select>
-            </Field>
-            <button type="submit" className={`${buttonClass} sm:w-auto`}>Assign</button>
-          </form>
-        )}
-      </section>
+                  {manage && !r.unassigned_at && (
+                    <form action={unassign}>
+                      {hidden}
+                      <input type="hidden" name="assignment_id" value={r.assignment_id} />
+                      <Button type="submit" variant="secondary" aria-label={`Remove from ${siteName.get(r.site_id) ?? "site"}`}>Remove</Button>
+                    </form>
+                  )}
+                </li>
+              ))}
+            </ul>
+          )}
+          {manage && active && assignable.length > 0 && (
+            <form action={assignToSite} className="mt-4 flex flex-wrap items-end gap-3">
+              {hidden}
+              <Field label="Add to site">
+                <select name="site_id" className={inputClass}>
+                  {assignable.map((s) => (
+                    <option key={s.id} value={s.id}>{s.name}</option>
+                  ))}
+                </select>
+              </Field>
+              <Button type="submit">Assign</Button>
+            </form>
+          )}
+        </Card>
       )}
 
       {manage && (
-        <section className="mt-12 max-w-sm rounded-md border border-red-200 p-4">
-          <h2 className="font-medium text-red-800">Remove personal details</h2>
-          <p className="mt-1 text-sm text-neutral-700">
-            Clears the name and phone, marks the worker inactive and ends their site assignments. Attendance and
-            wage history stay. This cannot be undone.
+        // A destructive action keeps its confirm step and the ordinary buttons: there is no red button.
+        <Card title="Remove personal details" id="wk-remove">
+          <Notice kind="error">This cannot be undone.</Notice>
+          <p className="mt-3">
+            Clears the name and phone, marks the worker inactive and ends their site assignments. Attendance and wage history
+            stay.
           </p>
           <form action={anonymize} className="mt-3 space-y-3">
             {hidden}
-            <label className="flex items-center gap-2 text-sm">
+            <label>
               <input type="checkbox" name="confirm" value="yes" required /> I understand
             </label>
-            <button type="submit" className="rounded-md border border-red-300 px-4 py-2 text-sm text-red-800">
-              Remove personal details
-            </button>
+            <div><Button type="submit" variant="secondary">Remove personal details</Button></div>
           </form>
-        </section>
+        </Card>
       )}
     </main>
   );

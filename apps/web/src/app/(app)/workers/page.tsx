@@ -3,7 +3,13 @@ import { redirect } from "next/navigation";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { UUID } from "@/lib/uuid";
-import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { Field, buttonClass, inputClass } from "@/components/form";
+import { ButtonLink } from "@/components/app/button";
+import { Card } from "@/components/app/card";
+import { DataTable } from "@/components/app/data-table";
+import { Notice } from "@/components/app/notice";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 import { ImportPanel } from "./import-panel";
 import { addWorker } from "./actions";
 
@@ -56,16 +62,15 @@ export default async function WorkersPage({
   const error = messageFor(params.error);
 
   return (
-    <main className="mx-auto max-w-5xl px-4 py-10">
-      <h1 className="mt-4 text-2xl font-semibold">{orgRow.name} · Workers</h1>
+    <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
+      <PageHead eyebrow={orgRow.name} title="Workers" />
 
-      {error && <div className="mt-6"><Notice kind="error">{error}</Notice></div>}
+      {error && <Notice kind="error">{error}</Notice>}
 
       {canManage === true && (
-        <div className="mt-8 grid gap-10 md:grid-cols-2">
-          <section>
-            <h2 className="text-lg font-medium">Add a worker</h2>
-            <form action={addWorker} className="mt-4 space-y-3">
+        <div className="ov-columns">
+          <Card title="Add a worker" id="wk-add">
+            <form action={addWorker} className="space-y-3">
               <input type="hidden" name="org_id" value={org} />
               <Field label="Worker code">
                 <input name="code" required maxLength={40} className={inputClass} />
@@ -87,54 +92,36 @@ export default async function WorkersPage({
               </Field>
               <button type="submit" className={buttonClass}>Add worker</button>
             </form>
-          </section>
-          <section>
-            <h2 className="text-lg font-medium">Import from a file</h2>
-            <div className="mt-4"><ImportPanel orgId={org} /></div>
-          </section>
+          </Card>
+          <Card title="Import from a file" id="wk-import">
+            <ImportPanel orgId={org} />
+          </Card>
         </div>
       )}
 
-      <section className="mt-10">
-        <h2 className="text-lg font-medium">Workers ({total})</h2>
-        {rows.length === 0 ? (
-          <p className="mt-2 text-sm text-neutral-600">No workers yet.</p>
-        ) : (
-          <div className="mt-3 overflow-x-auto rounded-md border border-neutral-200">
-            <table className="w-full text-left text-sm">
-              <thead className="bg-neutral-50 text-neutral-600">
-                <tr>
-                  <th className="px-3 py-2 font-medium">Code</th>
-                  <th className="px-3 py-2 font-medium">Name</th>
-                  <th className="px-3 py-2 font-medium">Trade</th>
-                  <th className="px-3 py-2 font-medium">Pay</th>
-                  <th className="px-3 py-2 font-medium">Status</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-neutral-200">
-                {rows.map((w) => (
-                  <tr key={w.id}>
-                    <td className="px-3 py-2 font-mono">
-                      <Link href={`/workers/${w.id}?org=${org}`} className="underline">{w.code}</Link>
-                    </td>
-                    <td className="px-3 py-2">{w.full_name}</td>
-                    <td className="px-3 py-2">{w.trade}</td>
-                    <td className="px-3 py-2">{w.pay_type}</td>
-                    <td className="px-3 py-2">{w.status}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
+      <Card title={`Workers (${total})`} id="wk-list">
+        <DataTable<WorkerRow>
+          caption="Workers"
+          rows={rows}
+          rowKey={(w) => w.id}
+          minWidth={600}
+          empty="No workers yet."
+          columns={[
+            { key: "code", label: "Code", render: (w) => <Link href={`/workers/${w.id}?org=${org}`} className="underline">{w.code}</Link> },
+            { key: "name", label: "Name", render: (w) => w.full_name },
+            { key: "trade", label: "Trade", render: (w) => w.trade },
+            { key: "pay", label: "Pay", render: (w) => (w.pay_type === "hourly" ? "Hourly" : "Daily") },
+            { key: "status", label: "Status", render: (w) => <StatusTag tone={w.status === "active" ? "ink" : "muted"}>{w.status === "active" ? "Active" : "Inactive"}</StatusTag> }
+          ]}
+        />
         {pages > 1 && (
-          <nav className="mt-3 flex items-center gap-4 text-sm" aria-label="Pages">
-            {pageNo > 1 && <Link href={`/workers?org=${org}&page=${pageNo - 1}`} className="underline">← Previous</Link>}
-            <span className="text-neutral-600">Page {pageNo} of {pages}</span>
-            {pageNo < pages && <Link href={`/workers?org=${org}&page=${pageNo + 1}`} className="underline">Next →</Link>}
+          <nav className="mt-4 flex flex-wrap items-center gap-3" aria-label="Pages">
+            {pageNo > 1 && <ButtonLink href={`/workers?org=${org}&page=${pageNo - 1}`} variant="secondary">← Previous</ButtonLink>}
+            <span className="ax-empty">Page {pageNo} of {pages}</span>
+            {pageNo < pages && <ButtonLink href={`/workers?org=${org}&page=${pageNo + 1}`} variant="secondary">Next →</ButtonLink>}
           </nav>
         )}
-      </section>
+      </Card>
     </main>
   );
 }
