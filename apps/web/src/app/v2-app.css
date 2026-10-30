@@ -1,0 +1,96 @@
+/* The working screens' pieces (components/app/*), "Warm print, calm" (docs/DESIGN.md
+   section 4). Tokens and the fonts come from landing.css and app/fonts.ts. No shadows,
+   no gradients, no motion beyond a 150 ms colour change. Red is a mark only; red-deep
+   is the only red text, for a state that asks someone to act. */
+
+.ax-mono, .ax-eyebrow, .ax-tab, .ax-btn, .ax-tag, .ax-stat-label, .ax-table thead th, .ax-org-role {
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 11px; font-weight: 400;
+  letter-spacing: 0.14em; text-transform: uppercase;
+}
+
+/* Top bar and module tabs */
+/* One line at every width: the organisation name shrinks (with an ellipsis), so Sign
+   out never drops to a second line. */
+.ax-bar {
+  display: flex; align-items: center; gap: 12px 20px; flex-wrap: nowrap;
+  min-height: 60px; padding: 8px var(--pad); background: var(--cream); border-bottom: 1px solid var(--hair);
+}
+.ax-wordmark { font-family: var(--font-anton), Impact, sans-serif; font-size: 26px; text-transform: uppercase; letter-spacing: -0.02em; color: var(--ink); text-decoration: none; display: inline-flex; align-items: center; min-height: 44px; }
+.ax-wordmark span { color: var(--red); }
+.ax-org { display: inline-flex; align-items: center; gap: 10px; min-height: 44px; flex: 1 1 0; min-width: 0; color: var(--ink); text-decoration: none; }
+.ax-org-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ax-org-role { color: var(--muted); }
+.ax-org:hover .ax-org-name { text-decoration: underline; text-underline-offset: 3px; }
+.ax-signout-form { margin-left: auto; flex: none; }
+.ax-wordmark { flex: none; }
+@media (max-width: 520px) { .ax-org-role { display: none; } }
+
+.ax-tabs { border-bottom: 1.5px solid var(--ink); background: var(--cream); padding: 0 var(--pad); }
+.ax-tabs-row { display: flex; gap: 4px; overflow-x: auto; }
+.ax-tab {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 14px; white-space: nowrap;
+  color: var(--ink); text-decoration: none; border: 1.5px solid transparent; transition: background-color 0.15s, color 0.15s;
+}
+.ax-tab:hover { border-color: var(--ink); }
+.ax-tab[aria-current="page"] { background: var(--ink); color: var(--paper); }
+.ax-tabs-menu { display: none; }
+.ax-menu-button { list-style: none; cursor: pointer; margin: 6px 0; border-color: var(--ink); }
+.ax-menu-button::-webkit-details-marker { display: none; }
+.ax-menu-button::after { content: "+"; margin-left: 10px; }
+.ax-tabs-menu[open] .ax-menu-button::after { content: "−"; }
+.ax-menu-list { display: grid; padding-bottom: 8px; }
+.ax-menu-list .ax-tab { width: 100%; }
+@media (max-width: 767px) {
+  .ax-tabs-row { display: none; }
+  .ax-tabs-menu { display: block; }
+}
+
+/* Page head */
+.ax-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 16px 24px; }
+.ax-eyebrow { color: var(--muted); }
+.ax-title { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.02em; line-height: 0.92; font-size: 35px; margin-top: 6px; color: var(--ink); }
+@media (min-width: 768px) { .ax-title { font-size: 56px; } }
+
+/* Buttons */
+.ax-btn {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px;
+  border: 1.5px solid var(--ink); border-radius: 0; text-decoration: none; cursor: pointer; white-space: nowrap;
+  transition: background-color 0.15s, color 0.15s;
+}
+.ax-btn-primary { background: var(--ink); color: var(--paper); }
+.ax-btn-primary:hover { background: #000; }
+.ax-btn-secondary { background: transparent; color: var(--ink); }
+.ax-btn-secondary:hover { background: var(--ink); color: var(--paper); }
+.ax-btn-full { width: 100%; }
+.ax-btn-sm { padding: 0 14px; }
+.ax-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+
+/* Shared focus: 2 px ink outline at 2 px. */
+:is(.ax-btn, .ax-tab, .ax-org, .ax-wordmark):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Status tags */
+.ax-tag { display: inline-flex; align-items: center; min-height: 24px; padding: 0 8px; border: 1px solid currentColor; white-space: nowrap; }
+.ax-tag-ink { color: var(--ink); }
+.ax-tag-muted { color: var(--muted); }
+.ax-tag-action { color: var(--red-deep); }
+
+/* Cards and numbers */
+.ax-card { background: var(--paper); border: 1.5px solid var(--ink); min-width: 0; }
+.ax-card-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; padding: 16px 18px 0; }
+.ax-card-title { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.01em; font-size: 26px; line-height: 1; }
+.ax-card-body { padding: 16px 18px 18px; font-size: 15px; }
+.ax-stat { background: var(--paper); border: 1.5px solid var(--ink); padding: 14px 16px; min-width: 0; }
+.ax-stat-label { color: var(--muted); display: flex; align-items: center; gap: 8px; }
+.ax-stat-value { font-family: var(--font-anton), Impact, sans-serif; font-size: 44px; line-height: 1; margin-top: 10px; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ax-stat-alert .ax-stat-label, .ax-stat-alert .ax-stat-value { color: var(--red-deep); }
+.ax-stat-alert .ax-stat-label::before { content: ""; width: 8px; height: 8px; background: var(--red); flex: none; }
+
+/* Tables: scroll inside the card, first column pinned, never squashed. */
+.ax-table-wrap { overflow-x: auto; }
+.ax-table { width: 100%; border-collapse: collapse; font-size: 15px; }
+.ax-table :is(th, td) { padding: 12px 18px; text-align: left; vertical-align: top; border-bottom: 1px solid var(--hair); }
+.ax-table thead th { color: var(--muted); border-bottom: 1.5px solid var(--ink); white-space: nowrap; }
+.ax-table tbody th { font-weight: 600; }
+.ax-table :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); box-shadow: inset -1px 0 0 var(--hair); }
+.ax-table .ax-num { text-align: right; font-variant-numeric: tabular-nums; }
+.ax-empty { color: var(--muted); }
