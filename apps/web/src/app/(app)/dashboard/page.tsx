@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAppRole, type AppRole } from "@alarsio/types";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { orgLinks } from "@/lib/dashboard/links";
+import { ROLE_LABEL, homeFor, toMemberships } from "@/lib/dashboard/memberships";
 import { AuthNotice } from "@/components/v2-form";
 import { timezoneOptions } from "@/lib/dashboard/org-form";
 import { FieldCanvas } from "@/components/landing/field-canvas";
@@ -11,29 +11,8 @@ import { createOrganization } from "./actions";
 import { CreateOrgWizard } from "./create-org-wizard";
 import "./dashboard.css";
 
-type Membership = { orgId: string; orgName: string; role: AppRole };
-
-function toMemberships(rows: unknown): Membership[] {
-  if (!Array.isArray(rows)) return [];
-  const out: Membership[] = [];
-  for (const row of rows as Array<Record<string, unknown>>) {
-    const org = row.organizations as Record<string, unknown> | null;
-    if (typeof row.org_id === "string" && isAppRole(row.role) && org && typeof org.name === "string") {
-      out.push({ orgId: row.org_id, orgName: org.name, role: row.role });
-    }
-  }
-  return out;
-}
-
-const ROLE_LABEL: Record<AppRole, string> = {
-  owner: "Owner",
-  project_manager: "Project manager",
-  supervisor: "Supervisor",
-  accountant: "Accountant"
-};
-
-// The dashboard in the v2 look (docs/DESIGN.md); the header comes from the (app)
-// layout. Each organisation is a paper card with the pages the member's role can
+// The dashboard in the v2 look (docs/DESIGN.md): the create stepper with no
+// organisation, and the hub with several; one organisation goes to its home. Each organisation is a paper card with the pages the member's role can
 // open; the links come from orgLinks().
 export default async function DashboardPage({
   searchParams
@@ -52,6 +31,10 @@ export default async function DashboardPage({
     .eq("user_id", user.id);
   const memberships = toMemberships(data);
   const error = messageFor((await searchParams).error);
+  // With one organisation the dashboard is only a hop: go straight to the role's home.
+  // An error from creating an organisation still shows here, since that user has none.
+  const home = error ? null : homeFor(memberships);
+  if (home) redirect(home);
   const hasOrgs = memberships.length > 0;
 
   return (

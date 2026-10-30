@@ -44,7 +44,7 @@
 :where(.app) main button:focus-visible,
 :where(.app) main summary:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
-/* The page frame under the app header. */
+/* The page frame under the top bar and tabs (components/app/app-frame.tsx). */
 :where(.app) .app-body { padding-bottom: 64px; }
 .app-back {
   display: inline-flex; align-items: center; min-height: 44px; gap: 8px;
@@ -52,16 +52,6 @@
   color: var(--ink); text-decoration: none;
 }
 .app-back:hover { color: var(--red-deep); }
-
-/* App header: the landing header, sticky, with the account on the right. */
-.app-head { position: sticky; }
-.app-account { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.app-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0.08em; }
-@media (max-width: 560px) { .app-email { display: none; } }
-/* landing.css hides the header's outline button on phones; Sign out must always show. */
-.app .lp-head .app-signout { display: inline-flex; min-height: 44px; }
-.app-signout { padding: 0 14px; cursor: pointer; background: transparent; }
-.app-signout:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* Pages' own ink buttons ("New site", "Show", "Filter") take the v2 button's mono
    label and a 44px target, so every action reads the same as buttonClass. */

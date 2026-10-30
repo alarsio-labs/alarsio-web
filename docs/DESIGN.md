@@ -268,7 +268,10 @@ RLS stays the boundary; a hidden link is only a convenience.
 | Team | ✓ | | | |
 | Export | ✓ | | | |
 
-Export is not in `links.ts` yet; #135 adds it.
+Export is in `links.ts` for the owner (#135). The frame is `components/app/app-frame.tsx` in the
+`(app)` layout: the layout reads the memberships once, and the frame takes the organisation from
+the page's `?org=` (a layout cannot read the query string). With no `?org=`, as on the dashboard hub,
+it shows the bar alone. Pages no longer carry a "← Dashboard" link; the tabs replace it.
 
 ### Home after sign-in
 
@@ -286,8 +289,9 @@ The home for each role:
 | accountant | `/wages` |
 | supervisor | `/reports`, with one line saying that capture is on the phone app |
 
-The dashboard stays reachable from the wordmark and from the organisation name in the top bar. No
-cookie or table is needed.
+`homeFor()` in `lib/dashboard/memberships.ts` decides it, and the dashboard redirects. With one
+organisation the wordmark therefore lands on the role's home; the hub is for two or more. No cookie
+or table is needed.
 
 ### Components
 

@@ -92,7 +92,6 @@ export default async function AttendancePage({
 
   return (
     <main className="mx-auto max-w-5xl px-4 py-10">
-      <Link href="/dashboard" className="app-back">← Dashboard</Link>
       <h1 className="mt-4 text-2xl font-semibold">Attendance</h1>
 
       <form method="get" className="mt-6 grid grid-cols-2 gap-3 sm:grid-cols-3">
