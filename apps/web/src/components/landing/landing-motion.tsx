@@ -95,11 +95,15 @@ export function LandingMotion() {
     live.forEach((l) => vis.observe(l.c));
     cleanups.push(() => vis.disconnect());
 
+    // The live fields are decoration: they pause while the page scrolls, so a scroll
+    // frame never waits behind a canvas redraw (on a slow or busy laptop the two
+    // together dropped scrolling to about 16 fps), and resume 200 ms after it stops.
+    let lastScroll = -Infinity;
     let raf = 0;
     let lastDraw = 0;
     const loop = (ms: number) => {
       raf = requestAnimationFrame(loop);
-      if (document.hidden || ms - lastDraw < 32) return;
+      if (document.hidden || ms - lastDraw < 32 || performance.now() - lastScroll < 200) return;
       lastDraw = ms;
       live.forEach((l, i) => {
         const s = sized[i];
@@ -124,23 +128,46 @@ export function LandingMotion() {
     };
     measure();
 
-    // Each stage's variables are written on that stage, not on :root (a change on
-    // :root restyles the whole page), only when the value changed, and only while the
-    // stage is within a screen of the viewport. Its own subtree inherits them.
-    // All boxes are read once at the top of a frame, before any write: reading a box
-    // after a style write forces the browser to lay the page out again, and the old
-    // read-write-read order did that up to five times on every scroll frame.
+    // Each variable is written only on the elements whose CSS reads it (USES below),
+    // not on the whole stage: a custom property inherits, so a write on the stage made
+    // the browser restyle every element inside it on every scroll frame. It is written
+    // only when the value changed, and only while the stage is within a screen of the
+    // viewport. All boxes are read once at the top of a frame, before any write:
+    // reading a box after a style write forces the browser to lay the page out again.
     type Box = { near: boolean; p: number };
     const box = (el: HTMLElement | null, vh: number): Box | null => {
       if (!el) return null;
       const r = el.getBoundingClientRect();
       return { near: r.bottom > -vh && r.top < 2 * vh, p: stageProgress(r.top, r.height, vh) };
     };
+    // Variable -> the elements (inside its stage) whose rules in landing.css read it.
+    const USES: Record<string, [HTMLElement | null, string]> = {
+      "--hero-type-y": [hero, ".lp-lockup"],
+      "--hero-type-scale": [hero, ".lp-lockup"],
+      "--hero-type-alpha": [hero, ".lp-lockup"],
+      "--hero-meta-alpha": [hero, ".lp-hero-meta"],
+      "--manifesto-wipe": [manifesto, ".lp-man-fill"],
+      "--manifesto-scale": [manifesto, ".lp-man-box"],
+      "--rail-x": [rail, ".lp-track"],
+      "--rail-p": [rail, ".lp-meter"],
+      "--packet-alpha": [record, ".lp-packet"],
+      "--packet-enter": [record, ".lp-packet"],
+      "--packet-scale": [record, ".lp-packet"],
+      "--packet-cut": [record, ".lp-packet-stub, .lp-perf, .lp-tear"],
+      "--packet-meter": [record, ".lp-meter"],
+      "--packet-copy-x": [record, ".lp-rec-copy"],
+      "--season-y": [wages, "canvas"],
+      "--season-scale": [wages, "canvas"]
+    };
+    const targets = new Map<string, HTMLElement[]>();
+    for (const [k, [scope, sel]] of Object.entries(USES)) {
+      targets.set(k, scope ? [...scope.querySelectorAll<HTMLElement>(sel)] : []);
+    }
     const written = new Map<string, string>();
-    const set = (el: HTMLElement, k: string, v: string) => {
+    const set = (k: string, v: string) => {
       if (written.get(k) === v) return;
       written.set(k, v);
-      el.style.setProperty(k, v);
+      for (const el of targets.get(k) ?? []) el.style.setProperty(k, v);
     };
 
     let phase = -1;
@@ -165,32 +192,32 @@ export function LandingMotion() {
       // Then writes.
       if (hero && bh?.near) {
         const ph = bh.p;
-        set(hero, "--hero-type-y", `${(-90 * span(ph, 0, 0.8)).toFixed(1)}px`);
-        set(hero, "--hero-type-scale", (1 - 0.26 * span(ph, 0.1, 0.9)).toFixed(3));
-        set(hero, "--hero-type-alpha", (1 - span(ph, 0.35, 0.9)).toFixed(3));
-        set(hero, "--hero-meta-alpha", (1 - span(ph, 0, 0.4)).toFixed(3));
+        set("--hero-type-y", `${(-90 * span(ph, 0, 0.8)).toFixed(1)}px`);
+        set("--hero-type-scale", (1 - 0.26 * span(ph, 0.1, 0.9)).toFixed(3));
+        set("--hero-type-alpha", (1 - span(ph, 0.35, 0.9)).toFixed(3));
+        set("--hero-meta-alpha", (1 - span(ph, 0, 0.4)).toFixed(3));
       }
 
       if (manifesto && bm?.near) {
         const pm = bm.p;
-        set(manifesto, "--manifesto-wipe", `${(100 * span(pm, 0.08, 0.85)).toFixed(1)}%`);
-        set(manifesto, "--manifesto-scale", (1 + 0.05 * pm).toFixed(3));
+        set("--manifesto-wipe", `${(100 * span(pm, 0.08, 0.85)).toFixed(1)}%`);
+        set("--manifesto-scale", (1 + 0.05 * pm).toFixed(3));
       }
 
       if (rail && br?.near) {
         const pr = br.p;
-        set(rail, "--rail-x", `${(-pr * overflow).toFixed(1)}px`);
-        set(rail, "--rail-p", pr.toFixed(3));
+        set("--rail-x", `${(-pr * overflow).toFixed(1)}px`);
+        set("--rail-p", pr.toFixed(3));
       }
 
       if (record && bk?.near) {
         const pk = bk.p;
-        set(record, "--packet-alpha", span(pk, 0, 0.12).toFixed(3));
-        set(record, "--packet-enter", `${(38 * (1 - span(pk, 0, 0.22))).toFixed(1)}px`);
-        set(record, "--packet-scale", (0.78 + 0.22 * span(pk, 0, 0.28)).toFixed(3));
-        set(record, "--packet-cut", span(pk, 0.84, 0.98).toFixed(3));
-        set(record, "--packet-meter", pk.toFixed(3));
-        set(record, "--packet-copy-x", `${(-28 * span(pk, 0, 0.3)).toFixed(1)}px`);
+        set("--packet-alpha", span(pk, 0, 0.12).toFixed(3));
+        set("--packet-enter", `${(38 * (1 - span(pk, 0, 0.22))).toFixed(1)}px`);
+        set("--packet-scale", (0.78 + 0.22 * span(pk, 0, 0.28)).toFixed(3));
+        set("--packet-cut", span(pk, 0.84, 0.98).toFixed(3));
+        set("--packet-meter", pk.toFixed(3));
+        set("--packet-copy-x", `${(-28 * span(pk, 0, 0.3)).toFixed(1)}px`);
         const nextPhase = phaseOf(span(pk, 0.18, 0.82), DAY_RECORD.status.length);
         if (nextPhase !== phase) {
           phase = nextPhase;
@@ -200,8 +227,8 @@ export function LandingMotion() {
 
       if (wages && bw?.near) {
         const pw = bw.p;
-        set(wages, "--season-y", `${(-4 + 8 * pw).toFixed(2)}%`);
-        set(wages, "--season-scale", (1.1 - 0.045 * pw).toFixed(4));
+        set("--season-y", `${(-4 + 8 * pw).toFixed(2)}%`);
+        set("--season-scale", (1.1 - 0.045 * pw).toFixed(4));
         const nextChapter = phaseOf(pw, chapters.length || 1);
         if (nextChapter !== chapter) {
           chapter = nextChapter;
@@ -210,6 +237,7 @@ export function LandingMotion() {
       }
     };
     schedule = () => {
+      lastScroll = performance.now();
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(frame);
