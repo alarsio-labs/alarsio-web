@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { isSiteRow } from "@/lib/reports/rows";
 import { parseOverviewParams } from "@/lib/overview/params";
@@ -36,7 +36,7 @@ export default async function OverviewPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/overview?org=${org}`)}`);
 
   const { date } = parseOverviewParams(params, new Date());

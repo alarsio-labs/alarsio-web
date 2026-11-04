@@ -4,7 +4,9 @@ import { NextRequest } from "next/server";
 // The proxy asks Supabase who is signed in; the test decides the answer.
 let user: { id: string } | null = null;
 vi.mock("@supabase/ssr", () => ({
-  createServerClient: () => ({ auth: { getUser: async () => ({ data: { user } }) } })
+  createServerClient: () => ({
+    auth: { getClaims: async () => ({ data: user ? { claims: { sub: user.id } } : null, error: null }) }
+  })
 }));
 
 process.env.NEXT_PUBLIC_SUPABASE_URL = "https://example.supabase.co";
@@ -32,6 +34,12 @@ describe("proxy", () => {
 
   it("does not redirect public pages or look-alike paths", async () => {
     for (const p of ["/", "/sign-in", "/invite/abc", "/wagesx"]) expect(location(await go(p))).toBeNull();
+  });
+
+  it("sends a signed-in visitor on / to their dashboard, so the landing page can stay static", async () => {
+    user = { id: "u1" };
+    expect(location(await go("/"))).toBe("https://alarsio.test/dashboard");
+    expect(location(await go("/about"))).toBeNull();
   });
 
   it("lets a signed-in user through to /wages and /export", async () => {

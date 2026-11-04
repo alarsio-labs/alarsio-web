@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { canMarkReviewed, MAX_REVIEW_NOTE, MAX_SEND_BACK_REASON } from "@/lib/reports/review";
 import { UUID, isPhotoRow, isReportRow, isRevisionRow, isSiteRow, rows } from "@/lib/reports/rows";
@@ -45,7 +45,7 @@ export default async function ReportPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/reports/${id}?org=${org}`)}`);
 
   const { data: reportData } = await supabase

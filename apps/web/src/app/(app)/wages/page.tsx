@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { Field, buttonClass, inputClass } from "@/components/form";
@@ -25,7 +25,7 @@ export default async function WagesPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/wages?org=${org}`)}`);
 
   // can_view_wages (owner, accountant) is the predicate every wage table uses. RLS

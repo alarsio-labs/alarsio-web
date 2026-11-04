@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { orgLinks } from "@/lib/dashboard/links";
 import { ROLE_LABEL, homeFor, toMemberships } from "@/lib/dashboard/memberships";
@@ -22,7 +22,7 @@ export default async function DashboardPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect("/sign-in");
 
   const { data } = await supabase

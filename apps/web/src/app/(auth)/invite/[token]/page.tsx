@@ -1,6 +1,6 @@
 import Link from "next/link";
 import type { Metadata } from "next";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser } from "@/lib/supabase/server";
 import { AuthCard, Notice, buttonClass } from "@/components/form";
 import { acceptInvite } from "./actions";
 
@@ -30,10 +30,9 @@ export default async function InvitePage({
     );
   }
 
-  const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   const next = encodeURIComponent(`/invite/${token}`);
 
   if (!user) {

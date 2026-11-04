@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { isSiteRow, rows } from "@/lib/reports/rows";
 import { parseAttendanceFilters } from "@/lib/attendance/filters";
@@ -36,7 +36,7 @@ export default async function AttendancePage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/attendance?org=${org}`)}`);
 
   const f = parseAttendanceFilters(params, new Date());

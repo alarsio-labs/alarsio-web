@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { buttonClass, inputClass } from "@/components/form";
@@ -38,7 +38,7 @@ export default async function MaterialsPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) {
     const next = `/materials?org=${org}${siteParam ? `&site=${siteParam}` : ""}`;
     redirect(`/sign-in?next=${encodeURIComponent(next)}`);

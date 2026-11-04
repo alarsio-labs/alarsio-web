@@ -127,13 +127,14 @@ export function LandingMotion() {
     // Each stage's variables are written on that stage, not on :root (a change on
     // :root restyles the whole page), only when the value changed, and only while the
     // stage is within a screen of the viewport. Its own subtree inherits them.
-    const near = (el: HTMLElement) => {
+    // All boxes are read once at the top of a frame, before any write: reading a box
+    // after a style write forces the browser to lay the page out again, and the old
+    // read-write-read order did that up to five times on every scroll frame.
+    type Box = { near: boolean; p: number };
+    const box = (el: HTMLElement | null, vh: number): Box | null => {
+      if (!el) return null;
       const r = el.getBoundingClientRect();
-      return r.bottom > -window.innerHeight && r.top < 2 * window.innerHeight;
-    };
-    const progress = (el: HTMLElement) => {
-      const r = el.getBoundingClientRect();
-      return stageProgress(r.top, r.height, window.innerHeight);
+      return { near: r.bottom > -vh && r.top < 2 * vh, p: stageProgress(r.top, r.height, vh) };
     };
     const written = new Map<string, string>();
     const set = (el: HTMLElement, k: string, v: string) => {
@@ -157,28 +158,33 @@ export function LandingMotion() {
     const frame = () => {
       ticking = false;
 
-      if (hero && near(hero)) {
-        const ph = progress(hero);
+      // Reads first.
+      const vh = window.innerHeight;
+      const bh = box(hero, vh), bm = box(manifesto, vh), br = box(rail, vh), bk = box(record, vh), bw = box(wages, vh);
+
+      // Then writes.
+      if (hero && bh?.near) {
+        const ph = bh.p;
         set(hero, "--hero-type-y", `${(-90 * span(ph, 0, 0.8)).toFixed(1)}px`);
         set(hero, "--hero-type-scale", (1 - 0.26 * span(ph, 0.1, 0.9)).toFixed(3));
         set(hero, "--hero-type-alpha", (1 - span(ph, 0.35, 0.9)).toFixed(3));
         set(hero, "--hero-meta-alpha", (1 - span(ph, 0, 0.4)).toFixed(3));
       }
 
-      if (manifesto && near(manifesto)) {
-        const pm = progress(manifesto);
+      if (manifesto && bm?.near) {
+        const pm = bm.p;
         set(manifesto, "--manifesto-wipe", `${(100 * span(pm, 0.08, 0.85)).toFixed(1)}%`);
         set(manifesto, "--manifesto-scale", (1 + 0.05 * pm).toFixed(3));
       }
 
-      if (rail && near(rail)) {
-        const pr = progress(rail);
+      if (rail && br?.near) {
+        const pr = br.p;
         set(rail, "--rail-x", `${(-pr * overflow).toFixed(1)}px`);
         set(rail, "--rail-p", pr.toFixed(3));
       }
 
-      if (record && near(record)) {
-        const pk = progress(record);
+      if (record && bk?.near) {
+        const pk = bk.p;
         set(record, "--packet-alpha", span(pk, 0, 0.12).toFixed(3));
         set(record, "--packet-enter", `${(38 * (1 - span(pk, 0, 0.22))).toFixed(1)}px`);
         set(record, "--packet-scale", (0.78 + 0.22 * span(pk, 0, 0.28)).toFixed(3));
@@ -192,8 +198,8 @@ export function LandingMotion() {
         }
       }
 
-      if (wages && near(wages)) {
-        const pw = progress(wages);
+      if (wages && bw?.near) {
+        const pw = bw.p;
         set(wages, "--season-y", `${(-4 + 8 * pw).toFixed(2)}%`);
         set(wages, "--season-scale", (1.1 - 0.045 * pw).toFixed(4));
         const nextChapter = phaseOf(pw, chapters.length || 1);

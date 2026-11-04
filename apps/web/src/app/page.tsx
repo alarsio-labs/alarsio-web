@@ -1,19 +1,19 @@
 import type { CSSProperties } from "react";
 import type { Metadata } from "next";
 import Link from "next/link";
-import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
 import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "@/lib/landing/content";
 import { LandingMotion } from "@/components/landing/landing-motion";
+import { StructuredData } from "@/components/landing/structured-data";
 import { Words } from "@/components/landing/words";
 import { anton, mono } from "./fonts";
 import "./landing.css";
 
 
 export const metadata: Metadata = {
-  title: "Alarsio · Site records with no signal",
+  // The words contractors search for come first; the brand line stays in the hero.
+  title: { absolute: "Alarsio · Construction site attendance, reports & wages app" },
   description:
-    "Attendance, daily reports and materials captured offline on site, and wages built from approved attendance. For contractors running 2 to 20 sites."
+    "Attendance, daily reports and materials captured offline on site, and wages built from approved attendance. For contractors in India running 2 to 20 sites."
 };
 
 type Vars = CSSProperties & Record<`--${string}`, string | number>;
@@ -28,16 +28,10 @@ function Wordmark() {
   );
 }
 
-// The public landing page (docs/DESIGN.md v2). A signed-in visitor goes straight to
-// their dashboard, as / always did. The server renders the finished state; the
-// motion script rewinds it to the start only when it runs.
-export default async function Home() {
-  const supabase = await supabaseServer();
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
-  if (user) redirect("/dashboard");
-
+// The public landing page (docs/DESIGN.md v2). Static: proxy.ts sends a signed-in
+// visitor to their dashboard before this renders. The server renders the finished
+// state; the motion script rewinds it to the start only when it runs.
+export default function Home() {
   return (
     <div className={`lp ${anton.variable} ${mono.variable}`}>
       <header className="lp-head">
@@ -222,6 +216,7 @@ export default async function Home() {
       </footer>
 
       <LandingMotion />
+      <StructuredData />
     </div>
   );
 }
