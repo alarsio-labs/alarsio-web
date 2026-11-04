@@ -1,15 +1,6 @@
-/* The dashboard in the v2 look (docs/DESIGN.md). Tokens and the header come from
-   landing.css; the form pieces from v2-form.css. */
+/* The dashboard in the v2 look (docs/DESIGN.md). The header and tokens come from the
+   (app) layout; the form pieces from v2-form.css. */
 
-.db { min-height: 100svh; }
-.db-head { position: sticky; }
-.db-account { display: flex; align-items: center; gap: 14px; min-width: 0; }
-.db-email { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-transform: none; letter-spacing: 0.08em; }
-@media (max-width: 560px) { .db-email { display: none; } }
-/* landing.css hides the header's outline button on phones; Sign out must always show. */
-.db .lp-head .db-signout { display: inline-flex; min-height: 44px; }
-.db-signout { padding: 0 14px; cursor: pointer; background: transparent; }
-.db-signout:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
 /* Dark band with the site grid */
 .db-band { position: relative; overflow: hidden; background: var(--loam); color: var(--cream); }

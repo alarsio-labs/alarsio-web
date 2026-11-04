@@ -1,11 +1,10 @@
 import { inputClass } from "@/components/form";
+import { Button } from "@/components/app/button";
 import { MAX_REASON } from "@/lib/attendance/review";
 
-const approveClass = "rounded-md bg-neutral-900 px-4 py-2 font-medium text-white hover:bg-neutral-700";
-const rejectClass = "rounded-md border border-neutral-900 px-4 py-2 font-medium text-neutral-900 hover:bg-neutral-100";
-
 // One decision form. The reason is optional for Approve and needed for Reject; the
-// action and the database enforce that, so the box carries no `required`.
+// action and the database enforce that, so the box carries no `required`. Approve is
+// the primary button and Reject the outline one: the working screens have no red button.
 export function ReviewForm({
   action,
   fields,
@@ -20,13 +19,13 @@ export function ReviewForm({
       {Object.entries(fields).map(([name, value]) => (
         <input key={name} type="hidden" name={name} value={value} />
       ))}
-      <label className="block text-sm font-medium text-neutral-700">
-        {label}
-        <textarea name="reason" maxLength={MAX_REASON} rows={2} className={`${inputClass} mt-1`} />
+      <label className="au-field-row">
+        <span className="ax-eyebrow">{label}</span>
+        <textarea name="reason" maxLength={MAX_REASON} rows={2} className={inputClass} />
       </label>
-      <div className="flex gap-2">
-        <button type="submit" name="decision" value="approve" className={approveClass}>Approve</button>
-        <button type="submit" name="decision" value="reject" className={rejectClass}>Reject</button>
+      <div className="flex flex-wrap gap-2">
+        <Button type="submit" name="decision" value="approve">Approve</Button>
+        <Button type="submit" name="decision" value="reject" variant="secondary">Reject</Button>
       </div>
     </form>
   );

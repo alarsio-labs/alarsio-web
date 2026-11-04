@@ -1,43 +1,19 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { isAppRole, type AppRole } from "@alarsio/types";
 import { supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { orgLinks } from "@/lib/dashboard/links";
+import { ROLE_LABEL, homeFor, toMemberships } from "@/lib/dashboard/memberships";
 import { AuthNotice } from "@/components/v2-form";
 import { timezoneOptions } from "@/lib/dashboard/org-form";
 import { FieldCanvas } from "@/components/landing/field-canvas";
-import { signOut } from "../../(auth)/actions";
 import { createOrganization } from "./actions";
 import { CreateOrgWizard } from "./create-org-wizard";
-import { anton, mono } from "../../fonts";
-import "../../landing.css";
-import "../../v2-form.css";
 import "./dashboard.css";
 
-type Membership = { orgId: string; orgName: string; role: AppRole };
-
-function toMemberships(rows: unknown): Membership[] {
-  if (!Array.isArray(rows)) return [];
-  const out: Membership[] = [];
-  for (const row of rows as Array<Record<string, unknown>>) {
-    const org = row.organizations as Record<string, unknown> | null;
-    if (typeof row.org_id === "string" && isAppRole(row.role) && org && typeof org.name === "string") {
-      out.push({ orgId: row.org_id, orgName: org.name, role: row.role });
-    }
-  }
-  return out;
-}
-
-const ROLE_LABEL: Record<AppRole, string> = {
-  owner: "Owner",
-  project_manager: "Project manager",
-  supervisor: "Supervisor",
-  accountant: "Accountant"
-};
-
-// The dashboard in the v2 look (docs/DESIGN.md): each organisation is a paper card
-// with the pages the member's role can open. The links come from orgLinks().
+// The dashboard in the v2 look (docs/DESIGN.md): the create stepper with no
+// organisation, and the hub with several; one organisation goes to its home. Each organisation is a paper card with the pages the member's role can
+// open; the links come from orgLinks().
 export default async function DashboardPage({
   searchParams
 }: {
@@ -55,22 +31,14 @@ export default async function DashboardPage({
     .eq("user_id", user.id);
   const memberships = toMemberships(data);
   const error = messageFor((await searchParams).error);
+  // With one organisation the dashboard is only a hop: go straight to the role's home.
+  // An error from creating an organisation still shows here, since that user has none.
+  const home = error ? null : homeFor(memberships);
+  if (home) redirect(home);
   const hasOrgs = memberships.length > 0;
 
   return (
-    <div className={`lp db ${anton.variable} ${mono.variable}`}>
-      <header className="lp-head db-head">
-        <Link href="/dashboard" className="lp-display lp-wordmark" aria-label="Alarsio, dashboard">
-          Alar<span>sio</span>
-        </Link>
-        <div className="db-account">
-          {user.email && <span className="lp-mono lp-muted db-email">{user.email}</span>}
-          <form action={signOut}>
-            <button type="submit" className="lp-btn lp-btn-line lp-mono db-signout">Sign out</button>
-          </form>
-        </div>
-      </header>
-
+    <div className="db">
       <section className="db-band on-loam" aria-labelledby="db-title">
         <FieldCanvas className="db-field" />
         <div className="db-band-inner">

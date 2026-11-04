@@ -142,7 +142,7 @@ the dashboard use them; the other app pages keep `components/form.tsx` for now.
 
 ## 2c · Dashboard
 
-`app/(app)/dashboard`: the landing header (wordmark, the signed-in email, Sign out), a loam band with
+`app/(app)/dashboard`: the shared app header (2e: wordmark, the signed-in email, Sign out), a loam band with
 the site-grid canvas and "Your organisations", then one paper card per organisation: its name in Anton,
 the member's role as a `red-deep` mono tag, and a ruled grid of page links (mono label, one-line note,
 →), one column on phones and up to four on desktop. Which links a role sees comes from
@@ -161,6 +161,30 @@ one real `<form>`, every step stays in the DOM so its fields submit, and without
 show one under another with the submit button. Focus moves to the new step's heading and a polite live
 region names it. Used by Create organisation (name, where you work, check and create).
 
+## 2e · The other app pages
+
+Every signed-in page sits in `app/(app)/layout.tsx`: the v2 header (wordmark to the dashboard, the
+signed-in email, Sign out) over the cream ground. The pages keep their markup; `app/(app)/app.css`
+restyles them from one place. Inside `.app`, Tailwind's neutral scale, `white` and every radius point at
+v2 values (warm ink and stone, paper, zero), each text step checked AA on cream, paper and the light
+fills. Unlayered base rules set `h1` and `h2` in Anton and table headers in mono, give the "← back"
+links (`app-back`) a mono label and a 44 px target, and give the pages' own ink buttons the v2 label.
+`components/form.tsx` (Field, inputClass, buttonClass, Notice) now draws the v2 pieces, so every form
+changed with it. `buttonClass` is full width as a Tailwind class so `sm:w-auto` can narrow it; a button
+beside a field uses `buttonBase`, because a plain `w-auto` loses to `w-full`. The invite page moved to
+`app/(auth)/invite/[token]` (same URL) to use the sign-in layout.
+
+**Responsive and touch.** Checked at 320, 375, 768, 1024 and 1440 px on every page: no page scrolls
+sideways (wide tables scroll inside their own box). Every control is at least 44 px to tap:
+stand-alone text links get 12 px of tap area above and below (cancelled by a negative margin, so the
+layout does not move), checkboxes are 20 px inside a 44 px label, the file picker is a v2 button, and
+every button on an app page has a 44 px minimum (`v2-form.css`, `app.css`).
+
+**Width.** List and table pages (overview, reports, attendance, workers, materials, sites, wages) use up
+to 1024 px (`max-w-5xl`); forms and detail pages stay at 576 to 768 px, because long input lines are
+harder to read. **Wide tables** scroll inside their own box with the first column pinned (`position:
+sticky`, its own ground and a 1 px line on its right edge), so a row's name or code stays in view.
+
 ## 3 · Rules
 
 - **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only
@@ -176,16 +200,24 @@ region names it. Used by Create organisation (name, where you work, check and cr
   mobile.
 - **Phone first.** Check 375 px. No horizontal page scroll; check each poster line too.
 - **English only** in the MVP. **No dark mode** in the MVP.
-- **The app's own screens.** Sign in, sign up, check email and the dashboard already use these
-  tokens (sections 2b to 2d). The module pages move to them as section 4 says, and keep their
-  current neutral styles until their PR lands.
+- **The app's own screens.** Sign in, sign up, check email and the dashboard use these tokens
+  (sections 2b to 2d), and so does every module page, through the theme layer in
+  `app/(app)/app.css` (section 2e). Section 4 is the proposed fuller version for the module pages.
 
 ---
 
 ## 4 · App screens
 
-**Status: Proposed** (Manish, 29 Oct 2026, for Ishant to confirm). Updated after #148 so that it
-matches what the sign-in pages and the dashboard (sections 2b to 2d) already do.
+**Status: Accepted** (Ishant, 30 Oct 2026). Proposed by Manish on 29 Oct; of the UI options, the
+**"Warm print, calm"** direction was chosen. This section is the target for the working screens. Until
+each module's PR lands, section 2e's theme layer keeps the not-yet-moved pages in the tokens.
+
+What the decision settled, where the earlier draft or section 2e differed:
+- the top bar carries the organisation name and role, with a row of module tabs under it (below);
+- status tags are ink, `red-deep` or muted (no green or amber);
+- page titles are Anton at 56 px on desktop and 35 px on a phone; card titles about 26 px;
+- buttons and tabs are at least **44 px** tall on these screens (section 3's 48 px stays for the landing);
+- mono labels are 11 px on these screens.
 
 The app has two kinds of page:
 - **Entry pages:** sign in, sign up, check email, and the dashboard. They are the brand's front
@@ -199,27 +231,26 @@ The app has two kinds of page:
 | | Landing | Entry pages | Working screens |
 | :-- | :-- | :-- | :-- |
 | Ground | cream, loam stages | cream, plus one loam band with the site-grid canvas | cream page, `paper` for cards, forms and tables. No loam |
-| Display | Anton at poster scale | Anton titles and organisation names | Anton for the page title (`h1`, 28–36 px) and card titles. Never in tables |
-| Body and tables | Inter | Inter | Inter 15–16 px. Numbers use `tabular-nums` |
-| Mono labels | Martian Mono | form labels, eyebrows, role tags | form labels (as in `v2-form.tsx`), statuses, record ids, table headers, captions |
+| Display | Anton at poster scale | Anton titles and organisation names | Anton for the page title (`h1`, 56 px desktop, 35 px phone), card titles (26 px) and big numbers. Never in tables |
+| Body and tables | Inter | Inter | Inter 15 px. Numbers use `tabular-nums` |
+| Mono labels | Martian Mono | form labels, eyebrows, role tags | 11 px uppercase: form labels, tabs, buttons, statuses, table headers, the eyebrow ("THU 30 OCT · ASIA/KOLKATA") |
 | Shape | radius 0, 1.5 px ink | the same | the same |
 | Motion | pinned stages, word reveals | the canvas drift and the stepper (2d) | **none** beyond a 150 ms colour change on hover and focus |
-| Red | marks; text only on loam | the same | marks only (active nav underline, notice rule, focus on an error). Red **text** is `red-deep` |
+| Red | marks; text only on loam | the same | marks only (the square before an alert label, the notice rule, the wordmark). Red **text** is `red-deep`, only for a state that needs action. Never a red button |
 
 All motion follows section 3: none under reduced motion, and the page works without JavaScript.
 
 ### The frame
 
-Every working screen gets a slim top bar on cream. The dashboard keeps its own header (2c).
+Every working screen gets a top bar on cream, on one line at every width:
 - **Left:** the wordmark, which links to `/dashboard`.
-- **Middle:** the module links for the user's role in the current organisation. The current one
-  has a 2 px red underline.
-- **Right:**
-  - the organisation name and role in mono, linking to `/dashboard` to change organisation;
-  - Sign out.
+- **Then:** the organisation name and the role in mono, linking to `/dashboard` to change
+  organisation. On a phone the name shortens with an ellipsis and the role is hidden.
+- **Right:** Sign out, an outline button.
 
-Below 768 px the module links fold into a **Menu** button that opens a native `<details>`
-list, so it works without JavaScript. No sidebar.
+Under it, a row of **module tabs** for the user's role in that organisation. The current tab is ink
+with paper text. Below 768 px the tabs fold into a **Menu** button that opens a native `<details>`
+list, so it works without JavaScript. No sidebar, no bottom bar, and no sideways page scroll at 375 px.
 
 **Which links a role sees:** the top bar and the dashboard read one list, `lib/dashboard/links.ts`
 (tested by `links.test.ts`), so they cannot disagree. It matches what each page already allows.
@@ -237,7 +268,10 @@ RLS stays the boundary; a hidden link is only a convenience.
 | Team | ✓ | | | |
 | Export | ✓ | | | |
 
-Export is not in `links.ts` yet; #135 adds it.
+Export is in `links.ts` for the owner (#135). The frame is `components/app/app-frame.tsx` in the
+`(app)` layout: the layout reads the memberships once, and the frame takes the organisation from
+the page's `?org=` (a layout cannot read the query string). With no `?org=`, as on the dashboard hub,
+it shows the bar alone. Pages no longer carry a "← Dashboard" link; the tabs replace it.
 
 ### Home after sign-in
 
@@ -255,18 +289,19 @@ The home for each role:
 | accountant | `/wages` |
 | supervisor | `/reports`, with one line saying that capture is on the phone app |
 
-The dashboard stays reachable from the wordmark and from the organisation name in the top bar. No
-cookie or table is needed.
+`homeFor()` in `lib/dashboard/memberships.ts` decides it, and the dashboard redirects. With one
+organisation the wordmark therefore lands on the role's home; the hub is for two or more. No cookie
+or table is needed.
 
 ### Components
 
-The shared pieces start from `components/v2-form.tsx` (styles in `app/v2-form.css`), which
-the entry pages already use, and grow there. `components/form.tsx` is retired once no page
-imports it. A screen uses these pieces and does not restyle them.
+The pieces are in `components/app/` (styles in `app/v2-app.css`): `AppTopBar`, `ModuleTabs`,
+`PageHead`, `StatCard`, `Card`, `DataTable`, `StatusTag`, `Button` / `ButtonLink` and `Notice` (the
+v2 one from `components/v2-form.tsx`). Fields stay in `v2-form.tsx`. `components/form.tsx` is retired
+once no page imports it. A screen uses these pieces and does not restyle them.
 
 - **Button.** Primary: ink ground, cream mono text (full width in a form, as in `v2-form.tsx`).
-  Secondary: paper ground, 1.5 px ink border. Text link: ink, underlined. Height at least
-  48 px on touch. A destructive action (archive, lock, reopen, send back) uses the same styles
+  Secondary: an ink outline. Text link: ink, underlined. Height at least 44 px. A destructive action (archive, lock, reopen, send back) uses the same styles
   **plus** its existing confirm step. There is no red button.
 - **Field.** As in `v2-form.tsx`: a mono label above a 48 px paper input with a 1.5 px ink border
   and radius 0. Help and error text sit under the input. The error text is `red-deep`, and the
@@ -274,10 +309,13 @@ imports it. A screen uses these pieces and does not restyle them.
 - **Notice.** As in `v2-form.tsx`: paper, a 1.5 px ink border with a 4 px left rule, ink text.
   - **Error:** the left rule is red, `role="alert"`.
   - **Info:** the left rule stays ink, `role="status"`.
-- **Status tag.** Mono 10.5 px uppercase in a 1 px ink box, using the app's own words. A state
-  that asks someone to act (needs attention, sent back, rejected, flagged, no rate) is
-  `red-deep` text with a red border. Every other state is ink. The word carries the meaning, so
-  there is no green or amber.
+- **Status tag.** Mono 11 px uppercase in a 1 px box, using the app's own words. Three tones
+  (`lib/app/status.ts`): a state that asks someone to act (needs approval, needs attention, sent
+  back, rejected, flagged, no rate, low stock) is `red-deep`; a settled state (approved, filed) is
+  ink; a state where nothing has happened yet (draft, none, not started, not filed) is muted. The
+  word carries the meaning, so there is no green or amber.
+- **Stat card.** A mono label and an Anton number. "To approve" and "Low stock" turn `red-deep`,
+  with the red square before the label, only when the number is above 0.
 - **Table.** Paper, a mono header row, `hair` row lines, numbers right-aligned. On a narrow
   screen the table scrolls sideways inside its own box with the first column fixed, and the
   page itself never scrolls sideways (#138 is the first case). There are no card layouts on
@@ -289,8 +327,12 @@ imports it. A screen uses these pieces and does not restyle them.
 ### Rules
 
 - **Accessibility.** Section 3's accessibility rules apply: AA on every text pair, focus
-  outline 2 px ink at 2 px offset, and tap targets of at least 48 px. Every table header is a
-  `<th scope>`.
+  outline 2 px ink at 2 px offset, and tap targets of at least 44 px. Every table header is a
+  `<th scope>`, and the first cell of a row is its `<th scope="row">`.
+- **Data.** A screen shows only data that already exists, read as the signed-in user under RLS.
+  On the Overview: "Headcount reported" sums `daily_report_status.headcount` (no published view
+  gives live presence for a day not yet approved); the "Supervisor" column is left out until Sites
+  publishes a view of its assignments (ADR-041 reads published views only).
 - **Phone.** Check every page at 375 px.
 - **No new colour.** Any colour or size not in section 1 updates this file in the same PR.
 - **Out of scope here:**
@@ -301,8 +343,27 @@ imports it. A screen uses these pieces and does not restyle them.
 ### Order of work
 
 Each step is a separate PR, reviewed by Ishant:
-1. **Components:** grow `v2-form.tsx` with Button, Status tag, Table, Card and Empty state. No
-   page changes yet.
+1. **Components** in `components/app/`, with tests. No page changes.
 2. **The frame and the home redirect** (with #135 and #140).
 3. **One PR per module** moving its pages to the components: Overview, Attendance, Reports,
    Sites, Materials, Workers, Wages, Team and Export.
+
+The Overview is the first module moved: `lib/overview/screen.ts` (tested) turns the existing board into
+the four stat cards, the "Today by site" table and the "Needs you" list. "Needs you" holds only what a
+manager can act on (a day or report to review, corrections, a flagged report, geofence flags or open
+visits, low stock); a sent-back report or day waits on its author and an unfiled report on the site, so
+the table shows those instead. The notice has the red rule only when something needs you.
+
+Attendance is second: the list is a `DataTable` (site, date, day status, corrections, flags) and the day
+page is Cards (review, result, exceptions, entries, corrections). The entries table scrolls inside its
+card with the worker pinned, which is #138's fix in the shared table. Day and correction tags use the
+Overview's words (`lib/attendance/screen.ts`): "Needs approval", "Approved", "Sent back", "Not started".
+Approve is the primary button and Reject the outline one; the form still sends `decision` and `reason`
+(`review-form.test.ts`).
+
+Then Sites, Materials, Daily reports, Workers, Wages, Team and Export moved the same way, one commit each:
+PageHead, Cards, DataTables with a pinned first column, and tags in ink, `red-deep` or muted. Every red
+button became an ordinary one, and each destructive action (archive a site, remove a worker's personal
+details) keeps its confirm step. A supervisor's home, Daily reports, says that reports are filed from the
+phone app. No page uses the green, amber or red chips any more; the theme layer in `app/(app)/app.css`
+now only backs anything not yet built from the components.

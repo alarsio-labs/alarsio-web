@@ -1,7 +1,8 @@
 import { NextResponse, type NextRequest } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 
-const SIGNED_IN_ONLY = ["/dashboard", "/team", "/reports", "/workers", "/materials", "/sites", "/attendance", "/overview"];
+// #140 added /wages and /export, which redirected only by themselves before.
+export const SIGNED_IN_ONLY = ["/dashboard", "/team", "/reports", "/workers", "/materials", "/sites", "/attendance", "/overview", "/wages", "/export"];
 
 // Refreshes the Supabase session cookie on every page request, and sends a
 // signed-out visitor on a signed-in-only page to sign in. This is a

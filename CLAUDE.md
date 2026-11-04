@@ -23,10 +23,10 @@ list is in scope. If a request implies a tenth module, stop and say so.
 | Anuradha Tiwari | Audit, Retention & Guards · Daily Reporting |
 | *(paired, week 7)* | Wage Summaries — Ishant + Manish, since it reads their modules |
 
-### Deadline override (28–29 Oct 2026, MVP submission)
+### Deadline override (until 15 Nov 2026, MVP submission)
 
-The other three are unavailable until the submission on 29 Oct, so Ishant finishes the
-remaining MVP deploy work alone. **Until the end of 29 Oct 2026 only**, these
+The other three are unavailable until the submission on 15 Nov, so Ishant finishes the
+remaining MVP deploy work alone. **Until the end of 15 Nov 2026 only**, these
 process rules change:
 
 - **Ownership.** Ishant may do the remaining work in any module: the #58 push and

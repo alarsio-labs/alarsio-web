@@ -126,7 +126,7 @@ export function ImportPanel({ orgId }: { orgId: string }) {
           </Notice>
           {failed.length > 0 && (
             <>
-              <ul className="divide-y divide-neutral-200 rounded-md border border-neutral-200 text-sm">
+              <ul className="divide-y divide-neutral-200 border border-neutral-200 bg-white text-sm">
                 {failed.map((r) => (
                   <li key={r.row} className="px-3 py-2">
                     Line {r.line}{r.code ? ` (${r.code})` : ""}: {reasonText(r.reason)}

@@ -5,8 +5,12 @@ const labels = (role: Parameters<typeof orgLinks>[0]) => orgLinks(role, "org-1")
 
 // The same rules the dashboard drew before the v2 restyle, role by role.
 describe("orgLinks", () => {
-  it("gives the owner every page, Team included", () => {
-    expect(labels("owner")).toEqual(["Overview", "Daily reports", "Attendance", "Sites", "Materials", "Workers", "Wages", "Team"]);
+  it("gives the owner every page, Team and Export included", () => {
+    expect(labels("owner")).toEqual(["Overview", "Daily reports", "Attendance", "Sites", "Materials", "Workers", "Wages", "Team", "Export"]);
+  });
+
+  it("shows Export to the owner only (#135)", () => {
+    for (const role of ["project_manager", "supervisor", "accountant"] as const) expect(labels(role)).not.toContain("Export");
   });
 
   it("gives a project manager everything except Wages and Team", () => {
