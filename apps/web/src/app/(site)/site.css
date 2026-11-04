@@ -1,0 +1,24 @@
+/* Plain public pages (About, Contact, Privacy, Terms). Reuses the .lp tokens, header and
+   buttons from landing.css; this file only adds the reading layout. No motion. */
+
+.lp-doc { max-width: 760px; margin: 0 auto; padding: 128px var(--pad) 96px; }
+.lp-doc-title { font-size: clamp(48px, 9vw, 112px); margin: 12px 0 32px; }
+.lp-doc-lead { font-size: clamp(18px, 2.2vw, 22px); line-height: 1.5; margin: 0 0 40px; }
+.lp-doc h2 { font-family: var(--font-anton), Impact, "Arial Narrow", sans-serif; font-weight: 400; text-transform: uppercase; letter-spacing: -0.02em; line-height: 1; font-size: clamp(26px, 3.4vw, 36px); margin: 48px 0 14px; }
+.lp-doc p, .lp-doc li { font-size: 17px; line-height: 1.65; }
+.lp-doc p { margin: 0 0 16px; }
+.lp-doc ul { margin: 0 0 16px; padding-left: 22px; }
+.lp-doc li { margin-bottom: 8px; }
+.lp-doc a { color: var(--red-deep); text-underline-offset: 3px; }
+.lp-doc a:hover { color: var(--ink); }
+.lp-doc-note { border: 1.5px solid var(--ink); background: var(--paper); padding: 14px 16px; margin: 0 0 40px; font-size: 15px; }
+.lp-doc-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 32px; }
+
+.lp-sitefoot { background: var(--loam); color: var(--cream); padding: 48px var(--pad) 40px; }
+.lp-sitefoot a { color: var(--cream); text-decoration: none; }
+.lp-sitefoot a:hover { text-decoration: underline; text-underline-offset: 3px; }
+.lp-sitefoot .lp-wordmark { color: var(--cream); }
+.lp-sitefoot-links { display: flex; flex-wrap: wrap; gap: 8px 24px; margin: 20px 0 32px; }
+.lp-sitefoot-links a { display: inline-flex; align-items: center; min-height: 44px; }
+.lp-sitefoot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; padding-top: 20px; border-top: 1px solid rgb(231 226 216 / 0.24); color: var(--cream-muted); }
+.lp-sitefoot a:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }

@@ -214,6 +214,11 @@ export default async function Home() {
           <span data-rev="" style={d(1)}>Offline-first site records for construction contractors in India</span>
           <span data-rev="" style={d(2)}>© {new Date().getFullYear()} Alarsio</span>
         </div>
+        <nav aria-label="Footer" className="lp-foot-base lp-mono" style={{ marginTop: 0, borderTop: 0, paddingTop: 12, justifyContent: "flex-start", gap: "8px 24px" }}>
+          {([["/about", "About"], ["/contact", "Contact"], ["/privacy", "Privacy"], ["/terms", "Terms"]] as const).map(([href, label]) => (
+            <Link key={href} href={href}>{label}</Link>
+          ))}
+        </nav>
       </footer>
 
       <LandingMotion />
