@@ -185,6 +185,15 @@ html.lp-motion .lp-chapter.is-on { opacity: 1; }
 .lp-chapter h3 { font-size: 34px; margin-top: 6px; }
 .lp-chapter p { margin-top: 8px; color: var(--muted); max-width: 36ch; }
 
+/* The scroll-driven boxes move on every scroll frame. Their own compositor layers mean a
+   frame moves pixels already painted, instead of repainting 400px type and canvases. */
+html.lp-motion .lp-lockup,
+html.lp-motion .lp-hero-meta,
+html.lp-motion .lp-man-box,
+html.lp-motion .lp-rec-copy,
+html.lp-motion .lp-packet,
+html.lp-motion .lp-wages canvas { will-change: transform, opacity; }
+
 /* After the pins */
 .lp-band { padding: 96px var(--pad); }
 .lp-band-headline { font-size: clamp(40px, 6vw, 88px); }

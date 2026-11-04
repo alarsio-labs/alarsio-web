@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { formatDay, formatInstant, todayInIndia } from "@/lib/dates";
 import { messageFor, noticeFor } from "@/lib/messages";
 import { MAX_RATE, UUID, rateDateWindow } from "@/lib/workers/form";
@@ -50,7 +50,7 @@ export default async function WorkerPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/workers/${id}?org=${org}`)}`);
 
   const [{ data: workerRow }, { data: canManage }, { data: canWages }] = await Promise.all([

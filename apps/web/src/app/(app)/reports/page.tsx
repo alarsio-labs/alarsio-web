@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { parseReportFilters } from "@/lib/reports/filters";
 import { sortReports } from "@/lib/reports/order";
 import { UUID, isReportStatusRow, isSiteRow, rows } from "@/lib/reports/rows";
@@ -27,7 +27,7 @@ export default async function ReportsPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/reports?org=${org}`)}`);
 
   const f = parseReportFilters(params, new Date());

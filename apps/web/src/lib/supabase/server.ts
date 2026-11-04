@@ -1,4 +1,5 @@
 import "server-only";
+import { cache } from "react";
 import { cookies } from "next/headers";
 import { createServerClient } from "@supabase/ssr";
 import { publicEnv } from "@/lib/env";
@@ -24,3 +25,10 @@ export async function supabaseServer() {
     }
   });
 }
+
+// The signed-in user, checked with Supabase Auth once per server render. The (app)
+// layout and the page render in the same request and used to call getUser() each,
+// one network round trip apiece; React's cache() shares the one answer. Same shape
+// as supabase.auth.getUser(). Outside a render (route handlers, actions) cache() is a
+// pass-through, so it is no worse there.
+export const getAuthUser = cache(async () => (await supabaseServer()).auth.getUser());

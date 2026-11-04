@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 
 // What every sites page does first: the organisation in the URL is a UUID, the
@@ -12,7 +12,7 @@ export async function requireSiteManager(org: unknown, nextFor: (org: string) =>
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(nextFor(org))}`);
 
   const { data: canManage, error } = await supabase.rpc("can_manage_sites", { p_org_id: org });

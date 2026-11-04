@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { Button } from "@/components/app/button";
 import { Card } from "@/components/app/card";
 import { DataTable } from "@/components/app/data-table";
@@ -41,7 +41,7 @@ export default async function TeamPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/team?org=${org}`)}`);
 
   // RLS returns this org only if the caller is a member, and invites only if

@@ -24,11 +24,25 @@ export async function proxy(request: NextRequest) {
     }
   });
 
-  const {
-    data: { user }
-  } = await supabase.auth.getUser();
+  // getClaims() verifies the session JWT locally when the project signs with
+  // asymmetric keys, and only then falls back to a round trip to Auth; getUser()
+  // always made that round trip, before every page. It refreshes an expired session
+  // the same way. The page still checks the user itself, so this is a hint only.
+  const { data } = await supabase.auth.getClaims();
+  const user = data?.claims?.sub ? data.claims : null;
 
   const path = request.nextUrl.pathname;
+  // A signed-in visitor on / goes to their dashboard. Done here, not in the page,
+  // so the landing page itself reads no cookies and can be served static from the CDN.
+  if (user && path === "/") {
+    const dash = request.nextUrl.clone();
+    dash.pathname = "/dashboard";
+    dash.search = "";
+    const to = NextResponse.redirect(dash);
+    // Keep a session cookie getClaims() just refreshed.
+    for (const c of response.cookies.getAll()) to.cookies.set(c);
+    return to;
+  }
   // The export download is a POST whose form holds the organisation; the
   // route sends a signed-out caller back to that organisation's export page.
   const ownSignIn = path === "/export/download";

@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { isSiteRow, rows } from "@/lib/reports/rows";
@@ -53,7 +53,7 @@ export default async function AttendanceDayPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/attendance/${id}?org=${org}`)}`);
 
   const { data: dayData } = await supabase

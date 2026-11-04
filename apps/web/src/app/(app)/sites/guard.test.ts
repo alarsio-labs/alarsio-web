@@ -13,6 +13,7 @@ vi.mock("next/navigation", () => ({
   }
 }));
 vi.mock("@/lib/supabase/server", () => ({
+  getAuthUser: async () => ({ data: { user: state.user } }),
   supabaseServer: async () => ({
     auth: { getUser: async () => ({ data: { user: state.user } }) },
     rpc: async (name: string, args: unknown) => {

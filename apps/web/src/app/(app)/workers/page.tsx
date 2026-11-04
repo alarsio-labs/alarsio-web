@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { UUID } from "@/lib/uuid";
 import { Field, buttonClass, inputClass } from "@/components/form";
@@ -37,7 +37,7 @@ export default async function WorkersPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/workers?org=${org}`)}`);
 
   // Owners and project managers manage workers (can_manage_sites); an

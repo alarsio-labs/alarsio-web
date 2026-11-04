@@ -1,5 +1,5 @@
 import { redirect } from "next/navigation";
-import { supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { EXPORT_TABLES } from "@/lib/export/tables";
 import { ownedOrganization } from "@/lib/export/supabase";
@@ -19,7 +19,7 @@ export default async function ExportPage({
   const supabase = await supabaseServer();
   const {
     data: { user }
-  } = await supabase.auth.getUser();
+  } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/export?org=${orgParam}`)}`);
 
   // Owner only (#76). A non-owner and a non-member see the same page.
