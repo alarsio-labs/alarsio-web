@@ -1,83 +1,187 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
-  description: "What personal data Alarsio collects, why, who can see it, and your choices.",
+  description: "How Alarsio collects, uses, shares and protects personal data, and the rights you have over it.",
   alternates: { canonical: "/privacy" }
 };
 
+// Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 and add the
+// legal entity, registered address and Grievance Officer's name before relying on it.
 const UPDATED = "4 November 2026";
+
+const sections: DocSection[] = [
+  {
+    id: "scope",
+    title: "Scope of this policy",
+    body: (
+      <>
+        <p>
+          This policy explains how Alarsio (&quot;Alarsio&quot;, &quot;we&quot;, &quot;us&quot;) handles personal data when you visit
+          our website, use the Alarsio web app or the Alarsio Android app (together, the &quot;Service&quot;).
+        </p>
+        <p>
+          Alarsio is used by construction businesses (&quot;Customers&quot;) to keep records about their sites and the
+          people who work on them. For those records, the Customer decides what is collected and why, and we process
+          the data on the Customer&apos;s behalf and on its instructions. If you are a worker whose details are kept in
+          Alarsio by your employer, please contact your employer first about your data.
+        </p>
+      </>
+    )
+  },
+  {
+    id: "collect",
+    title: "Information we collect",
+    body: (
+      <>
+        <h3>Information you give us</h3>
+        <ul>
+          <li><strong>Account details:</strong> name, email address and password (stored only in hashed form) of each person who uses the Service.</li>
+          <li><strong>Company details:</strong> company name, sites, team members and their roles.</li>
+          <li><strong>Worker records:</strong> names, phone numbers, wage rates, attendance, and corrections entered by the Customer.</li>
+          <li><strong>Site records:</strong> daily reports, notes, materials received and used, and photos attached to reports.</li>
+          <li><strong>Messages</strong> you send us, for example a support request.</li>
+        </ul>
+        <h3>Information collected when you use the Service</h3>
+        <ul>
+          <li><strong>Location at check-in:</strong> the Android app reads the phone&apos;s location once, when a supervisor taps to check in, to confirm they are at the site. It does not track location in the background.</li>
+          <li><strong>Photos:</strong> photos are re-encoded when uploaded, which removes embedded camera metadata.</li>
+          <li><strong>Crash and error reports</strong> from the Android app, so we can find and fix faults.</li>
+          <li><strong>Technical logs</strong> such as IP address, browser or device type and request times, kept to operate and secure the Service.</li>
+        </ul>
+      </>
+    )
+  },
+  {
+    id: "use",
+    title: "How we use information",
+    body: (
+      <>
+        <p>We use personal data only to:</p>
+        <ul>
+          <li>provide the Service: record attendance, reports and materials, and calculate wages from approved attendance;</li>
+          <li>create and secure accounts, sign users in, and send verification and invitation emails;</li>
+          <li>respond to support requests and tell you about changes to the Service;</li>
+          <li>detect, investigate and prevent errors, misuse and security incidents;</li>
+          <li>comply with legal obligations.</li>
+        </ul>
+        <p>We do not sell personal data, and we do not use it for advertising or to build marketing profiles.</p>
+      </>
+    )
+  },
+  {
+    id: "cookies",
+    title: "Cookies",
+    body: (
+      <p>
+        We use only the cookies needed to keep you signed in and to keep your session secure. We do not use advertising
+        or third-party tracking cookies on our website.
+      </p>
+    )
+  },
+  {
+    id: "sharing",
+    title: "How information is shared",
+    body: (
+      <>
+        <p>
+          <strong>Within a Customer&apos;s account.</strong> What a person can see depends on their role (owner, project
+          manager, supervisor or accountant). A supervisor sees only the sites assigned to them. Each Customer&apos;s
+          records are kept separate from every other Customer&apos;s by access rules enforced in the database.
+        </p>
+        <p>
+          <strong>Service providers.</strong> We use trusted providers to host the Service and to store data (Vercel and
+          Supabase), to send emails, and to receive app crash reports. They process data only on our instructions and
+          only to provide their service to us.
+        </p>
+        <p>
+          <strong>Legal reasons.</strong> We may disclose information if required by law, or to protect the rights,
+          property or safety of Alarsio, our Customers or others.
+        </p>
+      </>
+    )
+  },
+  {
+    id: "retention",
+    title: "How long we keep information",
+    body: (
+      <p>
+        We keep Customer records for as long as the Customer&apos;s account is active. When a Customer closes its
+        account, we delete its records within a reasonable period, except where we must keep information to meet a
+        legal obligation or resolve a dispute. Technical logs are kept for a limited time.
+      </p>
+    )
+  },
+  {
+    id: "security",
+    title: "Security",
+    body: (
+      <p>
+        Data is encrypted in transit, access is restricted by role, and passwords are stored only in hashed form. No
+        system is completely secure, but if a breach affects your personal data we will notify the affected Customers
+        and the authorities as the law requires.
+      </p>
+    )
+  },
+  {
+    id: "rights",
+    title: "Your rights and choices",
+    body: (
+      <>
+        <p>Subject to applicable law, including India&apos;s Digital Personal Data Protection Act, 2023, you may:</p>
+        <ul>
+          <li>ask for a summary of the personal data we process about you;</li>
+          <li>ask us to correct, complete or update it;</li>
+          <li>ask us to erase it, where we no longer need it or you withdraw consent;</li>
+          <li>withdraw consent you have given, without affecting processing already done;</li>
+          <li>nominate another person to exercise your rights in case of death or incapacity;</li>
+          <li>raise a grievance with us, and then with the Data Protection Board of India.</li>
+        </ul>
+        <p>
+          A Customer&apos;s owner can also download all of the Customer&apos;s data as CSV files at any time. Where we
+          hold data on behalf of a Customer, we will pass your request to that Customer.
+        </p>
+      </>
+    )
+  },
+  {
+    id: "children",
+    title: "Children",
+    body: <p>The Service is meant for businesses and is not directed at children. We do not knowingly collect personal data from children.</p>
+  },
+  {
+    id: "changes",
+    title: "Changes to this policy",
+    body: (
+      <p>
+        We may update this policy as the Service changes. We will change the &quot;Last updated&quot; date above and,
+        for significant changes, notify account owners by email or in the app.
+      </p>
+    )
+  },
+  {
+    id: "contact",
+    title: "Contact and grievances",
+    body: (
+      <p>
+        For questions, requests or complaints about your personal data, write to us at <ContactLink />. We will
+        acknowledge your request and respond within the time the law requires. See also our{" "}
+        <Link href="/terms">Terms of Service</Link>.
+      </p>
+    )
+  }
+];
 
 export default function PrivacyPage() {
   return (
-    <article className="lp-doc">
-      <p className="lp-mono lp-muted">Last updated {UPDATED}</p>
-      <h1 className="lp-display lp-doc-title">Privacy Policy</h1>
-      <p className="lp-doc-note">
-        <strong>Draft for review.</strong> This text describes how the product works but has not been reviewed by a
-        lawyer. Have it checked against India&apos;s Digital Personal Data Protection Act, 2023 before relying on it.
-      </p>
-
-      <h2>Who we are</h2>
-      <p>
-        Alarsio provides software for contractors to keep site records. In this policy, &quot;the company&quot; is the
-        contractor that creates an account and &quot;we&quot; is Alarsio. For the records a company keeps about its
-        workers, the company decides what is collected and why; we store and process it on the company&apos;s behalf.
-      </p>
-
-      <h2>What we collect</h2>
-      <ul>
-        <li><strong>Account data:</strong> name, email address and sign-in details of the people who use Alarsio.</li>
-        <li><strong>Company records:</strong> sites, workers, attendance, daily reports, materials, wage periods and corrections.</li>
-        <li><strong>Photos and notes</strong> that users attach to reports. Photos are re-encoded on upload, which removes embedded camera metadata.</li>
-        <li><strong>Technical data:</strong> basic logs needed to run and secure the service.</li>
-      </ul>
-
-      <h2>Why we use it</h2>
-      <ul>
-        <li>To provide the service: record attendance, reports and materials, and calculate wages.</li>
-        <li>To sign you in, send verification and invitation emails, and keep accounts secure.</li>
-        <li>To fix problems and keep the service reliable.</li>
-      </ul>
-      <p>We do not sell personal data and we do not use it for advertising.</p>
-
-      <h2>Who can see it</h2>
-      <p>
-        Inside a company, what a person can see depends on their role (for example owner, manager, supervisor or
-        accountant). Records of one company are separated from every other company&apos;s by database access rules.
-      </p>
-
-      <h2>Service providers</h2>
-      <p>
-        We use hosting, database, authentication, file storage and email providers to run Alarsio. They process data
-        only to provide those services to us.
-      </p>
-
-      <h2>How long we keep it</h2>
-      <p>
-        Company records are kept while the account is active. When a company asks us to delete its account, we delete
-        its records, except where the law requires us to keep something.
-      </p>
-
-      <h2>Your choices</h2>
-      <ul>
-        <li>The company owner can download all of the company&apos;s data as CSV files at any time.</li>
-        <li>You can ask to access, correct or delete personal data we hold about you. Workers should first ask their employer, who controls their records.</li>
-        <li>You can stop using Alarsio at any time.</li>
-      </ul>
-
-      <h2>Security</h2>
-      <p>
-        Data is sent over encrypted connections and access is limited by role. No system is perfectly secure, and we
-        will tell affected companies if a breach affects their data.
-      </p>
-
-      <h2>Changes and contact</h2>
-      <p>
-        We will update the date above when this policy changes. Questions or requests: see our{" "}
-        <Link href="/contact">Contact page</Link>.
-      </p>
-    </article>
+    <>
+      <PageHead crumb="Privacy Policy" title="Privacy Policy" meta={`Last updated: ${UPDATED}`} />
+      <LegalDoc
+        intro={<p>Your records belong to you. This policy explains, in plain language, what we collect, why, and the control you have over it.</p>}
+        sections={sections}
+      />
+    </>
   );
 }

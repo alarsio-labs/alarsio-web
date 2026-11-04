@@ -1,81 +1,191 @@
 import type { Metadata } from "next";
 import Link from "next/link";
+import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
-  description: "The terms for using Alarsio.",
+  description: "The terms that apply when you use Alarsio, the site records app for construction contractors.",
   alternates: { canonical: "/terms" }
 };
 
+// Not yet reviewed by a lawyer: add the legal entity name, registered address and the
+// courts' city to "Governing law" before relying on it.
 const UPDATED = "4 November 2026";
+
+const sections: DocSection[] = [
+  {
+    id: "acceptance",
+    title: "Acceptance of these terms",
+    body: (
+      <>
+        <p>
+          These Terms of Service (&quot;Terms&quot;) govern your use of the Alarsio website, web app and Android app
+          (the &quot;Service&quot;). By creating an account or using the Service, you agree to these Terms and to our{" "}
+          <Link href="/privacy">Privacy Policy</Link>.
+        </p>
+        <p>
+          If you accept these Terms on behalf of a business (the &quot;Customer&quot;), you confirm that you have the
+          authority to bind that business. In that case &quot;you&quot; means the Customer.
+        </p>
+      </>
+    )
+  },
+  {
+    id: "service",
+    title: "The Service",
+    body: (
+      <p>
+        Alarsio helps construction businesses record attendance, daily reports and materials on site, including without
+        an internet connection, and calculate wages from approved attendance. We may improve, change or add features
+        over time. If we remove a feature you rely on, we will try to give you reasonable notice.
+      </p>
+    )
+  },
+  {
+    id: "accounts",
+    title: "Accounts and security",
+    body: (
+      <ul>
+        <li>You must provide accurate information and keep it up to date.</li>
+        <li>You are responsible for keeping sign-in details confidential and for all activity under your account.</li>
+        <li>The account owner decides who is invited and which role each person has, and is responsible for their use of the Service.</li>
+        <li>Tell us promptly at <ContactLink /> if you suspect unauthorised use of your account.</li>
+      </ul>
+    )
+  },
+  {
+    id: "data",
+    title: "Your data",
+    body: (
+      <>
+        <p>
+          You own the records you enter into the Service (&quot;Customer Data&quot;). You grant us a limited right to host,
+          process and display Customer Data only to provide and support the Service. You can export your Customer Data
+          as CSV files at any time.
+        </p>
+        <p>
+          You are responsible for having a lawful basis to record information about your workers and team, and for
+          informing them about it, as required by applicable law.
+        </p>
+      </>
+    )
+  },
+  {
+    id: "use",
+    title: "Acceptable use",
+    body: (
+      <>
+        <p>You agree not to:</p>
+        <ul>
+          <li>use the Service for any unlawful purpose or to record information you know to be false;</li>
+          <li>attempt to access another Customer&apos;s data, or any part of the Service you are not authorised to use;</li>
+          <li>interfere with, overload or disrupt the Service or its security;</li>
+          <li>copy, resell, or reverse engineer the Service, except where the law allows it.</li>
+        </ul>
+      </>
+    )
+  },
+  {
+    id: "wages",
+    title: "Wages, records and your responsibilities",
+    body: (
+      <p>
+        Wage figures in Alarsio are calculated from the attendance, rates and corrections your team enters and approves.
+        You are responsible for reviewing them before making any payment. Alarsio does not make payments and does not
+        provide payroll, tax, labour-law or legal advice.
+      </p>
+    )
+  },
+  {
+    id: "fees",
+    title: "Fees",
+    body: (
+      <p>
+        Any fees for the Service, and how they are billed, will be agreed with you in writing before they apply. We will
+        not charge you for anything you have not agreed to.
+      </p>
+    )
+  },
+  {
+    id: "ip",
+    title: "Intellectual property",
+    body: (
+      <p>
+        The Service, including its software, design and content (other than Customer Data), belongs to Alarsio and is
+        protected by law. These Terms give you a right to use the Service; they do not transfer any ownership to you.
+        If you send us feedback, we may use it without any obligation to you.
+      </p>
+    )
+  },
+  {
+    id: "availability",
+    title: "Availability",
+    body: (
+      <p>
+        We work to keep the Service available and your data safe, but we do not guarantee that it will be uninterrupted
+        or error-free. The Android app is designed to keep working offline and to sync when a connection returns.
+        Planned maintenance will be scheduled to limit disruption where possible.
+      </p>
+    )
+  },
+  {
+    id: "termination",
+    title: "Suspension and termination",
+    body: (
+      <p>
+        You may stop using the Service at any time. Please export your data before you close your account. We may
+        suspend or close an account that breaches these Terms or puts the Service or other users at risk; where
+        reasonable, we will notify you first and give you a chance to export your data.
+      </p>
+    )
+  },
+  {
+    id: "liability",
+    title: "Disclaimers and limitation of liability",
+    body: (
+      <p>
+        To the extent permitted by law, the Service is provided &quot;as is&quot;, and Alarsio is not liable for any
+        indirect, incidental, special or consequential loss, or for loss of profits, revenue or data. Nothing in these
+        Terms limits any liability that cannot be limited under applicable law.
+      </p>
+    )
+  },
+  {
+    id: "law",
+    title: "Governing law and disputes",
+    body: (
+      <p>
+        These Terms are governed by the laws of India. We encourage you to contact us first so we can try to resolve
+        any dispute informally.
+      </p>
+    )
+  },
+  {
+    id: "changes",
+    title: "Changes to these Terms",
+    body: (
+      <p>
+        We may update these Terms from time to time. We will change the &quot;Last updated&quot; date above and, for
+        significant changes, notify account owners in advance. Continuing to use the Service after a change takes
+        effect means you accept the updated Terms.
+      </p>
+    )
+  },
+  {
+    id: "contact",
+    title: "Contact us",
+    body: <p>Questions about these Terms? Write to us at <ContactLink />.</p>
+  }
+];
 
 export default function TermsPage() {
   return (
-    <article className="lp-doc">
-      <p className="lp-mono lp-muted">Last updated {UPDATED}</p>
-      <h1 className="lp-display lp-doc-title">Terms of Service</h1>
-      <p className="lp-doc-note">
-        <strong>Draft for review.</strong> This is a plain-language starting point, not legal advice. Have a lawyer
-        review it, and add your company&apos;s legal name, governing law and jurisdiction, before launch.
-      </p>
-
-      <h2>Using Alarsio</h2>
-      <p>
-        By creating an account or using Alarsio you agree to these terms. If you use it for a company, you confirm you
-        are allowed to accept them for that company.
-      </p>
-
-      <h2>Your account</h2>
-      <ul>
-        <li>Give accurate information and keep your sign-in details private.</li>
-        <li>You are responsible for what happens under your account, and for the people you invite.</li>
-        <li>Tell us promptly if you think your account has been used without your permission.</li>
-      </ul>
-
-      <h2>Your data</h2>
-      <p>
-        The company owns the records it enters. You give us permission to store and process them to provide the
-        service. You are responsible for having the right to record information about your workers, and for telling
-        them what you record. See the <Link href="/privacy">Privacy Policy</Link>.
-      </p>
-
-      <h2>Acceptable use</h2>
-      <ul>
-        <li>Do not break the law or use Alarsio to record false information.</li>
-        <li>Do not try to access another company&apos;s data or disrupt the service.</li>
-        <li>Do not copy, resell or reverse engineer the service except as the law allows.</li>
-      </ul>
-
-      <h2>Wages and records</h2>
-      <p>
-        Alarsio calculates wages from the attendance and rates that your company enters and approves. You are
-        responsible for checking the figures before paying anyone. Alarsio is a record-keeping tool; it does not make
-        payments and is not payroll, tax or legal advice.
-      </p>
-
-      <h2>Availability</h2>
-      <p>
-        We work to keep Alarsio available and your data safe, but we cannot promise it will always be uninterrupted or
-        error free. The Android app is designed to keep working offline and to sync when a connection returns.
-      </p>
-
-      <h2>Ending your use</h2>
-      <p>
-        You can stop at any time and download your data first. We may suspend an account that breaks these terms or
-        puts the service or other users at risk.
-      </p>
-
-      <h2>Liability</h2>
-      <p>
-        To the extent the law allows, Alarsio is provided &quot;as is&quot; and we are not liable for indirect or
-        consequential loss. Nothing here limits liability that cannot be limited by law.
-      </p>
-
-      <h2>Changes and contact</h2>
-      <p>
-        We may update these terms and will change the date above when we do. Continued use means you accept the
-        update. Questions: see our <Link href="/contact">Contact page</Link>.
-      </p>
-    </article>
+    <>
+      <PageHead crumb="Terms of Service" title="Terms of Service" meta={`Last updated: ${UPDATED}`} />
+      <LegalDoc
+        intro={<p>Please read these Terms carefully. They set out your rights and responsibilities when you use Alarsio.</p>}
+        sections={sections}
+      />
+    </>
   );
 }
