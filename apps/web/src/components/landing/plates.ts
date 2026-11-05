@@ -7,6 +7,11 @@ const HAIR = "rgba(23,23,23,.16)";
 
 export type Draw = (ctx: CanvasRenderingContext2D, w: number, h: number, t: number) => void;
 
+/** A box under 1 px (or NaN) has nothing to show. Every draw returns at once for it: the
+ *  still grid once stepped by w / 8, which is 0 for a 0 px canvas, and looped forever
+ *  (the alarsio.com "Page Unresponsive" freeze). */
+export const tooSmall = (w: number, h: number) => !(w >= 1 && h >= 1);
+
 /** Stage 1: short red strokes on a site grid, drifting on sines of time and index.
  *  Strokes are grouped into BUCKETS alpha levels and drawn as one path per level:
  *  about 1000 stroke() calls a frame became 8 (Firefox stalled on the former). */
@@ -14,6 +19,7 @@ const BUCKETS = 8;
 const paths: Path2D[] = [];
 export const heroField: Draw = (ctx, w, h, t) => {
   ctx.clearRect(0, 0, w, h);
+  if (tooSmall(w, h)) return;
   const gap = Math.max(22, Math.min(w, h) / 22);
   const cols = Math.ceil(w / gap) + 1;
   const rows = Math.ceil(h / gap) + 1;
@@ -44,6 +50,7 @@ export const heroField: Draw = (ctx, w, h, t) => {
 /** Stage 5: 22 stacked contour lines, a sine plus a slower harmonic; every fifth red. */
 export const contours: Draw = (ctx, w, h, t) => {
   ctx.clearRect(0, 0, w, h);
+  if (tooSmall(w, h)) return;
   const n = 22;
   for (let k = 0; k < n; k++) {
     const base = (h / (n + 1)) * (k + 1);
@@ -65,22 +72,26 @@ function frame(ctx: CanvasRenderingContext2D, w: number, h: number) {
   ctx.fillRect(0, 0, w, h);
   ctx.strokeStyle = HAIR;
   ctx.lineWidth = 1;
-  for (let x = 0; x <= w; x += w / 8) {
+  // Square cells, eight across. Loop by count, never by adding a step that can be 0.
+  const cell = w / 8;
+  for (let i = 0; i <= 8; i++) {
     ctx.beginPath();
-    ctx.moveTo(x, 0);
-    ctx.lineTo(x, h);
+    ctx.moveTo(i * cell, 0);
+    ctx.lineTo(i * cell, h);
     ctx.stroke();
   }
-  for (let y = 0; y <= h; y += w / 8) {
+  const rows = Math.floor(h / cell);
+  for (let j = 0; j <= rows; j++) {
     ctx.beginPath();
-    ctx.moveTo(0, y);
-    ctx.lineTo(w, y);
+    ctx.moveTo(0, j * cell);
+    ctx.lineTo(w, j * cell);
     ctx.stroke();
   }
 }
 
-/** The six rail plates and the day record's site plate, all still. */
-export const PLATES: Record<string, Draw> = {
+/** The six rail plates and the day record's site plate, all still. Each returns at
+ *  once for a box under 1 px (see tooSmall). */
+const STILL: Record<string, Draw> = {
   checkin: (ctx, w, h) => {
     frame(ctx, w, h);
     const cx = w / 2, cy = h * 0.52, r = w * 0.34;
@@ -212,3 +223,12 @@ export const PLATES: Record<string, Draw> = {
     ctx.fill();
   }
 };
+
+export const PLATES: Record<string, Draw> = Object.fromEntries(
+  Object.entries(STILL).map(([name, draw]): [string, Draw] => [
+    name,
+    (ctx, w, h, t) => {
+      if (!tooSmall(w, h)) draw(ctx, w, h, t);
+    }
+  ])
+);
