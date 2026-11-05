@@ -34,6 +34,42 @@ Run through the unhappy path, not just the happy one:
 - [ ] Submit the form empty, then with nonsense, then with a huge value
 - [ ] Reload mid-action — is anything left half-written?
 
+## Performance budget (web)
+
+Our users run old laptops and cheap phones. A web change that adds client JavaScript, a
+canvas, an animation or a scroll/resize handler is checked against this budget before its PR:
+
+| Measure | Budget |
+| :-- | :-- |
+| Total Blocking Time | under 200 ms |
+| Largest Contentful Paint | under 2.5 s |
+| Cumulative Layout Shift | under 0.1 |
+| Any single task while loading or scrolling | under 100 ms |
+
+Measured at **4x CPU throttle**, Lighthouse mobile, against a production build, never
+`pnpm dev`. 6x is reported but does not gate. Put before and after numbers in the PR.
+
+```bash
+pnpm build --filter=web && pnpm --filter=web start -p 3100     # production build
+npx lighthouse@12.8.2 http://localhost:3100/ --only-categories=performance \
+  --throttling-method=devtools --throttling.cpuSlowdownMultiplier=4 \
+  --chrome-flags="--headless=new" --output=json --output-path=./lh-home-4.json
+```
+
+Run it for `/`, `/sign-in`, `/sign-up` and `/dashboard`. Lighthouse prints the machine's
+`benchmarkIndex` in the report: on a slow machine (under ~1000) 4x behaves like a stronger
+throttle and TBT is noisy, so compare before and after on the same machine, and also compare
+total main-thread work (`mainthread-work-breakdown`).
+
+Rules that come from real incidents (#158, #159):
+
+- **No loop may step by a value that can be 0.** A canvas 0 px wide made `x += w / 8` loop
+  forever and froze the page. Loop by count, and return early for a box under 1 px.
+- **No animation loop that runs for as long as the page is open.** Decorative canvases are
+  drawn once and on resize, not every frame.
+- **Freeze check:** load the page in a 0x0 and a 1024x60 iframe and confirm it still answers.
+  A canvas or layout bug that only shows at tiny sizes still freezes real users.
+
 ## Running things
 
 ```bash
