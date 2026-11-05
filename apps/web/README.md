@@ -118,7 +118,7 @@ If a test fails, do not tick the row. Open an issue with the steps and what you 
 
 ## 8. Status and open items
 
-The app is live at https://www.alarsio.com (`alarsio.com` redirects to it). The Vercel address `alarsio-web.vercel.app` serves the same app, but use the custom domain for all testing so verification and invite links match. `smoke-test-log-2026-10-30.md` records a manual test made on the Vercel address (Vercel, `main` at `482fb2c`). This session did not change `apps/web` code or deploy it, so check the current deployment before you rely on it.
+A live deployment exists at https://alarsio-web.vercel.app. `smoke-test-log-2026-10-30.md` records a manual test of it (Vercel, `main` at `482fb2c`). This session did not change `apps/web` code or deploy it, so check the current deployment before you rely on it.
 
 - [x] Vercel project created and deployed (DEPLOY.md section 2).
 - [ ] Supabase Auth Site URL, Redirect URLs and custom SMTP set to match the deployed address.
