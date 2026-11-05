@@ -15,9 +15,10 @@ export function LandingMotion() {
     const reduced = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     const cleanups: (() => void)[] = [];
 
-    // Canvases: size to the box (still plates at DPR up to 2, the live fields at 1:
-    // faint strokes gain nothing from retina, and it is 4x fewer pixels a frame).
-    // Live fields animate only on screen, with the tab visible, at about 30 fps.
+    // Canvases: size to the box (still plates at DPR up to 2, the hero and contour
+    // fields at 1: faint strokes gain nothing from retina). Every canvas is drawn once,
+    // and again only on resize. The fields used to redraw at 30 fps; on a slow laptop
+    // that cost about 9 s of blocked main thread per page load at 4x CPU (Lighthouse).
     const sizeCanvas = (c: HTMLCanvasElement, maxDpr = 2) => {
       const dpr = Math.min(maxDpr, window.devicePixelRatio || 1);
       const w = c.clientWidth, h = c.clientHeight;
@@ -41,10 +42,10 @@ export function LandingMotion() {
     stills.forEach((c) => boxes.observe(c));
     cleanups.push(() => boxes.disconnect());
 
-    const live: { c: HTMLCanvasElement; draw: Draw; on: boolean }[] = [];
+    const live: { c: HTMLCanvasElement; draw: Draw }[] = [];
     for (const [sel, draw] of [["canvas[data-live=hero]", heroField], ["canvas[data-live=contours]", contours]] as const) {
       const c = document.querySelector<HTMLCanvasElement>(sel);
-      if (c) live.push({ c, draw, on: false });
+      if (c) live.push({ c, draw });
     }
     let sized = live.map((l) => sizeCanvas(l.c, 1));
     live.forEach((l, i) => {
@@ -85,33 +86,6 @@ export function LandingMotion() {
     );
     document.querySelectorAll("[data-rev]").forEach((el) => io.observe(el));
     cleanups.push(() => io.disconnect());
-
-    const vis = new IntersectionObserver((entries) => {
-      for (const e of entries) {
-        const l = live.find((x) => x.c === e.target);
-        if (l) l.on = e.isIntersecting;
-      }
-    });
-    live.forEach((l) => vis.observe(l.c));
-    cleanups.push(() => vis.disconnect());
-
-    // The live fields are decoration: they pause while the page scrolls, so a scroll
-    // frame never waits behind a canvas redraw (on a slow or busy laptop the two
-    // together dropped scrolling to about 16 fps), and resume 200 ms after it stops.
-    let lastScroll = -Infinity;
-    let raf = 0;
-    let lastDraw = 0;
-    const loop = (ms: number) => {
-      raf = requestAnimationFrame(loop);
-      if (document.hidden || ms - lastDraw < 32 || performance.now() - lastScroll < 200) return;
-      lastDraw = ms;
-      live.forEach((l, i) => {
-        const s = sized[i];
-        if (l.on && s?.ctx) l.draw(s.ctx, s.w, s.h, ms / 1000);
-      });
-    };
-    raf = requestAnimationFrame(loop);
-    cleanups.push(() => cancelAnimationFrame(raf));
 
     // Stages.
     const stage = (name: string) => document.querySelector<HTMLElement>(`[data-stage=${name}]`);
@@ -237,7 +211,6 @@ export function LandingMotion() {
       }
     };
     schedule = () => {
-      lastScroll = performance.now();
       if (ticking) return;
       ticking = true;
       requestAnimationFrame(frame);

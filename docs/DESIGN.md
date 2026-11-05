@@ -64,7 +64,7 @@ until the pilot produces real ones.
 
 ### Stage 1 · Poster hero (280svh, loam)
 
-A full-bleed canvas of short red strokes drifting on sines of time and index, 5–19 % alpha:
+A full-bleed canvas of short red strokes angled on sines of index, 5–19 % alpha, drawn once (still):
 a site grid seen from above. A two-line lockup: "SITE RECORDS WITH NO SIGNAL" above,
 "ALARSIO" below in red at poster scale. Three separate variables: `--hero-type-y` 0 to
 -90px, `--hero-type-scale` 1 to .74, `--hero-type-alpha` 1 to 0. Mono metadata across the
@@ -133,7 +133,7 @@ and unobserves on entry.
 ## 2b · Sign in, sign up, check email
 
 Same tokens and fonts (`app/fonts.ts`, `landing.css`), laid out in `app/(auth)/layout.tsx`: a loam
-panel with the drifting site-grid canvas, the wordmark, "Site records with no signal" and the hero's
+panel with the still site-grid canvas, the wordmark, "Site records with no signal" and the hero's
 mono metadata, beside the form on cream. On phones the panel is a band above the form, without the
 metadata. The form pieces are in `components/v2-form.tsx` (styles `app/v2-form.css`): a mono eyebrow and an Anton title, mono labels,
 48 px paper inputs with a 1.5 px ink border and zero radius, a full-width ink button, an error notice
@@ -235,7 +235,7 @@ The app has two kinds of page:
 | Body and tables | Inter | Inter | Inter 15 px. Numbers use `tabular-nums` |
 | Mono labels | Martian Mono | form labels, eyebrows, role tags | 11 px uppercase: form labels, tabs, buttons, statuses, table headers, the eyebrow ("THU 30 OCT · ASIA/KOLKATA") |
 | Shape | radius 0, 1.5 px ink | the same | the same |
-| Motion | pinned stages, word reveals | the canvas drift and the stepper (2d) | **none** beyond a 150 ms colour change on hover and focus |
+| Motion | pinned stages, word reveals | the stepper (2d); the canvas is still | **none** beyond a 150 ms colour change on hover and focus |
 | Red | marks; text only on loam | the same | marks only (the square before an alert label, the notice rule, the wordmark). Red **text** is `red-deep`, only for a state that needs action. Never a red button |
 
 All motion follows section 3: none under reduced motion, and the page works without JavaScript.
