@@ -7,6 +7,8 @@ import { requireSiteManager } from "../guard";
 import { SiteForm } from "../site-form";
 import { createSite } from "../actions";
 
+export const metadata = { title: "New site" };
+
 export default async function NewSitePage({
   searchParams
 }: {

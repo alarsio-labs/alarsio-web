@@ -30,6 +30,8 @@ function SiteTable({ org, sites, caption }: { org: string; sites: SiteRecord[]; 
   );
 }
 
+export const metadata = { title: "Sites" };
+
 export default async function SitesPage({
   searchParams
 }: {

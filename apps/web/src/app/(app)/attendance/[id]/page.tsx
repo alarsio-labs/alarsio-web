@@ -38,6 +38,8 @@ function Change({ title, status, hours, note }: { title: string; status: EntryRo
   );
 }
 
+export const metadata = { title: "Attendance day" };
+
 export default async function AttendanceDayPage({
   params,
   searchParams

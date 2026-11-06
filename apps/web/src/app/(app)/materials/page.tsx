@@ -25,6 +25,8 @@ function many<T>(data: unknown, convert: (v: unknown) => T | null): { items: T[]
   return { items, dropped: data.length - items.length };
 }
 
+export const metadata = { title: "Materials" };
+
 export default async function MaterialsPage({
   searchParams
 }: {

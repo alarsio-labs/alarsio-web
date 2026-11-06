@@ -8,6 +8,8 @@ import { Card } from "@/components/app/card";
 import { Notice } from "@/components/app/notice";
 import { PageHead } from "@/components/app/page-head";
 
+export const metadata = { title: "Export" };
+
 export default async function ExportPage({
   searchParams
 }: {

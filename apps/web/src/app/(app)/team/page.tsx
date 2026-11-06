@@ -30,6 +30,8 @@ function statusOf(i: InviteRow, now: number): string {
   return "Open";
 }
 
+export const metadata = { title: "Team" };
+
 export default async function TeamPage({
   searchParams
 }: {

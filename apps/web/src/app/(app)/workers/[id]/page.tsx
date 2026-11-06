@@ -35,6 +35,8 @@ function rows<T>(data: unknown, keys: string[]): T[] {
 
 const rupees = (v: number | string) => `₹${Number(v).toLocaleString("en-IN", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 
+export const metadata = { title: "Worker" };
+
 export default async function WorkerPage({
   params,
   searchParams

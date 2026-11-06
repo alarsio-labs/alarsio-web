@@ -140,6 +140,29 @@ metadata. The form pieces are in `components/v2-form.tsx` (styles `app/v2-form.c
 with a red left rule (`role="alert"`), and a hairline-ruled foot for the other link. These pages and
 the dashboard use them; the other app pages keep `components/form.tsx` for now.
 
+The auth pages also carry the password pieces: `components/password-input.tsx` (a field with a
+Show/Hide button, 48 px) and the "Forgot password?" link, and the sign-up page has the required
+terms checkbox in a 48 px row.
+
+## 2b-i · Info pages
+
+The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one frame, in
+`components/site/public-frame.tsx`:
+
+- **Header.** The same `Wordmark` and `HeadActions` on every page. There is one call to action,
+  "Join the pilot" (`CTA.primary` in `lib/landing/content.ts`), and "Sign in" beside it. "Sign in" stays
+  visible on phones, as a text link, and the three fit on one row down to 320 px. Both keep a 48 px tap
+  target on phones. The landing page keeps its own section nav and footer CTA.
+- **Footer.** `SiteFooter` on every info page.
+- **Skip link.** "Skip to content" is the first thing Tab reaches on every page (`app/layout.tsx`,
+  styles in `globals.css`). It jumps to `#main`, which is the `<main>` of the page, or the wrapper around
+  the page in the signed-in app.
+- **Missing and broken pages.** `app/not-found.tsx` (status 404, with Home, Dashboard and a contact
+  link), `app/error.tsx` (Try again, Home, a contact link; it shows no error text) and
+  `app/global-error.tsx` (own `<html>`, inline styles in cream, ink and red).
+- **Titles.** Every page has a title through the `"%s | Alarsio"` template; the signed-in pages use a
+  short static title.
+
 ## 2c · Dashboard
 
 `app/(app)/dashboard`: the shared app header (2e: wordmark, the signed-in email, Sign out), a loam band with

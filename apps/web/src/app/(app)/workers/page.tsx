@@ -23,6 +23,8 @@ function isWorkerRow(r: unknown): r is WorkerRow {
   return ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string");
 }
 
+export const metadata = { title: "Workers" };
+
 export default async function WorkersPage({
   searchParams
 }: {

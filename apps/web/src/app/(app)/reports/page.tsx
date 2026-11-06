@@ -15,6 +15,8 @@ import { StatusTag } from "@/components/app/status-tag";
 
 const LIMIT = 200;
 
+export const metadata = { title: "Reports" };
+
 export default async function ReportsPage({
   searchParams
 }: {
