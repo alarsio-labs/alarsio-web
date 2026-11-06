@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,6 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { SignInResult } from '../auth/auth-client';
+import { RESET_PASSWORD_URL } from '../config/support';
+import { colors, minTarget } from '../theme';
 
 export interface SignInScreenProps {
   signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -74,6 +77,14 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
             onSubmitEditing={() => void submit()}
             style={styles.input}
           />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Forgot password? Opens the reset page on alarsio.com"
+            onPress={() => void Linking.openURL(RESET_PASSWORD_URL).catch(() => undefined)}
+            style={styles.forgot}
+          >
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </Pressable>
           {error && (
             <Text accessibilityRole="alert" style={styles.error}>
               {error}
@@ -86,7 +97,7 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
             onPress={() => void submit()}
             style={[styles.button, busy && styles.buttonBusy]}
           >
-            {busy ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Sign in</Text>}
+            {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Sign in</Text>}
           </Pressable>
           <Text style={styles.hint}>New to Alarsio? Open the invite link your manager sent you to create your account.</Text>
         </View>
@@ -96,14 +107,16 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: '#fff' },
+  safe: { flex: 1, backgroundColor: colors.paper },
   container: { flex: 1, justifyContent: 'center', padding: 24 },
   title: { fontSize: 28, fontWeight: '600', marginBottom: 24 },
   form: { gap: 12 },
-  input: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
-  error: { color: '#b00020', fontSize: 15 },
-  button: { backgroundColor: '#111', borderRadius: 8, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
+  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
+  error: { color: colors.redDeep, fontSize: 15 },
+  button: { backgroundColor: colors.ink, borderRadius: 8, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   buttonBusy: { opacity: 0.6 },
-  buttonText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  hint: { color: '#555', fontSize: 14, marginTop: 8 },
+  buttonText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  forgot: { minHeight: minTarget, justifyContent: 'center', alignSelf: 'flex-start' },
+  forgotText: { color: colors.ink, fontSize: 14, textDecorationLine: 'underline' },
+  hint: { color: colors.muted, fontSize: 14, marginTop: 8 },
 });

@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -8,6 +9,11 @@ import { saveReport } from '../../reports/report-store';
 import type { SyncResultRow } from '../../sync/entities';
 import { applyVerdicts, claimBatch, enqueue } from '../../sync/outbox';
 import { DailyReportScreen } from '../DailyReportScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {
@@ -73,6 +79,13 @@ describe('DailyReportScreen (#81)', () => {
   const type = async (label: string, text: string) => fireEvent.changeText(await screen.findByLabelText(label), text);
 
   describe('with no signal (AC 1, 2)', () => {
+    it('puts the screen and site in the header', async () => {
+      await seedSite(db, USER_A);
+      await show();
+      await screen.findByText('Kothrud');
+      expect(headerTitles()).toContain('Daily report · Kothrud');
+    });
+
     it('saves a draft to the phone and never says it was submitted', async () => {
       await seedSite(db, USER_A);
       await show();

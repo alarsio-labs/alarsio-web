@@ -1,4 +1,5 @@
 import { fireEvent, render, screen } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import type { SignInResult } from '../../auth/auth-client';
 import { SignInScreen } from '../SignInScreen';
@@ -10,7 +11,7 @@ describe('SignInScreen', () => {
 
     await fireEvent.changeText(screen.getByLabelText('Email'), 'a@x.in');
     await fireEvent.changeText(screen.getByLabelText('Password'), 'secret123');
-    await fireEvent.press(screen.getByRole('button'));
+    await fireEvent.press(screen.getByRole('button', { name: /^Sign/ }));
 
     expect(signIn).toHaveBeenCalledWith('a@x.in', 'secret123');
     expect(screen.queryByRole('alert')).toBeNull();
@@ -22,10 +23,10 @@ describe('SignInScreen', () => {
 
     await fireEvent.changeText(screen.getByLabelText('Email'), 'a@x.in');
     await fireEvent.changeText(screen.getByLabelText('Password'), 'bad');
-    await fireEvent.press(screen.getByRole('button'));
+    await fireEvent.press(screen.getByRole('button', { name: /^Sign/ }));
 
     expect(await screen.findByText('Email or password is wrong.')).toBeTruthy();
-    await fireEvent.press(screen.getByRole('button'));
+    await fireEvent.press(screen.getByRole('button', { name: /^Sign/ }));
     expect(signIn).toHaveBeenCalledTimes(2);
   });
 
@@ -40,11 +41,21 @@ describe('SignInScreen', () => {
     await render(<SignInScreen signIn={signIn} />);
     await fireEvent.changeText(screen.getByLabelText('Email'), 'a@x.in');
     await fireEvent.changeText(screen.getByLabelText('Password'), 'pw');
-    const button = screen.getByRole('button');
+    const button = screen.getByRole('button', { name: /^Sign/ });
     await fireEvent.press(button);
     await fireEvent.press(button);
     expect(signIn).toHaveBeenCalledTimes(1);
     resolve({ ok: false, message: 'Email or password is wrong.' });
     expect(await screen.findByText('Email or password is wrong.')).toBeTruthy();
+  });
+
+  it('opens the password reset page on alarsio.com', async () => {
+    const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
+    await render(<SignInScreen signIn={jest.fn()} />);
+
+    await fireEvent.press(screen.getByLabelText('Forgot password? Opens the reset page on alarsio.com'));
+
+    expect(open).toHaveBeenCalledWith('https://alarsio.com/forgot-password');
+    open.mockRestore();
   });
 });

@@ -28,6 +28,8 @@ import {
 } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
+import { colors, tone } from '../theme';
 
 export interface DayRegisterScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -225,6 +227,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
 
         {site && register && (
           <>
+            <ScreenTitle screen="day_register" siteName={site.name} />
             <Text style={styles.title} accessibilityRole="header">
               {site.name}
             </Text>
@@ -392,32 +395,32 @@ function Button({
 }
 
 const toneStyle: Record<StatusTone, { color: string }> = {
-  wait: { color: '#555' },
-  ok: { color: '#1b6e2d' },
-  attention: { color: '#b00020' },
+  wait: { color: tone.wait },
+  ok: { color: tone.ok },
+  attention: { color: tone.attention },
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: colors.paper },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
-  sub: { fontSize: 14, color: '#555' },
-  line: { fontSize: 16, color: '#222' },
-  error: { fontSize: 16, color: '#b00020' },
+  sub: { fontSize: 14, color: colors.muted },
+  line: { fontSize: 16, color: colors.ink },
+  error: { fontSize: 16, color: colors.redDeep },
   name: { fontSize: 18, fontWeight: '500' },
   status: { fontSize: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, gap: 8 },
+  card: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8 },
   panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: '#999', borderRadius: 8, padding: 10, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, fontSize: 16 },
   tall: { minHeight: 70, textAlignVertical: 'top' },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  chipOn: { backgroundColor: '#111' },
-  chipText: { color: '#111', fontSize: 15 },
-  chipTextOn: { color: '#fff', fontSize: 15 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#111' },
+  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  chipOn: { backgroundColor: colors.ink },
+  chipText: { color: colors.ink, fontSize: 15 },
+  chipTextOn: { color: colors.white, fontSize: 15 },
+  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
   buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: '#fff', fontSize: 16 },
-  buttonTextSecondary: { color: '#111' },
+  buttonText: { color: colors.white, fontSize: 16 },
+  buttonTextSecondary: { color: colors.ink },
 });

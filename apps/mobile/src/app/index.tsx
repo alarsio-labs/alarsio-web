@@ -1,5 +1,4 @@
-import Constants from 'expo-constants';
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 
 import { useSessionUser } from '../auth/session-user';
 import { readPublicConfig } from '../config/public-config';
@@ -39,11 +38,13 @@ export default function Index() {
       openDb={openAppDb}
       startSync={startSync}
       userId={user?.id}
-      onOpenAttendance={() => router.push('/attendance')}
+      onOpenCheckIn={(siteId) => router.push({ pathname: '/attendance/[siteId]', params: { siteId } })}
+      onOpenRegister={(siteId) => router.push({ pathname: '/attendance/register/[siteId]', params: { siteId } })}
+      onOpenReport={(siteId) => router.push({ pathname: '/reports/[siteId]', params: { siteId } })}
       onOpenReports={() => router.push('/reports')}
       onOpenMaterials={() => router.push('/materials')}
+      onOpenRoute={(route) => router.push(route as Href)}
       config={config}
-      appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />
   );
 }

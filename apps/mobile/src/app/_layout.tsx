@@ -1,34 +1,51 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
-import { Stack } from 'expo-router';
+import { router, Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect } from 'react';
+import { View } from 'react-native';
 
-import { supabaseAuthClient } from '../auth/auth-client';
+import {
+  accessStore,
+  auth,
+  fetchAccessForUser,
+  signOutKeepingNothingBehind,
+  unsentCounts,
+} from '../auth/app-auth';
 import { SessionUserContext } from '../auth/session-user';
 import { useSession } from '../auth/use-session';
-import { readPublicConfig } from '../config/public-config';
-import { signOutAndClearMirrors } from '../auth/sign-out';
 import { openAppDb } from '../lib/app-db';
-import { AUTH_STORAGE_KEY, authStorage, getSupabase } from '../lib/supabase';
+import { SyncBar } from '../sync/SyncBar';
+import { AccessGate } from '../screens/AccessGate';
 import { AccountMenu } from '../screens/AccountMenu';
 import { SignInScreen } from '../screens/SignInScreen';
-import { countByStatus } from '../sync/outbox';
+import { StartupError } from '../screens/StartupError';
 
-const config = readPublicConfig();
-const auth = config.ok ? supabaseAuthClient(getSupabase(config.config), authStorage, AUTH_STORAGE_KEY) : undefined;
+// Keep the loam splash up until the session is known, so there is no white flash.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
-async function unsentCounts(userId: string) {
-  const c = await countByStatus(await openAppDb(), userId);
-  return { waiting: c.pending + c.syncing + c.failed, needFix: c.conflict + c.rejected };
+// Expo Router renders this when any screen throws, instead of a red error screen.
+export function ErrorBoundary({ error }: ErrorBoundaryProps) {
+  return <StartupError detail={error.message} />;
 }
 
-// Sign-out also clears the offline copy of sites, materials and roster.
-const signOutKeepingNothingBehind = () => (auth ? signOutAndClearMirrors(auth.signOut, openAppDb) : Promise.resolve());
+// Home already shows the sync panel, so the bar sits on every other screen.
+function SyncBarOnOtherScreens({ userId }: { userId: string }) {
+  const pathname = usePathname();
+  if (pathname === '/') return null;
+  return <SyncBar openDb={openAppDb} userId={userId} onOpen={() => router.navigate('/')} />;
+}
 
 export default function RootLayout() {
   const session = useSession(auth);
+
+  // Hide the splash once the auth state is known: signed in, signed out, or no config.
+  const ready = !auth || session.kind !== 'loading';
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
 
   // No config: let the home screen say what is missing.
   if (!auth) {
@@ -41,11 +58,8 @@ export default function RootLayout() {
   }
 
   if (session.kind === 'loading') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator />
-      </View>
-    );
+    // The splash is still showing; render nothing under it.
+    return null;
   }
 
   if (session.kind === 'signed_out') {
@@ -63,15 +77,31 @@ export default function RootLayout() {
   // user's records only (ADR-029).
   return (
     <SessionUserContext.Provider value={session.user}>
-      <Stack
+      <AccessGate
         key={session.user.id}
-        screenOptions={{
-          title: 'Alarsio',
-          headerRight: () => (
-            <AccountMenu user={session.user} unsentCounts={unsentCounts} signOut={signOutKeepingNothingBehind} />
-          ),
-        }}
-      />
+        user={session.user}
+        fetchAccess={fetchAccessForUser}
+        store={accessStore}
+        unsentCounts={unsentCounts}
+        signOut={signOutKeepingNothingBehind}
+      >
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              title: 'Alarsio',
+              headerRight: () => (
+                <AccountMenu
+                  user={session.user}
+                  unsentCounts={unsentCounts}
+                  signOut={signOutKeepingNothingBehind}
+                  onOpenAbout={() => router.push('/about')}
+                />
+              ),
+            }}
+          />
+          <SyncBarOnOtherScreens userId={session.user.id} />
+        </View>
+      </AccessGate>
       <StatusBar style="auto" />
     </SessionUserContext.Provider>
   );

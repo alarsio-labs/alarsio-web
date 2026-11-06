@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { LocationProvider, PermissionState, PositionResult } from '../../attendance/location';
@@ -7,6 +8,11 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { applyVerdicts, claimBatch } from '../../sync/outbox';
 import { SiteAttendanceScreen } from '../SiteAttendanceScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {
@@ -105,6 +111,7 @@ describe('SiteAttendanceScreen (#79)', () => {
       await show(location);
       await screen.findByRole('button', { name: 'Check in' });
       await new Promise((r) => setTimeout(r, 250)); // a few polls
+      expect(headerTitles()).toContain('Check in · Kothrud');
 
       expect(location.calls).toEqual({ getPermission: 0, requestPermission: 0, readPosition: 0 });
     });

@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -5,6 +6,11 @@ import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { DayRegisterScreen } from '../DayRegisterScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 jest.mock('expo-crypto', () => {
   let n = 0;
@@ -67,6 +73,7 @@ describe('DayRegisterScreen and the approved-day mirror (#127)', () => {
 
     expect(await screen.findByText(/A manager approved this day\. It is read-only here\./)).toBeTruthy();
     expect(screen.getByText('Approved · Present')).toBeTruthy();
+    expect(headerTitles()).toContain('Day register · Kothrud');
     expect(screen.getByText('Approved · Half day · 1.5 h overtime')).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Propose correction for Worker 1' })).toBeTruthy();
     expect(screen.getByRole('button', { name: 'Propose correction for Worker 2' })).toBeTruthy();

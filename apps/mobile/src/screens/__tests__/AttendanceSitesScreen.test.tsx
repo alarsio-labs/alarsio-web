@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -5,6 +6,11 @@ import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { AttendanceSitesScreen } from '../AttendanceSitesScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // See SiteAttendanceScreen.test.tsx: a cold CI runner is slower than the defaults.
 jest.setTimeout(30_000);
@@ -42,10 +48,13 @@ describe('AttendanceSitesScreen (#79)', () => {
 
     expect(await screen.findByText('Kothrud')).toBeTruthy();
     expect(screen.getByText('Pune, Kothrud')).toBeTruthy();
+    expect(headerTitles()).toContain('Attendance');
     expect(screen.getByText('Baner')).toBeTruthy();
     expect(screen.getByText('Paused')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: /Kothrud/ }));
+    // Each card is one button named with the site and its state.
+    expect(screen.getByRole('button', { name: 'Baner, paused, needs a refresh' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kothrud, active' }));
     expect(onOpenSite).toHaveBeenCalledWith(SITE_1);
   });
 
@@ -53,6 +62,7 @@ describe('AttendanceSitesScreen (#79)', () => {
     await seed(db, USER_A);
     await show(USER_A);
     expect(await screen.findByText(/Needs a refresh/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /needs a refresh$/ })).toBeTruthy();
   });
 
   it("shows nothing of another user's mirror", async () => {

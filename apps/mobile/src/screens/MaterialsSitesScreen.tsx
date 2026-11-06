@@ -7,6 +7,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
+import { colors } from '../theme';
 
 export interface MaterialsSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -40,6 +42,7 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTitle screen="materials_sites" />
       <Text style={styles.title} accessibilityRole="header">
         Materials
       </Text>
@@ -51,7 +54,13 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
       {load.kind === 'ready' && load.sites.length > 0 && (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {load.sites.map((site) => (
-            <Pressable key={site.id} accessibilityRole="button" onPress={() => onOpenSite(site.id)} style={styles.card}>
+            <Pressable
+              key={site.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${site.name}, ${site.address}`}
+              onPress={() => onOpenSite(site.id)}
+              style={styles.card}
+            >
               <Text style={styles.siteName}>{site.name}</Text>
               <Text style={styles.siteAddress}>{site.address}</Text>
             </Pressable>
@@ -63,13 +72,13 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16, gap: 12 },
+  container: { flex: 1, backgroundColor: colors.paper, padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: '#333' },
-  error: { fontSize: 16, color: '#b00020' },
+  line: { fontSize: 16, color: colors.ink },
+  error: { fontSize: 16, color: colors.redDeep },
   list: { flex: 1 },
   listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, gap: 2 },
+  card: { minHeight: 44, borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 2 },
   siteName: { fontSize: 18, fontWeight: '600' },
-  siteAddress: { fontSize: 14, color: '#555' },
+  siteAddress: { fontSize: 14, color: colors.muted },
 });

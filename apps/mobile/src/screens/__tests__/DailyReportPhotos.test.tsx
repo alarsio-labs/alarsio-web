@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen } from '@testing-library/react-native';
+import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
@@ -10,6 +10,9 @@ import { runPhotoUploads, type PhotoStorage } from '../../reports/photo-upload';
 import { saveReport } from '../../reports/report-store';
 import { applyVerdicts, claimBatch } from '../../sync/outbox';
 import { DailyReportScreen } from '../DailyReportScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {
@@ -60,6 +63,8 @@ describe('DailyReportScreen photos (#81 PR 2)', () => {
   let files: ReturnType<typeof fakeFiles>;
   let picks: PickResult[];
   let asked: string[];
+  // When set, a pick waits for it: the camera is "open" until the test releases it.
+  let gate: Promise<void> | null;
 
   beforeEach(async () => {
     db = await openTestDeviceDb();
@@ -67,6 +72,7 @@ describe('DailyReportScreen photos (#81 PR 2)', () => {
     files = fakeFiles();
     picks = [{ kind: 'picked', uri: 'file:///cache/p.jpg' }];
     asked = [];
+    gate = null;
   });
 
   const show = async (userId = USER_A) =>
@@ -81,6 +87,7 @@ describe('DailyReportScreen photos (#81 PR 2)', () => {
           files,
           pick: async (source) => {
             asked.push(source);
+            if (gate) await gate;
             return picks.shift() ?? { kind: 'cancelled' };
           },
         }}
@@ -90,11 +97,77 @@ describe('DailyReportScreen photos (#81 PR 2)', () => {
   const saveToday = (user = USER_A) =>
     saveReport(db, user, { id: SITE, orgId: ORG }, TODAY, FULL, 'draft', {}, NOW);
 
-  it('offers no photos until the report is saved on the phone, and says so', async () => {
+  it('offers the photo buttons before the report is saved, and no longer says to save first', async () => {
     await seedSite(db, USER_A);
     await show();
-    await screen.findByText('Save the report first, then add photos.');
-    expect(screen.queryByRole('button', { name: 'Take photo' })).toBeNull();
+    expect(await screen.findByRole('button', { name: 'Take photo' })).toBeTruthy();
+    expect(screen.getByRole('button', { name: 'Choose photo' })).toBeTruthy();
+    expect(screen.queryByText('Save the report first, then add photos.')).toBeNull();
+  });
+
+  it('a photo on a new report saves one draft and one photo row, with no signal', async () => {
+    await seedSite(db, USER_A);
+    await show();
+    await press('Take photo');
+
+    await screen.findByText(/Photo 1 · Saved on this phone, waiting to send/);
+    const reports = await db.all<{ payload: string }>(`select payload from outbox where entity = 'daily_reports'`);
+    expect(reports).toHaveLength(1);
+    expect(JSON.parse(reports[0]!.payload)).toMatchObject({ status: 'draft', site_id: SITE, report_date: TODAY });
+    expect(await db.all(`select * from outbox where entity = 'report_photos'`)).toHaveLength(1);
+  });
+
+  it('keeps what was already typed in the draft the photo creates', async () => {
+    await seedSite(db, USER_A);
+    await show();
+    fireEvent.changeText(await screen.findByLabelText('Work done'), 'Slab shuttering');
+    await press('Take photo');
+
+    await screen.findByText(/Photo 1/);
+    const [row] = await db.all<{ payload: string }>(`select payload from outbox where entity = 'daily_reports'`);
+    expect(JSON.parse(row!.payload)).toMatchObject({ work_done: 'Slab shuttering', status: 'draft' });
+  });
+
+  it('a cancelled pick creates no draft', async () => {
+    await seedSite(db, USER_A);
+    picks = [{ kind: 'cancelled' }];
+    await show();
+    await press('Take photo');
+
+    await waitFor(() => expect(asked).toEqual(['camera']));
+    expect(await db.all(`select * from outbox`)).toHaveLength(0);
+  });
+
+  it('a denied pick creates no draft and says how to allow access', async () => {
+    await seedSite(db, USER_A);
+    picks = [{ kind: 'denied' }];
+    await show();
+    await press('Take photo');
+
+    expect(await screen.findByText("Allow access in your phone's settings to add a photo.")).toBeTruthy();
+    expect(await db.all(`select * from outbox`)).toHaveLength(0);
+  });
+
+  it('a second tap while the camera is open adds nothing: one draft and one photo', async () => {
+    await seedSite(db, USER_A);
+    picks = [
+      { kind: 'picked', uri: 'file:///cache/one.jpg' },
+      { kind: 'picked', uri: 'file:///cache/two.jpg' },
+    ];
+    let release: () => void = () => undefined;
+    gate = new Promise<void>((resolve) => {
+      release = resolve;
+    });
+    await show();
+    const button = await screen.findByRole('button', { name: 'Take photo' });
+    await fireEvent.press(button);
+    await fireEvent.press(button); // the first pick is still open
+    release();
+
+    await screen.findByText(/Photo 1/);
+    expect(asked).toEqual(['camera']);
+    expect(await db.all(`select * from outbox where entity = 'daily_reports'`)).toHaveLength(1);
+    expect(await db.all(`select * from outbox where entity = 'report_photos'`)).toHaveLength(1);
   });
 
   it('adds a photo from the camera with no signal, and shows it waiting to send (AC 1, 5)', async () => {
@@ -199,7 +272,7 @@ describe('DailyReportScreen photos (#81 PR 2)', () => {
     await seedSite(db, USER_B);
     await saveToday(USER_A);
     await show(USER_B);
-    await screen.findByText('Save the report first, then add photos.');
+    await screen.findByRole('button', { name: 'Take photo' });
     expect(screen.queryByText(/Photo 1/)).toBeNull();
   });
 
