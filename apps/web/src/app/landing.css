@@ -1,6 +1,6 @@
-/* The landing page (docs/DESIGN.md v2). Every motion rule sits under html.lp-motion,
-   which landing-motion.tsx sets only when reduced motion is not asked for. Without it the
-   page is complete and still: no pins, the rail wraps, the record shows its printed state. */
+/* Public pages and the shared print tokens (docs/DESIGN.md v2.1). This file is also loaded by
+   the sign-in and app layouts for .lp-btn, .lp-mono and the tokens, so rules here stay generic.
+   The home page's own sections are in home.css. */
 
 .lp {
   --cream: #e7e2d8;
@@ -79,172 +79,104 @@
 }
 @media (max-width: 360px) { .lp-head .lp-wordmark { font-size: 20px; } }
 
-/* Stages: tall section, sticky 100svh inner. */
-.lp-stage { position: relative; }
-.lp-pin { position: relative; overflow: hidden; padding: 96px var(--pad) 72px; }
-/* Pinning is for wide screens only (landing-motion.tsx sets html.lp-motion under the same 768px rule).
-   Phones get the still page: each stage is as tall as its content. */
-@media (min-width: 768px) {
-  html.lp-motion .lp-stage { height: var(--h); }
-  html.lp-motion .lp-pin { position: sticky; top: 0; height: 100svh; padding: 0; }
-}
-
-/* 1 · Hero */
-.lp-hero { background: var(--loam); color: var(--cream); }
-.lp-hero canvas { position: absolute; inset: 0; width: 100%; height: 100%; }
-.lp-hero .lp-pin { display: grid; place-items: center; min-height: 100svh; }
-.lp-lockup { position: relative; text-align: center; transform-origin: 50% 60%; }
-html.lp-motion .lp-lockup {
-  transform: translateY(var(--hero-type-y, 0)) scale(var(--hero-type-scale, 1));
-  opacity: var(--hero-type-alpha, 1);
-}
-.lp-poster { display: block; white-space: nowrap; font-size: min(var(--max), calc(92vw / (var(--chars) * 0.44))); }
-.lp-poster-top { --max: clamp(26px, 5.2vw, 84px); letter-spacing: -0.02em; }
-.lp-poster-brand { --max: clamp(96px, 26vw, 400px); color: var(--red); letter-spacing: -0.045em; margin-top: 0.06em; }
-.lp-hero-meta {
-  position: absolute; left: var(--pad); right: var(--pad); bottom: 24px;
-  display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; color: var(--cream-muted);
-}
-html.lp-motion .lp-hero-meta { opacity: var(--hero-meta-alpha, 1); }
-
-/* 2 · Manifesto */
-.lp-man .lp-pin { display: grid; place-items: center; }
-.lp-man-box { position: relative; max-width: 16ch; font-size: clamp(34px, 5.6vw, 78px); line-height: 0.92; }
-html.lp-motion .lp-man-box { transform: scale(var(--manifesto-scale, 1)); }
-.lp-man-fill { display: none; }
-html.lp-motion .lp-man-base { color: rgb(23 23 23 / 0.34); }
-html.lp-motion .lp-man-fill {
-  display: block; position: absolute; inset: 0; color: var(--ink);
-  clip-path: inset(calc(100% - var(--manifesto-wipe, 100%)) 0 0);
-}
-
-/* 3 · Rail */
-.lp-rail-headline { font-size: clamp(40px, 6vw, 88px); }
-.lp-rail-head { display: flex; flex-wrap: wrap; align-items: end; justify-content: space-between; gap: 12px; margin-bottom: 32px; }
-.lp-track { display: flex; flex-wrap: wrap; justify-content: center; gap: 20px; }
-.lp-card { flex: 0 0 clamp(230px, 26vw, 330px); border: 1.5px solid var(--ink); background: var(--paper); padding: 12px; }
-.lp-card canvas { display: block; width: 100%; aspect-ratio: 3 / 4; border: 1px solid var(--hair); }
-.lp-card h3 { font-size: clamp(30px, 2.6vw, 40px); margin-top: 14px; }
-.lp-card-meta { display: grid; gap: 4px; margin-top: 10px; }
 .lp-role { color: var(--red-deep); }
-.lp-meter { position: relative; height: 1px; background: var(--hair); }
-.lp-meter i { position: absolute; left: 0; top: -1px; height: 3px; width: 100%; background: var(--red); transform-origin: 0 50%; transform: scaleX(var(--m, 1)); }
-.lp-rail .lp-meter { display: none; }
-html.lp-motion .lp-rail .lp-pin { display: flex; flex-direction: column; justify-content: center; gap: 28px; }
-html.lp-motion .lp-rail-head { margin: 0; padding: 72px var(--pad) 0; }
-html.lp-motion .lp-track { flex-wrap: nowrap; justify-content: flex-start; padding-left: var(--pad); transform: translateX(var(--rail-x, 0)); will-change: transform; }
-/* End padding the scroll width counts: a real spacer as wide as --pad, its gap cancelled. */
-html.lp-motion .lp-track::after { content: ""; flex: 0 0 var(--pad); margin-left: -20px; }
-html.lp-motion .lp-rail .lp-meter { display: block; margin: 0 var(--pad); --m: var(--rail-p, 0); }
 
-/* 4 · Day record */
-.lp-rec { background: var(--loam); color: var(--cream); }
-.lp-rec .lp-pin { display: grid; gap: 40px; align-content: center; }
-@media (min-width: 960px) { .lp-rec .lp-pin { grid-template-columns: 1fr auto; gap: 72px; } }
-.lp-rec-headline { font-size: clamp(38px, 5vw, 76px); max-width: 12ch; margin-top: 12px; }
-.lp-rec-body { max-width: 44ch; margin-top: 18px; color: var(--cream-muted); font-size: 17px; line-height: 1.55; }
-html.lp-motion .lp-rec-copy { transform: translateX(var(--packet-copy-x, 0)); }
-.lp-cues { display: grid; gap: 8px; margin-top: 24px; max-width: 520px; }
-.lp-cue { border: 1px solid rgb(231 226 216 / 0.24); border-left: 3px solid rgb(231 226 216 / 0.24); padding: 9px 12px; opacity: 0.45; transition: opacity 0.4s var(--ease), border-color 0.4s var(--ease); }
-.lp-cue.is-on { opacity: 1; border-left-color: var(--red); }
-.lp-status { display: flex; align-items: center; gap: 10px; margin-top: 18px; color: var(--cream); }
-.lp-status::before { content: ""; width: 8px; height: 8px; background: var(--red); }
-.lp-packet {
-  justify-self: center; width: min(390px, 84vw, calc(56svh * 0.75)); aspect-ratio: 3 / 4;
-  display: flex; flex-direction: column; color: var(--ink); position: relative;
+/* v2.1 header: page links on wide screens, a Menu button that opens the full-screen menu.
+   Desktop: wordmark · links · Sign in · Start free pilot · Menu. Phone: wordmark · pill · Menu. */
+.lp-head-links { display: none; gap: 4px; margin-left: auto; }
+.lp-head-links a {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; border-radius: 999px;
+  color: var(--ink); text-decoration: none; font-size: 15px; font-weight: 500;
 }
-html.lp-motion .lp-packet {
-  opacity: var(--packet-alpha, 1);
-  transform: translateY(var(--packet-enter, 0)) scale(var(--packet-scale, 1));
-}
-.lp-packet-top, .lp-packet-stub { background: var(--paper); border: 1.5px solid var(--ink); }
-.lp-packet-top { flex: 1; display: flex; flex-direction: column; border-bottom-width: 0; padding: 14px; min-height: 0; }
-.lp-packet-name { font-size: clamp(34px, 4.4vw, 54px); margin-top: 6px; }
-.lp-packet-top canvas { flex: 1; min-height: 0; width: 100%; margin-top: 12px; border: 1px solid var(--hair); }
-.lp-packet-stub { border-top-width: 0; padding: 4px 14px 12px; transform: translateY(calc(var(--packet-cut, 1) * 16px)); }
-.lp-perf { position: relative; height: 0; }
-.lp-perf::before { content: ""; position: absolute; left: -10px; right: -10px; top: 0; border-top: 2px dashed var(--ink); opacity: var(--packet-cut, 1); transform: translateY(calc(var(--packet-cut, 1) * 8px)); }
-.lp-prow { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--hair); }
-.lp-prow b { font-weight: 400; color: var(--red-deep); text-align: right; }
-.lp-tear { margin-top: 26px; text-align: center; color: var(--cream-muted); opacity: var(--packet-cut, 1); }
-.lp-rec .lp-meter { max-width: 520px; margin-top: 22px; background: rgb(231 226 216 / 0.24); --m: var(--packet-meter, 1); }
-html.lp-motion .lp-rec .lp-pin { padding: 56px var(--pad) 0; }
-/* Phones: the whole stage must fit one 100svh screen. */
-@media (max-width: 640px) {
-  html.lp-motion .lp-rec .lp-pin { gap: 14px; padding-top: 68px; align-content: start; }
-  html.lp-motion .lp-rec-body,
-  html.lp-motion .lp-rec .lp-meter { display: none; }
-  html.lp-motion .lp-rec-copy { transform: none; }
-  html.lp-motion .lp-rec-headline { font-size: 30px; max-width: none; }
-  html.lp-motion .lp-cues { grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 12px; }
-  html.lp-motion .lp-cue { padding: 6px 8px; }
-  html.lp-motion .lp-status { margin-top: 10px; }
-  html.lp-motion .lp-packet { width: min(250px, calc(40svh * 0.75)); }
-  html.lp-motion .lp-packet-name { font-size: 30px; }
-  html.lp-motion .lp-tear { margin-top: 18px; }
-}
+.lp-head-links a:hover { background: var(--hair-faint); }
+@media (min-width: 1000px) { .lp-head-links { display: flex; } }
+.lp-head-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+@media (min-width: 1000px) { .lp-head-right { margin-left: 8px; } }
+.lp-head .lp-head-signin { display: none; }
+@media (min-width: 640px) { .lp-head .lp-head-signin { display: inline-flex; } }
 
-/* 5 · Wage period */
-.lp-wages .lp-pin { display: flex; flex-direction: column; justify-content: flex-end; }
-.lp-wages canvas { position: absolute; inset: -8%; width: 116%; height: 116%; }
-html.lp-motion .lp-wages canvas { transform: translateY(var(--season-y, 0)) scale(var(--season-scale, 1)); }
-.lp-wages-body { position: relative; }
-html.lp-motion .lp-wages-body { padding: 0 var(--pad) 56px; }
-.lp-wages-headline { font-size: clamp(40px, 7vw, 112px); max-width: 14ch; }
-.lp-chapters { display: grid; gap: 20px; margin-top: 32px; }
-@media (min-width: 800px) { .lp-chapters { grid-template-columns: repeat(3, 1fr); } }
-.lp-chapter { border-top: 1.5px solid var(--ink); padding-top: 14px; transition: opacity 0.5s var(--cine); }
-html.lp-motion .lp-chapter { opacity: 0.3; }
-html.lp-motion .lp-chapter.is-on { opacity: 1; }
-.lp-chapter h3 { font-size: 34px; margin-top: 6px; }
-.lp-chapter p { margin-top: 8px; color: var(--muted); max-width: 36ch; }
-
-/* The scroll-driven boxes move on every scroll frame. Their own compositor layers mean a
-   frame moves pixels already painted, instead of repainting 400px type and canvases. */
-html.lp-motion .lp-lockup,
-html.lp-motion .lp-hero-meta,
-html.lp-motion .lp-man-box,
-html.lp-motion .lp-rec-copy,
-html.lp-motion .lp-packet,
-html.lp-motion .lp-wages canvas { will-change: transform, opacity; }
-
-/* After the pins */
-.lp-band { padding: 96px var(--pad); }
-.lp-band-headline { font-size: clamp(40px, 6vw, 88px); }
-.lp-table { width: 100%; border-collapse: collapse; margin-top: 36px; }
-.lp-table th { text-align: left; font-weight: 400; padding: 0 12px 10px 0; }
-.lp-table td { border-top: 1.5px solid var(--ink); padding: 16px 12px 16px 0; vertical-align: top; }
-.lp-table td:first-child { font-size: clamp(24px, 2.6vw, 34px); }
-@media (max-width: 700px) {
-  .lp-table thead { display: none; }
-  .lp-table tr { display: block; border-top: 1.5px solid var(--ink); padding: 14px 0; }
-  .lp-table td { display: block; border: 0; padding: 2px 0; }
+/* Pill buttons for public pages (v2.1). The square .lp-btn stays for the app and sign-in forms. */
+.lp-pill {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 48px; padding: 0 22px;
+  border-radius: 999px; border: 1.5px solid transparent; text-decoration: none; white-space: nowrap; cursor: pointer;
+  font-size: 15px; font-weight: 600; letter-spacing: -0.005em;
+  transition: background-color 0.2s var(--ease), color 0.2s var(--ease), border-color 0.2s var(--ease), transform 0.2s var(--ease);
 }
-.lp-faq { max-width: 900px; margin-top: 36px; border-bottom: 1.5px solid var(--ink); }
-.lp-faq details { border-top: 1.5px solid var(--ink); }
-.lp-faq summary { display: flex; justify-content: space-between; align-items: center; gap: 16px; min-height: 64px; cursor: pointer; list-style: none; font-weight: 600; font-size: 18px; }
-.lp-faq summary::-webkit-details-marker { display: none; }
-.lp-faq summary::after { content: "+"; font-family: var(--font-mono), monospace; font-size: 18px; transition: transform 0.2s var(--ease); }
-.lp-faq details[open] summary::after { transform: rotate(45deg); }
-.lp-faq p { padding: 0 0 20px; max-width: 64ch; color: var(--muted); line-height: 1.6; }
-
-.lp-foot { background: var(--loam); color: var(--cream); padding: 96px var(--pad) 32px; }
-.lp-foot-headline { font-size: clamp(44px, 7vw, 112px); max-width: 13ch; }
-.lp-foot-body { margin-top: 18px; max-width: 48ch; color: var(--cream-muted); font-size: 18px; }
-.lp-foot-actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 32px; }
-.lp-foot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 12px; margin-top: 80px; padding-top: 20px; border-top: 1px solid rgb(231 226 216 / 0.24); color: var(--cream-muted); }
-.lp-foot .lp-wordmark { color: var(--cream); }
-
-/* Reveals: per word (38 ms stagger) and per atom (--d). */
-.lp-w { display: inline-block; }
-html.lp-motion .lp [data-rev]:not(.lp-words) {
-  opacity: 0; transform: translateY(14px);
-  transition: opacity 0.7s var(--ease) var(--d, 0ms), transform 0.9s var(--ease) var(--d, 0ms);
+.lp-pill:active { transform: translateY(1px); }
+.lp-pill-red { background: var(--red); color: var(--ink); }
+.lp-pill-red:hover { background: #f2614f; }
+.lp-pill-ink { background: var(--ink); color: var(--cream); }
+.lp-pill-ink:hover { background: #000; }
+.lp-pill-line { border-color: var(--ink); color: var(--ink); background: transparent; }
+.lp-pill-line:hover { background: var(--ink); color: var(--cream); }
+.lp-pill-cream { background: var(--cream); color: var(--ink); }
+.lp-pill-cream:hover { background: var(--paper); }
+.lp-pill-ghost { border-color: rgb(231 226 216 / 0.4); color: var(--cream); background: transparent; }
+.lp-pill-ghost:hover { border-color: var(--cream); }
+.lp-head .lp-pill { min-height: 44px; padding: 0 18px; font-size: 14px; }
+.lp-menu-btn {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 44px; padding: 0 16px; border-radius: 999px;
+  border: 1.5px solid var(--ink); background: transparent; color: var(--ink); cursor: pointer;
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
 }
-html.lp-motion .lp [data-rev].is-in:not(.lp-words) { opacity: 1; transform: none; }
-html.lp-motion .lp .lp-words .lp-w {
-  opacity: 0; transform: translateY(0.42em);
-  transition: opacity 0.6s var(--ease), transform 0.8s var(--ease);
-  transition-delay: calc(var(--i, 0) * 38ms);
+.lp-menu-btn:hover { background: var(--ink); color: var(--cream); }
+.lp-menu-btn i { display: grid; gap: 4px; }
+.lp-menu-btn i::before, .lp-menu-btn i::after { content: ""; display: block; width: 16px; height: 1.5px; background: currentColor; }
+@media (min-width: 1000px) { .lp-menu-btn { display: none; } }
+@media (max-width: 380px) {
+  .lp-head .lp-pill { padding: 0 12px; font-size: 13px; }
+  .lp-menu-btn { padding: 0 12px; }
+  .lp-menu-btn span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
 }
-html.lp-motion .lp .lp-words.is-in .lp-w { opacity: 1; transform: none; }
+.lp-head :is(a, button):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+/* Full-screen menu: a native modal <dialog>, so focus stays inside and Esc closes it. */
+.lp-menu {
+  position: fixed; inset: 0; width: 100%; max-width: none; height: 100%; max-height: none; margin: 0; padding: 0;
+  border: 0; background: var(--loam); color: var(--cream); overflow-y: auto;
+}
+.lp-menu::backdrop { background: var(--loam); }
+.lp-menu[open] { animation: lp-menu-in 0.35s var(--ease); }
+@keyframes lp-menu-in { from { opacity: 0; transform: translateY(-12px); } to { opacity: 1; transform: none; } }
+html:has(.lp-menu[open]) { overflow: hidden; }
+.lp-menu-in { min-height: 100%; display: flex; flex-direction: column; padding: 0 var(--pad) 32px; }
+.lp-menu-top { display: flex; align-items: center; justify-content: space-between; height: 56px; }
+.lp-menu .lp-wordmark { color: var(--cream); }
+.lp-menu-close {
+  display: inline-flex; align-items: center; min-height: 44px; padding: 0 16px; border-radius: 999px; cursor: pointer;
+  border: 1.5px solid rgb(231 226 216 / 0.4); background: transparent; color: var(--cream);
+  font-family: var(--font-mono), ui-monospace, monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase;
+}
+.lp-menu-close:hover { border-color: var(--cream); }
+.lp-menu-eyebrow { margin: 40px 0 8px; color: var(--cream-muted); font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.16em; text-transform: uppercase; }
+.lp-menu-links { list-style: none; margin: 0; padding: 0; }
+.lp-menu-links li { border-top: 1px solid rgb(231 226 216 / 0.16); }
+.lp-menu-links li:last-child { border-bottom: 1px solid rgb(231 226 216 / 0.16); }
+.lp-menu-links a {
+  display: flex; align-items: baseline; gap: 16px; min-height: 64px; padding: 10px 0;
+  color: var(--cream); text-decoration: none;
+  font-family: var(--font-anton), Impact, sans-serif; text-transform: uppercase; letter-spacing: -0.01em;
+  font-size: clamp(32px, 7vw, 64px); line-height: 1.05;
+}
+.lp-menu-links a small { font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.16em; color: var(--red); }
+.lp-menu-links a:hover { color: var(--red); }
+.lp-menu-foot { display: flex; flex-wrap: wrap; gap: 10px; margin-top: auto; padding-top: 40px; }
+.lp-menu :is(a, button):focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) { .lp-menu[open] { animation: none; } }
+
+/* Site footer (every public page): dark, four columns, 44px tap rows. */
+.lp-sitefoot { background: var(--loam); color: var(--cream); padding: 64px var(--pad) 28px; }
+.lp-sitefoot-in { max-width: 1200px; margin: 0 auto; }
+.lp-sitefoot a { color: var(--cream); text-decoration: none; }
+.lp-sitefoot a:hover { color: var(--red); }
+.lp-sitefoot .lp-wordmark { color: var(--cream); font-size: 34px; }
+.lp-sitefoot-top { display: grid; gap: 40px; }
+@media (min-width: 900px) { .lp-sitefoot-top { grid-template-columns: 1.3fr 3fr; gap: 64px; } }
+.lp-sitefoot-tag { margin: 8px 0 0; max-width: 32ch; color: var(--cream-muted); font-size: 15px; line-height: 1.6; }
+.lp-sitefoot-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 32px 24px; }
+@media (min-width: 700px) { .lp-sitefoot-cols { grid-template-columns: repeat(4, minmax(0, 1fr)); } }
+.lp-sitefoot-col h2 { margin: 0 0 6px; color: var(--cream-muted); font-family: var(--font-mono), monospace; font-size: 12px; font-weight: 400; letter-spacing: 0.16em; text-transform: uppercase; }
+.lp-sitefoot-col ul { list-style: none; margin: 0; padding: 0; }
+.lp-sitefoot-col a { display: inline-flex; align-items: center; min-height: 44px; font-size: 15px; }
+.lp-sitefoot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; margin-top: 48px; padding-top: 20px; border-top: 1px solid rgb(231 226 216 / 0.2); color: var(--cream-muted); font-size: 13px; }
+.lp-sitefoot a:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }

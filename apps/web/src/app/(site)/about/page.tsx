@@ -74,8 +74,8 @@ export default function AboutPage() {
             <p>Create your company account and start with one site this week.</p>
           </div>
           <div className="ds-cta-actions">
-            <Link href="/sign-up" className="lp-btn lp-btn-red lp-mono">Join the pilot</Link>
-            <Link href="/contact" className="lp-btn lp-btn-cream lp-mono">Contact us</Link>
+            <Link href="/sign-up" className="lp-pill lp-pill-red">Start free pilot</Link>
+            <Link href="/contact" className="lp-pill lp-pill-ghost">Contact us</Link>
           </div>
         </section>
       </div>

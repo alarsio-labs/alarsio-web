@@ -65,14 +65,3 @@
 .ds-cta h2 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
 .ds-cta p { margin: 0; color: var(--cream-muted); font-size: 15px; }
 .ds-cta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
-
-/* Footer */
-.lp-sitefoot { background: var(--loam); color: var(--cream); padding: 40px var(--pad) 28px; }
-.lp-sitefoot-in { max-width: 1120px; margin: 0 auto; }
-.lp-sitefoot a { color: var(--cream); text-decoration: none; }
-.lp-sitefoot a:hover { text-decoration: underline; text-underline-offset: 3px; }
-.lp-sitefoot .lp-wordmark { color: var(--cream); }
-.lp-sitefoot-links { display: flex; flex-wrap: wrap; gap: 4px 24px; margin: 12px 0 24px; font-size: 14px; }
-.lp-sitefoot-links a { display: inline-flex; align-items: center; min-height: 40px; }
-.lp-sitefoot-base { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px; padding-top: 16px; border-top: 1px solid rgb(231 226 216 / 0.24); color: var(--cream-muted); font-size: 13px; }
-.lp-sitefoot a:focus-visible { outline: 2px solid var(--cream); outline-offset: 2px; }

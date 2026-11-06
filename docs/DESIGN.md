@@ -47,97 +47,57 @@ Poster lines are sized from their own character count, never a bare `vw`:
 
 ### Shape and motion
 
-- Radius **0** everywhere. Borders 1.5 px ink on paper elements, 1 px `hair` elsewhere.
-- No shadows, no decorative gradients, no photography, no icon fonts.
+- Radius **0** on the sign-in pages and forms. Public pages (v2.1, section 2) use 20 px cards and pill
+  buttons. Borders 1.5 px ink on paper elements, 1 px `hair` elsewhere.
+- No decorative gradients, no photography, no icon fonts. The only shadows are under the two screen mocks.
 - Easing `cubic-bezier(.22,1,.36,1)`; `cubic-bezier(.65,0,.35,1)` only for stage transitions.
 
 ---
 
-## 2 · The landing page
+## 2 · The home page (v2.1, 6 Nov 2026)
 
-Five pinned stages (a tall section with a `position: sticky` inner at `top: 0`, `100svh`,
-`overflow: hidden`), then three normal bands. All motion is CSS custom properties on
-`:root`, written by **one** rAF-coalesced, passive scroll handler. The CSS never knows
-about JavaScript beyond those values.
+**Status:** proposed by Manish on 6 Nov 2026 under the deadline override, after a design review against
+brainwhite.com (navigation and page structure only; none of its content or branding). **Ishant (owner of
+this file) confirms or changes it after 15 Nov.** It replaces the five pinned scroll stages of v2, which
+are in git history: they took about 14 desktop screens before any plain content, and the hero had no button.
 
-**Pinning is desktop only: 768 px and wider.** `shouldPin` in `lib/landing/stage.ts` is true only
-when motion is allowed and the viewport is at least `PIN_MIN_WIDTH` (768) wide. Below that, and
-under reduced motion, `landing-motion.tsx` never sets `html.lp-motion`, so a phone gets the complete
-still page: every stage is as tall as its content and nothing is hidden or mid-fade. The stage
-height and sticky rules in `landing.css` sit in `@media (min-width: 768px)` so CSS and script
-agree. A resize across 768 px switches the page after a 150 ms pause. The stage heights below are
-the desktop ones.
+**What changes from v2, on public pages only** (the sign-in pages and the app console are unchanged):
+light and dark bands alternate (cream / loam, one paper band, one red closing band); cards have a 20 px
+radius (14–24 px inside the mocks, slip and heatmap) and 1 px hairlines; public buttons are pills
+(`.lp-pill*` in `landing.css`; the square `.lp-btn` stays for forms); bracketed mono eyebrows
+"( … )" and numbered items "01 ·" signpost each band; mono labels are at least 12 px. Tokens and fonts
+are unchanged.
 
-Every claim is a row in `docs/FEATURES.md`. No customer names, ratings, prices or numbers
-until the pilot produces real ones.
+Sections, top to bottom (`app/page.tsx`, words in `lib/landing/content.ts`, styles in `app/home.css`):
 
-### Stage 1 · Poster hero (200svh, loam)
+1. **Hero** (cream): eyebrow, an Anton H1 that says what the product does, a lede, **Start free pilot** and
+   **Download Android app**, "Free during the pilot · No card needed". Beside it the two screen mocks.
+2. **Marquee** (red, ink type): five short facts sliding left; paused on hover, still under reduced motion.
+3. **Problem** (loam): three numbered cards, "Problem 01 ·". No figures.
+4. **Features** `#features` (cream): six numbered cards, each with its role and phone or web.
+5. **Roles** `#roles` (loam): four cards (Owner, Project manager, Supervisor, Accountant) with where they
+   work, what they do, what they see, and one pill each: Start free pilot, Get the app or Sign in.
+6. **How it works** `#how` (cream): five numbered steps; beside them a loam card "We never say sent until
+   it's sent" with the phone's four status words in order and the approved day-record slip.
+7. **Heatmap** (paper): one sample site, 26 weeks, one square per day, four levels of red by share of the
+   roster present, three stat tiles, the chosen day read out (`aria-live`). Arrow keys move a day or a
+   week. Data is generated in `lib/landing/sample-site.ts`, fixed, and captioned "Sample site, sample data".
+8. **Your data** (loam): four guarantees, each true in the schema today.
+9. **FAQ** `#faq` (cream): eight `<details>` rows beside a short heading and a Contact link.
+10. **Closing CTA** (red): ink pill and line pill. Then the site footer.
 
-A full-bleed canvas of short red strokes angled on sines of index, 5–19 % alpha, drawn once (still):
-a site grid seen from above. A two-line lockup: "SITE RECORDS WITH NO SIGNAL" above,
-"ALARSIO" below in red at poster scale. Three separate variables: `--hero-type-y` 0 to
--90px, `--hero-type-scale` 1 to .74, `--hero-type-alpha` 1 to 0. Mono metadata across the
-bottom (Offline first · 2 to 20 sites · Android and web · For Indian contractors), fading
-on page progress. Check each poster line's `scrollWidth` against its `clientWidth`.
+**Screen mocks** (`components/landing/screen-mocks.tsx`): the phone Today screen and the web Overview drawn
+in HTML and CSS with the apps' own labels and status words and sample sites. Each is one `role="img"` with
+an `aria-label`. They stand in for device screenshots until real ones are taken; keep their words in step
+with the screens they copy.
 
-### Stage 2 · Clip-wipe manifesto (160svh, cream)
+**Motion:** CSS only. Cards and steps rise as they enter the viewport with a scroll-driven animation
+(`animation-timeline: view()`, inside `@supports` and `prefers-reduced-motion: no-preference`); browsers
+without it show everything at once. No canvas on the home page, no scroll handler, no preloader, no
+smooth-scroll or 3D library. The heatmap is the only script.
 
-One sentence, clamp(34px, 5.6vw, 78px) over 16ch: "Every attendance, report and bag of
-cement, captured with no signal and trusted at wage time." The base is 34 % ink; an exact
-`aria-hidden` duplicate in full ink sits in the same box, clipped by
-`inset(calc(100% - var(--manifesto-wipe)) 0 0)`; `--manifesto-wipe` runs 0 % to 100 %.
-`--manifesto-scale` 1 to 1.05. The duplicate's rect matches the base to 0 px on all edges.
-
-### Stage 3 · Horizontal rail (340svh, cream)
-
-Heading "One phone. Six records." and a mono hint. Six paper cards in a non-wrapping row,
-`flex: 0 0 clamp(230px, 26vw, 330px)`, 1.5 px ink border, a generated plate at 3/4, an Anton
-title, a mono type line and a `red-deep` role tag where the reference had a price:
-Check in · Day register · Daily report · Materials · Overview · Wage summary. The row
-translates by `-progress × (track.scrollWidth − innerWidth)`, so the last card lands flush.
-A hairline meter with a red fill beneath.
-
-### Stage 4 · The day record (420svh, loam)
-
-Copy left, artifact right (stacked on phones). The artifact is a paper slip at 3/4: a mono
-header ("Day record · Baner Residency, Tower A"), a big Anton line, a generated site plate,
-three mono rows (record id, server, approved). Six variables: `--packet-alpha`,
-`--packet-enter` (translateY from 38px), `--packet-scale` (.78 to 1), `--packet-cut` (0 to 1),
-`--packet-meter`, `--packet-copy-x`. A phase index from progress (0–3); **only when it
-changes**: light the four cues cumulatively (Checked in inside the geofence · Everyone
-present, two exceptions · Report filed · Day approved), swap the status line (the app's own
-words: "Saved on this phone, waiting to send" → "Sending…" → "On the server" → "Approved,
-ready for wages"), and fill the rows; "Server" reads "pending" until phase 1. A dashed 2 px
-ink perforation opens on `--packet-cut` at the end: the approved day tears off to wages.
-Never write DOM text on every frame.
-
-### Stage 5 · Wage period band (300svh, cream)
-
-Content bottom-aligned. A canvas of 22 stacked contour lines (sine plus a slower harmonic,
-every fifth line red), parallaxed on `--season-y` -4 % to 4 % and `--season-scale` 1.10 to
-1.055. Headline "From approved days to wages you can explain." Three chapters in a row at .3
-opacity, exactly one at full opacity by `floor(progress × 3)`: 01 Approve · 02 Calculate ·
-03 Lock and export.
-
-### After the pins
-
-1. **Who does what**: a ruled table, Role · Records · Sees, one row per role.
-2. **FAQ**: native `<details>` rows.
-3. **Footer** on loam: "Run 2 to 20 sites? Join the pilot." Join the pilot goes to
-   `/sign-up` (the existing owner sign-up; the page collects nothing). Sign in. Copyright.
-
-A slim fixed header on cream: the wordmark (one word part in red; a logo is exempt from
-contrast) and Sign in / Join the pilot.
-
-### Per-word and per-atom motion
-
-Every headline, lede and statement is split at render time into word spans that rise .42em
-and fade in on a 38 ms stagger. Every card, card title, meta, role tag, table row, cue,
-artifact row, chapter, FAQ row, metadata item, button and footer line carries `data-rev`
-with `--d` = 40–100 ms × its index. One IntersectionObserver at threshold .12 reveals them
-and unobserves on entry.
-
----
+Every claim is a row in `docs/FEATURES.md`. No customer names, ratings, prices or real-looking customer
+numbers until the pilot produces real ones; sample figures are always labelled as samples.
 
 ## 2b · Sign in, sign up, check email
 
@@ -158,11 +118,18 @@ terms checkbox in a 48 px row.
 The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one frame, in
 `components/site/public-frame.tsx`:
 
-- **Header.** The same `Wordmark` and `HeadActions` on every page. There is one call to action,
-  "Join the pilot" (`CTA.primary` in `lib/landing/content.ts`), and "Sign in" beside it. "Sign in" stays
-  visible on phones, as a text link, and the three fit on one row down to 320 px. Both keep a 48 px tap
-  target on phones. The landing page keeps its own section nav and footer CTA.
-- **Footer.** `SiteFooter` on every info page.
+- **Header** (v2.1, `components/site/site-header.tsx` via `PublicHeader`): the wordmark; from 1000 px the
+  page links Features, How it works, Download app, About (`HEADER_LINKS` in `lib/site/nav.ts`); "Sign in"
+  as a line pill from 640 px; "Start free pilot" (`CTA.primary`) as a red pill at every width; below
+  1000 px a **Menu** button. Tap targets 44 px. The same header on the home page, info pages, 404 and error.
+- **Menu.** A native modal `<dialog>`, full screen on loam: numbered Anton links (`MENU_LINKS`), then Start
+  free pilot, Sign in and WhatsApp (when configured). Focus starts on Close and stays inside; Esc closes it
+  and returns focus to the Menu button; the page behind does not scroll.
+- **Footer.** `SiteFooter` on every public page: loam, wordmark and one line, four columns (Product, Get
+  started, Company, Legal; `FOOTER_COLUMNS`), 44 px rows, then copyright and the contact email.
+- **Download** (`app/(site)/download`): the APK link from `NEXT_PUBLIC_APK_URL`, else the pilot build's
+  link `PILOT_APK_URL` (https only, `lib/site/download.ts`), three install steps, and who needs the phone or
+  the web app. With no valid link the button becomes "Ask on WhatsApp" (or Contact), never a dead link.
 - **Skip link.** "Skip to content" is the first thing Tab reaches on every page (`app/layout.tsx`,
   styles in `globals.css`). It jumps to `#main`, which is the `<main>` of the page, or the wrapper around
   the page in the signed-in app.
@@ -215,11 +182,9 @@ area, not centred in it.
 
 ## 3 · Rules
 
-- **Reduced motion and no JavaScript get the same page, still.** Motion styles apply only
-  under `html.lp-motion`, which the script sets when `prefers-reduced-motion` is not
-  `reduce`. Without it: stages are normal height, nothing is pinned, the rail wraps and
-  centres, the manifesto is full ink, the artifact shows its final printed state, every
-  chapter is at full opacity, canvases draw one still frame, and every reveal is visible.
+- **Reduced motion and no JavaScript get the same page, still.** Reveals and the marquee run
+  only under `prefers-reduced-motion: no-preference`. Without JavaScript every section and the
+  heatmap's stat tiles are still there, and the footer carries every link the menu has.
 - **Accessibility.** One `h1`. Text stays real text; word spans are inline. Canvases and the
   manifesto duplicate are `aria-hidden`. Focus outline 2 px ink (cream on loam), 2 px offset.
   Tap targets at least 48 px. Every text pair in section 1 passes AA.

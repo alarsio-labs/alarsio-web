@@ -1,14 +1,21 @@
 import { describe, expect, it } from "vitest";
-import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "./content";
+import { CTA, DAY_RECORD, FAQ, FEATURES, HEATMAP, HERO, MARQUEE, PROBLEMS, ROLES, STEPS, TRUST } from "./content";
 
-describe("landing content", () => {
-  it("has six rail cards, three wage chapters and one table row per role", () => {
-    expect(RAIL.cards).toHaveLength(6);
-    expect(WAGES.chapters).toHaveLength(3);
-    expect(ROLES.rows.map((r) => r[0])).toEqual(["Owner", "Project manager", "Supervisor", "Accountant"]);
+const ALL = { HERO, MARQUEE, PROBLEMS, FEATURES, ROLES, STEPS, DAY_RECORD, HEATMAP, TRUST, FAQ, CTA };
+
+describe("home page content", () => {
+  it("has six features, five steps, three problems and one card per role, in order", () => {
+    expect(FEATURES.items).toHaveLength(6);
+    expect(STEPS.items).toHaveLength(5);
+    expect(PROBLEMS.items).toHaveLength(3);
+    expect(ROLES.cards.map((r) => r.role)).toEqual(["Owner", "Project manager", "Supervisor", "Accountant"]);
   });
 
-  it("gives the day record one value per phase for every row, cue and status line", () => {
+  it("keeps the four facts the sign-in pages show", () => {
+    expect(HERO.meta).toEqual(["Offline first", "2 to 20 sites", "Android and web", "For Indian contractors"]);
+  });
+
+  it("gives the day record one value per phase for every row and cue", () => {
     const phases = DAY_RECORD.status.length;
     expect(phases).toBe(4);
     expect(DAY_RECORD.cues).toHaveLength(phases);
@@ -25,19 +32,29 @@ describe("landing content", () => {
     expect(DAY_RECORD.status.slice(0, 3)).toEqual(["Saved on this phone, waiting to send", "Sending…", "On the server"]);
   });
 
-  it("sends the pilot button to sign-up and the second one to sign-in, both on this site", () => {
+  it("sends every button to a page on this site", () => {
     expect(CTA.primary.href).toBe("/sign-up");
     expect(CTA.secondary.href).toBe("/sign-in");
+    expect(CTA.download.href).toBe("/download");
+    for (const r of ROLES.cards) expect(r.cta.href).toMatch(/^\/(sign-up|sign-in|download)$/);
   });
 
-  it("makes no audit-log claim for the owner, and says the pilot is free", () => {
-    expect(JSON.stringify(ROLES).toLowerCase()).not.toContain("audit log");
+  it("says the pilot is free, and labels the sample data", () => {
     expect(CTA.note).toBe("Free during the pilot. No card needed.");
+    expect(HERO.note.toLowerCase()).toContain("free during the pilot");
+    expect(HEATMAP.caption.toLowerCase()).toContain("sample");
   });
 
-  it("never claims a record is submitted, and quotes no price", () => {
-    const words = JSON.stringify({ HERO, MANIFESTO, RAIL, DAY_RECORD, WAGES, ROLES, FAQ, CTA }).toLowerCase();
+  it("makes no audit-log claim, never claims a record is submitted, and quotes no price", () => {
+    const words = JSON.stringify(ALL).toLowerCase();
+    expect(words).not.toContain("audit log");
     expect(words).not.toContain("submitted");
     expect(words).not.toMatch(/₹|rs\.|per month|\/month/);
+  });
+
+  it("has a question for each common worry, each asked once", () => {
+    const qs = FAQ.map((f) => f.q);
+    expect(new Set(qs).size).toBe(qs.length);
+    expect(qs.length).toBeGreaterThanOrEqual(8);
   });
 });

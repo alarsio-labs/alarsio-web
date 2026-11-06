@@ -1,6 +1,5 @@
 import type { ReactNode } from "react";
-import Link from "next/link";
-import { HeadActions, SiteFooter, Wordmark } from "@/components/site/public-frame";
+import { PublicHeader, SiteFooter } from "@/components/site/public-frame";
 import { anton, mono } from "../fonts";
 import "../landing.css";
 import "./site.css";
@@ -9,16 +8,7 @@ import "./site.css";
 export default function SiteLayout({ children }: { children: ReactNode }) {
   return (
     <div className={`lp lp-site ${anton.variable} ${mono.variable}`}>
-      <header className="lp-head">
-        <Wordmark />
-        <nav aria-label="Main" className="lp-nav lp-mono">
-          <Link href="/about">About</Link>
-          <Link href="/contact">Contact</Link>
-          <Link href="/privacy">Privacy</Link>
-          <Link href="/terms">Terms</Link>
-        </nav>
-        <HeadActions />
-      </header>
+      <PublicHeader />
 
       <main id="main" tabIndex={-1}>{children}</main>
 
