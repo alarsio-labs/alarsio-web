@@ -9,6 +9,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 
 import type { SyncStatus } from '../sync/engine';
 import { entityLabel, pullLine, reasonText, syncLine } from '../sync/status-text';
+import { colors } from '../theme';
 
 export interface SyncPanelProps {
   status: SyncStatus;
@@ -62,24 +63,24 @@ export function SyncPanel({ status, onSyncNow }: SyncPanelProps) {
 const styles = StyleSheet.create({
   panel: { alignSelf: 'stretch', alignItems: 'center', gap: 12 },
   line: { fontSize: 16, textAlign: 'center' },
-  subline: { fontSize: 14, color: '#555', textAlign: 'center' },
+  subline: { fontSize: 14, color: colors.muted, textAlign: 'center' },
   listBox: { alignSelf: 'stretch', gap: 8 },
   list: { maxHeight: 240 },
-  heading: { fontSize: 14, fontWeight: '600', color: '#b00020' },
-  item: { borderLeftWidth: 3, borderLeftColor: '#b00020', paddingLeft: 8, marginBottom: 8 },
+  heading: { fontSize: 14, fontWeight: '600', color: colors.redDeep },
+  item: { borderLeftWidth: 3, borderLeftColor: colors.redDeep, paddingLeft: 8, marginBottom: 8 },
   itemTitle: { fontSize: 14, fontWeight: '500' },
-  itemReason: { fontSize: 14, color: '#555' },
-  more: { fontSize: 14, color: '#555' },
+  itemReason: { fontSize: 14, color: colors.muted },
+  more: { fontSize: 14, color: colors.muted },
   button: {
     minHeight: 44,
     minWidth: 120,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#111',
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
   // White on #767676 is 4.54:1, the WCAG AA minimum for normal text.
-  buttonDisabled: { backgroundColor: '#767676' },
-  buttonText: { color: '#fff', fontSize: 16 },
+  buttonDisabled: { backgroundColor: colors.disabled },
+  buttonText: { color: colors.white, fontSize: 16 },
 });

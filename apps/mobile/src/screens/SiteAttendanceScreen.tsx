@@ -23,6 +23,7 @@ import {
 import { listVisits, resendWithReason, saveCheckIn, saveCheckOut, type StoredVisit } from '../attendance/visit-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, tone } from '../theme';
 
 export interface SiteAttendanceScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -427,25 +428,25 @@ function Button({ label, onPress, secondary = false }: { label: string; onPress:
 }
 
 const toneStyle: Record<StatusTone, { color: string }> = {
-  wait: { color: '#555' },
-  ok: { color: '#1b6e2d' },
-  attention: { color: '#b00020' },
+  wait: { color: tone.wait },
+  ok: { color: tone.ok },
+  attention: { color: tone.attention },
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: colors.paper },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
-  sub: { fontSize: 14, color: '#555' },
-  line: { fontSize: 16, color: '#222' },
-  error: { fontSize: 16, color: '#b00020' },
+  sub: { fontSize: 14, color: colors.muted },
+  line: { fontSize: 16, color: colors.ink },
+  error: { fontSize: 16, color: colors.redDeep },
   panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: '#999', borderRadius: 8, padding: 10, minHeight: 80, fontSize: 16, textAlignVertical: 'top' },
-  visit: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, gap: 8 },
+  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, minHeight: 80, fontSize: 16, textAlignVertical: 'top' },
+  visit: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8 },
   visitLine: { fontSize: 16, fontWeight: '500' },
   status: { fontSize: 14 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#111' },
-  buttonText: { color: '#fff', fontSize: 16 },
-  buttonTextSecondary: { color: '#111' },
+  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
+  buttonText: { color: colors.white, fontSize: 16 },
+  buttonTextSecondary: { color: colors.ink },
 });

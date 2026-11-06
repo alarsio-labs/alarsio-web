@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { colors } from '../theme';
 
 export interface MaterialsSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -63,13 +64,13 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff', padding: 16, gap: 12 },
+  container: { flex: 1, backgroundColor: colors.paper, padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: '#333' },
-  error: { fontSize: 16, color: '#b00020' },
+  line: { fontSize: 16, color: colors.ink },
+  error: { fontSize: 16, color: colors.redDeep },
   list: { flex: 1 },
   listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, gap: 2 },
+  card: { minHeight: 44, borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 2 },
   siteName: { fontSize: 18, fontWeight: '600' },
-  siteAddress: { fontSize: 14, color: '#555' },
+  siteAddress: { fontSize: 14, color: colors.muted },
 });

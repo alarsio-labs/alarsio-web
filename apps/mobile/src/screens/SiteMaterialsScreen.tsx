@@ -21,6 +21,7 @@ import {
 import { loadSiteMaterials, saveMovement, type SiteMaterial, type SiteMaterials } from '../materials/movement-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
+import { colors, tone } from '../theme';
 
 export interface SiteMaterialsScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -302,33 +303,33 @@ function Button({
 }
 
 const toneStyle: Record<MovementTone, { color: string }> = {
-  wait: { color: '#555' },
-  ok: { color: '#1b6e2d' },
-  attention: { color: '#b00020' },
+  wait: { color: tone.wait },
+  ok: { color: tone.ok },
+  attention: { color: tone.attention },
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: colors.paper },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   heading: { fontSize: 18, fontWeight: '600', marginTop: 8 },
-  sub: { fontSize: 14, color: '#555' },
-  line: { fontSize: 16, color: '#222' },
-  error: { fontSize: 16, color: '#b00020' },
-  warning: { fontSize: 16, color: '#8a5a00' },
-  material: { borderWidth: 1, borderColor: '#ccc', borderRadius: 8, padding: 12, gap: 6 },
+  sub: { fontSize: 14, color: colors.muted },
+  line: { fontSize: 16, color: colors.ink },
+  error: { fontSize: 16, color: colors.redDeep },
+  warning: { fontSize: 16, color: tone.wait },
+  material: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 6 },
   materialName: { fontSize: 18, fontWeight: '600' },
   estimate: { fontSize: 16, fontWeight: '500' },
-  panel: { gap: 10, borderWidth: 1, borderColor: '#111', borderRadius: 8, padding: 12 },
+  panel: { gap: 10, borderWidth: 1, borderColor: colors.ink, borderRadius: 8, padding: 12 },
   panelTitle: { fontSize: 18, fontWeight: '600' },
   kinds: { gap: 8 },
-  field: { borderWidth: 1, borderColor: '#999', borderRadius: 8, padding: 10, minHeight: 44, fontSize: 16 },
+  field: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, minHeight: 44, fontSize: 16 },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
-  entry: { borderWidth: 1, borderColor: '#ddd', borderRadius: 8, padding: 12, gap: 4 },
+  entry: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 4 },
   entryLine: { fontSize: 16, fontWeight: '500' },
   status: { fontSize: 14 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: '#111', alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#111' },
-  buttonText: { color: '#fff', fontSize: 16 },
-  buttonTextSecondary: { color: '#111' },
+  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
+  buttonText: { color: colors.white, fontSize: 16 },
+  buttonTextSecondary: { color: colors.ink },
 });

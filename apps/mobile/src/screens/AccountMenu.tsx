@@ -7,6 +7,7 @@ import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import type { SignedInUser } from '../auth/auth-client';
 import { signOutWarning, type UnsentCounts } from '../auth/sign-out-warning';
+import { colors } from '../theme';
 
 export interface AccountMenuProps {
   user: SignedInUser;
@@ -63,7 +64,7 @@ export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
 
 const styles = StyleSheet.create({
   row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 260 },
-  email: { flexShrink: 1, color: '#555', fontSize: 13 },
+  email: { flexShrink: 1, color: colors.muted, fontSize: 13 },
   target: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  link: { color: '#111', fontSize: 15, textDecorationLine: 'underline' },
+  link: { color: colors.ink, fontSize: 15, textDecorationLine: 'underline' },
 });

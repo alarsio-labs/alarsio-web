@@ -10,6 +10,7 @@ import type { PublicConfigResult } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
 import { SyncPanel } from './SyncPanel';
+import { colors } from '../theme';
 
 type DbStatus =
   | { kind: 'opening' }
@@ -135,7 +136,7 @@ function dbLine(db: DbStatus): string {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: colors.paper,
     alignItems: 'center',
     justifyContent: 'center',
     padding: 24,
@@ -144,17 +145,17 @@ const styles = StyleSheet.create({
   title: { fontSize: 28, fontWeight: '600' },
   line: { fontSize: 16, textAlign: 'center' },
   errorBox: { gap: 4, alignItems: 'center' },
-  errorText: { fontSize: 16, color: '#b00020', textAlign: 'center' },
-  errorHint: { fontSize: 14, color: '#555', textAlign: 'center' },
-  version: { fontSize: 12, color: '#777' },
+  errorText: { fontSize: 16, color: colors.redDeep, textAlign: 'center' },
+  errorHint: { fontSize: 14, color: colors.muted, textAlign: 'center' },
+  version: { fontSize: 12, color: colors.muted },
   button: {
     minHeight: 44,
     minWidth: 160,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#111',
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonText: { color: '#fff', fontSize: 16 },
+  buttonText: { color: colors.white, fontSize: 16 },
 });

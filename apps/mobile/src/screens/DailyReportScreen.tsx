@@ -30,6 +30,7 @@ import {
 } from '../reports/report';
 import { findReport, saveReport, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, tone } from '../theme';
 
 export interface DailyReportScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -56,9 +57,9 @@ type Load =
   | { kind: 'ready'; site: MirrorSite; stored: StoredReport | null; photoList: StoredPhoto[] };
 
 const toneStyle: Record<ReportTone, { color: string }> = {
-  wait: { color: '#8a5a00' },
-  ok: { color: '#1b6e20' },
-  attention: { color: '#b00020' },
+  wait: { color: tone.wait },
+  ok: { color: tone.ok },
+  attention: { color: tone.attention },
 };
 
 export function DailyReportScreen({
@@ -379,32 +380,32 @@ function Button({ label, onPress, secondary }: { label: string; onPress: () => v
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: '#fff' },
+  container: { flex: 1, backgroundColor: colors.paper },
   content: { padding: 16, gap: 12, paddingBottom: 32 },
   title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: '#333' },
+  line: { fontSize: 16, color: colors.ink },
   status: { fontSize: 16, fontWeight: '600' },
-  error: { fontSize: 16, color: '#b00020' },
+  error: { fontSize: 16, color: colors.redDeep },
   field: { gap: 4 },
   photos: { gap: 8 },
-  label: { fontSize: 16, color: '#111' },
-  hint: { fontSize: 14, color: '#555' },
-  input: { minHeight: 44, borderWidth: 1, borderColor: '#888', borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
+  label: { fontSize: 16, color: colors.ink },
+  hint: { fontSize: 14, color: colors.muted },
+  input: { minHeight: 44, borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, paddingHorizontal: 12, fontSize: 16 },
   multiline: { minHeight: 88, paddingVertical: 8, textAlignVertical: 'top' },
   toggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  flag: { borderWidth: 2, borderColor: '#b00020', borderRadius: 8, padding: 12, backgroundColor: '#fdecee' },
-  flagText: { fontSize: 16, color: '#b00020', fontWeight: '600' },
+  flag: { borderWidth: 2, borderColor: colors.redDeep, borderRadius: 8, padding: 12, backgroundColor: colors.redTint },
+  flagText: { fontSize: 16, color: colors.redDeep, fontWeight: '600' },
   buttons: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
   button: {
     minHeight: 44,
     minWidth: 140,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#111',
+    backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  buttonSecondary: { backgroundColor: '#fff', borderWidth: 1, borderColor: '#111' },
-  buttonText: { color: '#fff', fontSize: 16 },
-  buttonTextSecondary: { color: '#111' },
+  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
+  buttonText: { color: colors.white, fontSize: 16 },
+  buttonTextSecondary: { color: colors.ink },
 });
