@@ -1,6 +1,6 @@
 // The landing page's words, in one place (docs/DESIGN.md section 2). Every claim
-// here is a feature in docs/FEATURES.md. No customer names, ratings, prices or
-// numbers until the pilot produces real ones.
+// here is a feature in docs/FEATURES.md. No customer names, ratings, price figures or
+// numbers until the pilot produces real ones. "Free during the pilot" is allowed.
 
 export const HERO = {
   top: "Site records with no signal",
@@ -57,7 +57,7 @@ export const ROLES = {
   title: "Who does what",
   head: ["Role", "Records", "Sees"],
   rows: [
-    ["Owner", "Sites, team and access", "Every site, wages, the audit log"],
+    ["Owner", "Sites, team and access", "Every site, wages; every change recorded and exportable"],
     ["Project manager", "Approvals and send-backs", "Every site's reports and attendance"],
     ["Supervisor", "Check-in, attendance, report, materials", "Only the sites assigned to them"],
     ["Accountant", "Wage periods, locks, exports", "Approved attendance and wages"]
@@ -74,6 +74,7 @@ export const FAQ: { q: string; a: string }[] = [
 export const CTA = {
   title: "Run 2 to 20 sites? Join the pilot.",
   body: "Create your company account, add your sites and team, and start with one site this week.",
+  note: "Free during the pilot. No card needed.",
   primary: { label: "Join the pilot", href: "/sign-up" },
   secondary: { label: "Sign in", href: "/sign-in" }
 };

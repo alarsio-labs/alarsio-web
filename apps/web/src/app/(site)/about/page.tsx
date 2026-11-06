@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 const FEATURES = [
   { title: "Attendance", body: "Supervisors mark attendance on site, even with no signal. Managers approve it before it counts." },
   { title: "Daily reports", body: "Work done, photos and notes for every site, every day, in one place." },
-  { title: "Materials", body: "Track what arrives on site and what is used, so stock and orders stay in step." },
+  { title: "Materials", body: "Track what arrives on site and what is used, so stock stays in step." },
   { title: "Wages", body: "Wage periods built from approved attendance, with every correction recorded and exportable." }
 ];
 
@@ -74,7 +74,7 @@ export default function AboutPage() {
             <p>Create your company account and start with one site this week.</p>
           </div>
           <div className="ds-cta-actions">
-            <Link href="/sign-up" className="lp-btn lp-btn-red lp-mono">Get started</Link>
+            <Link href="/sign-up" className="lp-btn lp-btn-red lp-mono">Join the pilot</Link>
             <Link href="/contact" className="lp-btn lp-btn-cream lp-mono">Contact us</Link>
           </div>
         </section>

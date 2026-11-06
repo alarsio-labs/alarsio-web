@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
+import { GRIEVANCE_TIME, LEGAL } from "@/lib/site/legal";
 
 export const metadata: Metadata = {
   title: "Privacy Policy",
@@ -8,9 +9,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/privacy" }
 };
 
-// Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 and add the
-// legal entity, registered address and Grievance Officer's name before relying on it.
-const UPDATED = "4 November 2026";
+// Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 before relying on it.
+// Entity, address and Grievance Officer come from lib/site/legal.ts.
+const UPDATED = "6 November 2026";
 
 const sections: DocSection[] = [
   {
@@ -165,11 +166,16 @@ const sections: DocSection[] = [
     id: "contact",
     title: "Contact and grievances",
     body: (
-      <p>
-        For questions, requests or complaints about your personal data, write to us at <ContactLink />. We will
-        acknowledge your request and respond within the time the law requires. See also our{" "}
-        <Link href="/terms">Terms of Service</Link>.
-      </p>
+      <>
+        <p>
+          The service is provided by {LEGAL.entity}, at {LEGAL.address}.
+        </p>
+        <p>
+          For questions, requests or complaints about your personal data, write to us at <ContactLink />, or to our
+          Grievance Officer, {LEGAL.officerName}, at <a href={`mailto:${LEGAL.officerEmail}`}>{LEGAL.officerEmail}</a>.{" "}
+          {GRIEVANCE_TIME} See also our <Link href="/terms">Terms of Service</Link>.
+        </p>
+      </>
     )
   }
 ];

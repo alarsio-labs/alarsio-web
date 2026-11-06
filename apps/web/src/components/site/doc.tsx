@@ -1,8 +1,10 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
 
-// Set NEXT_PUBLIC_CONTACT_EMAIL in the deploy settings. No address is hard-coded.
-export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL;
+import { CONTACT_EMAIL } from "@/lib/site/contact";
+
+// One source for the address: lib/site/contact.ts.
+export { CONTACT_EMAIL };
 
 /** The contact email as a link, or a link to the Contact page while it is unset. */
 export function ContactLink() {

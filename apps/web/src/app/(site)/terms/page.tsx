@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
+import { LEGAL } from "@/lib/site/legal";
 
 export const metadata: Metadata = {
   title: "Terms of Service",
@@ -8,9 +9,9 @@ export const metadata: Metadata = {
   alternates: { canonical: "/terms" }
 };
 
-// Not yet reviewed by a lawyer: add the legal entity name, registered address and the
-// courts' city to "Governing law" before relying on it.
-const UPDATED = "4 November 2026";
+// Not yet reviewed by a lawyer: have it checked before relying on it.
+// Entity, address and courts' city come from lib/site/legal.ts.
+const UPDATED = "6 November 2026";
 
 const sections: DocSection[] = [
   {
@@ -155,8 +156,8 @@ const sections: DocSection[] = [
     title: "Governing law and disputes",
     body: (
       <p>
-        These Terms are governed by the laws of India. We encourage you to contact us first so we can try to resolve
-        any dispute informally.
+        These Terms are governed by the laws of India. Any dispute is subject to the courts at {LEGAL.courtsCity}. We
+        encourage you to contact us first so we can try to resolve any dispute informally.
       </p>
     )
   },
@@ -174,7 +175,12 @@ const sections: DocSection[] = [
   {
     id: "contact",
     title: "Contact us",
-    body: <p>Questions about these Terms? Write to us at <ContactLink />.</p>
+    body: (
+      <p>
+        These Terms are offered by {LEGAL.entity}, at {LEGAL.address}. Questions about these Terms? Write to us at{" "}
+        <ContactLink />.
+      </p>
+    )
   }
 ];
 

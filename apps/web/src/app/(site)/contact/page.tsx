@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CONTACT_EMAIL, PageHead } from "@/components/site/doc";
+import { PageHead } from "@/components/site/doc";
+import { CONTACT_EMAIL, CONTACT_WHATSAPP, displayPhone, whatsAppHref } from "@/lib/site/contact";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -39,6 +40,7 @@ const TOPICS = [
 ];
 
 export default function ContactPage() {
+  const whatsApp = whatsAppHref(CONTACT_WHATSAPP);
   return (
     <>
       <PageHead
@@ -60,16 +62,35 @@ export default function ContactPage() {
           </div>
         </section>
 
-        <section className="ds-section" aria-labelledby="email">
-          <h2 id="email">Email</h2>
-          {CONTACT_EMAIL ? (
-            <p>
-              Write to us any time at <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "var(--red-deep)", fontWeight: 600 }}>{CONTACT_EMAIL}</a>.
-            </p>
-          ) : (
-            <p>Our support email will be listed here shortly.</p>
-          )}
-        </section>
+        {CONTACT_EMAIL || whatsApp ? (
+          <section className="ds-section" aria-labelledby="reach">
+            <h2 id="reach">Reach us</h2>
+            <div className="ds-grid ds-grid-3">
+              {CONTACT_EMAIL ? (
+                <div className="ds-card">
+                  <h3>Email</h3>
+                  <p>
+                    Write to us any time at <strong>{CONTACT_EMAIL}</strong>
+                  </p>
+                  <a className="ds-card-link" href={`mailto:${CONTACT_EMAIL}`}>
+                    Open your email app →
+                  </a>
+                </div>
+              ) : null}
+              {whatsApp && CONTACT_WHATSAPP ? (
+                <div className="ds-card">
+                  <h3>WhatsApp</h3>
+                  <p>
+                    Message us on <strong>{displayPhone(CONTACT_WHATSAPP)}</strong>
+                  </p>
+                  <a className="ds-card-link" href={whatsApp} target="_blank" rel="noopener noreferrer">
+                    Chat on WhatsApp →
+                  </a>
+                </div>
+              ) : null}
+            </div>
+          </section>
+        ) : null}
 
         <section className="ds-section" aria-labelledby="more">
           <h2 id="more">Before you write</h2>
