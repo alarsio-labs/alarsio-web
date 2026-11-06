@@ -199,6 +199,7 @@ export default function Home() {
       <footer className="lp-foot on-loam">
         <Words as="h2" text={CTA.title} className="lp-display lp-foot-headline" />
         <Words as="p" text={CTA.body} className="lp-foot-body" />
+        <p className="lp-foot-body lp-mono">{CTA.note}</p>
         <div className="lp-foot-actions">
           <Link href={CTA.primary.href} className="lp-btn lp-btn-red lp-mono" data-rev="" style={d(1)}>{CTA.primary.label}</Link>
           <Link href={CTA.secondary.href} className="lp-btn lp-btn-cream lp-mono" data-rev="" style={d(2)}>{CTA.secondary.label}</Link>

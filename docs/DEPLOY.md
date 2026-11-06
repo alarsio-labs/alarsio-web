@@ -129,6 +129,8 @@ eas build --profile pilot --platform android
 | `NEXT_PUBLIC_SUPABASE_URL` | Vercel | yes (sent to browsers) | web |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel | yes | web |
 | `NEXT_PUBLIC_SITE_URL` | Vercel | yes | web: invite and verification links |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | Vercel | yes | web: support email on the Contact page (redeploy after a change) |
+| `NEXT_PUBLIC_CONTACT_WHATSAPP` | Vercel | yes | web: WhatsApp number, digits with country code (redeploy after a change) |
 | `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` | Vercel | **no** (server only) | web: invite emails |
 | `SMTP_PASSWORD` | Vercel (sensitive) | **no** | web: invite emails |
 | `EMAIL_FROM` | Vercel | **no** | web: invite emails |

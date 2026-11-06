@@ -30,6 +30,11 @@ describe("landing content", () => {
     expect(CTA.secondary.href).toBe("/sign-in");
   });
 
+  it("makes no audit-log claim for the owner, and says the pilot is free", () => {
+    expect(JSON.stringify(ROLES).toLowerCase()).not.toContain("audit log");
+    expect(CTA.note).toBe("Free during the pilot. No card needed.");
+  });
+
   it("never claims a record is submitted, and quotes no price", () => {
     const words = JSON.stringify({ HERO, MANIFESTO, RAIL, DAY_RECORD, WAGES, ROLES, FAQ, CTA }).toLowerCase();
     expect(words).not.toContain("submitted");
