@@ -4,6 +4,7 @@ import { useRef, useState } from 'react';
 import {
   ActivityIndicator,
   KeyboardAvoidingView,
+  Linking,
   Platform,
   Pressable,
   StyleSheet,
@@ -14,7 +15,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { SignInResult } from '../auth/auth-client';
-import { colors } from '../theme';
+import { RESET_PASSWORD_URL } from '../config/support';
+import { colors, minTarget } from '../theme';
 
 export interface SignInScreenProps {
   signIn: (email: string, password: string) => Promise<SignInResult>;
@@ -75,6 +77,14 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
             onSubmitEditing={() => void submit()}
             style={styles.input}
           />
+          <Pressable
+            accessibilityRole="link"
+            accessibilityLabel="Forgot password? Opens the reset page on alarsio.com"
+            onPress={() => void Linking.openURL(RESET_PASSWORD_URL).catch(() => undefined)}
+            style={styles.forgot}
+          >
+            <Text style={styles.forgotText}>Forgot password?</Text>
+          </Pressable>
           {error && (
             <Text accessibilityRole="alert" style={styles.error}>
               {error}
@@ -106,5 +116,7 @@ const styles = StyleSheet.create({
   button: { backgroundColor: colors.ink, borderRadius: 8, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   buttonBusy: { opacity: 0.6 },
   buttonText: { color: colors.white, fontSize: 16, fontWeight: '600' },
+  forgot: { minHeight: minTarget, justifyContent: 'center', alignSelf: 'flex-start' },
+  forgotText: { color: colors.ink, fontSize: 14, textDecorationLine: 'underline' },
   hint: { color: colors.muted, fontSize: 14, marginTop: 8 },
 });
