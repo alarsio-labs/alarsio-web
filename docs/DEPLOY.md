@@ -58,6 +58,11 @@ Take a backup before any push that changes a table with data in it.
 - [ ] **Redirect URLs**: add `https://<web-address>/auth/confirm` and `https://<web-address>/invite/**`
       (the verification link lands on `/auth/confirm`, invites on `/invite/<token>`). Add the preview
       domain pattern only if previews must sign in; leave it out otherwise.
+- [ ] **Confirm signup email.** Authentication, Email Templates, **Confirm signup**: set the link to
+      `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard">Confirm your email</a>`
+      and save. Do the same for the **Invite user** and **Magic link** templates if they are used. With the
+      default template every verification link ends on `/sign-in?error=link_invalid`, because
+      `/auth/confirm` accepts only `token_hash` (same wording as `docs/ONBOARDING.md`). S1 is the check.
 - [ ] **Password reset email.** Authentication, Email Templates, **Reset Password**: set the link to
       `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/update-password">Set a new password</a>`
       and save. Also list the Redirect URL as `https://<web-address>/auth/confirm**` (with the `**`) so the
