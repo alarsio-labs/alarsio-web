@@ -1,10 +1,11 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
-import { router, Stack, type ErrorBoundaryProps } from 'expo-router';
+import { router, Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
+import { View } from 'react-native';
 
 import {
   accessStore,
@@ -15,6 +16,8 @@ import {
 } from '../auth/app-auth';
 import { SessionUserContext } from '../auth/session-user';
 import { useSession } from '../auth/use-session';
+import { openAppDb } from '../lib/app-db';
+import { SyncBar } from '../sync/SyncBar';
 import { AccessGate } from '../screens/AccessGate';
 import { AccountMenu } from '../screens/AccountMenu';
 import { SignInScreen } from '../screens/SignInScreen';
@@ -26,6 +29,13 @@ SplashScreen.preventAutoHideAsync().catch(() => undefined);
 // Expo Router renders this when any screen throws, instead of a red error screen.
 export function ErrorBoundary({ error }: ErrorBoundaryProps) {
   return <StartupError detail={error.message} />;
+}
+
+// Home already shows the sync panel, so the bar sits on every other screen.
+function SyncBarOnOtherScreens({ userId }: { userId: string }) {
+  const pathname = usePathname();
+  if (pathname === '/') return null;
+  return <SyncBar openDb={openAppDb} userId={userId} onOpen={() => router.navigate('/')} />;
 }
 
 export default function RootLayout() {
@@ -75,19 +85,22 @@ export default function RootLayout() {
         unsentCounts={unsentCounts}
         signOut={signOutKeepingNothingBehind}
       >
-        <Stack
-          screenOptions={{
-            title: 'Alarsio',
-            headerRight: () => (
-              <AccountMenu
-                user={session.user}
-                unsentCounts={unsentCounts}
-                signOut={signOutKeepingNothingBehind}
-                onOpenAbout={() => router.push('/about')}
-              />
-            ),
-          }}
-        />
+        <View style={{ flex: 1 }}>
+          <Stack
+            screenOptions={{
+              title: 'Alarsio',
+              headerRight: () => (
+                <AccountMenu
+                  user={session.user}
+                  unsentCounts={unsentCounts}
+                  signOut={signOutKeepingNothingBehind}
+                  onOpenAbout={() => router.push('/about')}
+                />
+              ),
+            }}
+          />
+          <SyncBarOnOtherScreens userId={session.user.id} />
+        </View>
       </AccessGate>
       <StatusBar style="auto" />
     </SessionUserContext.Provider>
