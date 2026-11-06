@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { parseOverviewParams } from "./params";
+import { parseOverviewParams, previousDay } from "./params";
 
 // 20 Oct 2026, 20:00 UTC is already 21 Oct in Kolkata (UTC+5:30).
 const LATE_UTC = new Date("2026-10-20T20:00:00Z");
@@ -21,5 +21,14 @@ describe("parseOverviewParams", () => {
       expect(parseOverviewParams({ date: bad }, NOON_UTC)).toEqual({ date: "2026-10-20" });
     }
     expect(parseOverviewParams({ date: ["2026-10-01", "2026-10-02"] }, NOON_UTC)).toEqual({ date: "2026-10-20" });
+  });
+});
+
+describe("previousDay", () => {
+  it("steps back one calendar day across a month, a year and a leap day", () => {
+    expect(previousDay("2026-11-07")).toBe("2026-11-06");
+    expect(previousDay("2026-11-01")).toBe("2026-10-31");
+    expect(previousDay("2027-01-01")).toBe("2026-12-31");
+    expect(previousDay("2028-03-01")).toBe("2028-02-29");
   });
 });
