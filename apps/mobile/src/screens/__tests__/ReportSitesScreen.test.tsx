@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -7,6 +8,11 @@ import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { saveReport } from '../../reports/report-store';
 import { applyVerdicts, claimBatch } from '../../sync/outbox';
 import { ReportSitesScreen } from '../ReportSitesScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {
@@ -61,6 +67,7 @@ describe('ReportSitesScreen (#81)', () => {
     await show();
 
     await screen.findByRole('button', { name: 'Kothrud, Draft, saved on this phone' });
+    expect(headerTitles()).toContain('Daily reports');
     expect(screen.getByRole('button', { name: 'Baner, Not started' })).toBeTruthy();
   });
 

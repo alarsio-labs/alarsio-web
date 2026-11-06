@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -5,6 +6,11 @@ import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { MaterialsSitesScreen } from '../MaterialsSitesScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // See SiteAttendanceScreen.test.tsx: a cold CI runner is slower than the defaults.
 jest.setTimeout(30_000);
@@ -42,6 +48,7 @@ describe('MaterialsSitesScreen (#82)', () => {
 
     expect(await screen.findByText('Kothrud')).toBeTruthy();
     expect(screen.getByText('Pune, Kothrud')).toBeTruthy();
+    expect(headerTitles()).toContain('Materials');
     expect(screen.getByText('Baner')).toBeTruthy();
 
     await fireEvent.press(screen.getByRole('button', { name: /Kothrud/ }));

@@ -20,7 +20,7 @@ function contrast(a: string, b: string): number {
 }
 
 describe('theme contrast (WCAG AA, 4.5:1 for normal text)', () => {
-  const text: Array<[string, string]> = [
+  const text: [string, string][] = [
     ['ink', colors.ink],
     ['muted', colors.muted],
     ['redDeep', colors.redDeep],

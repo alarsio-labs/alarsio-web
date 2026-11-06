@@ -1,7 +1,13 @@
+import { Stack } from 'expo-router';
 import { fireEvent, render, screen } from '@testing-library/react-native';
 import { Alert, Linking } from 'react-native';
 
 import { AboutScreen } from '../AboutScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 const user = { id: '0a000000-0000-4000-8000-00000000000a', email: 'a@x.in' };
 const counts = async () => ({ waiting: 0, needFix: 0 });
@@ -17,6 +23,7 @@ describe('AboutScreen', () => {
   it('shows the version and who is signed in', async () => {
     await render(<AboutScreen user={user} appVersion="0.1.0" unsentCounts={counts} signOut={jest.fn()} />);
     expect(screen.getByText('Version 0.1.0')).toBeTruthy();
+    expect(headerTitles()).toContain('Help');
     expect(screen.getByText('Signed in as a@x.in')).toBeTruthy();
   });
 

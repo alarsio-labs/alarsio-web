@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -10,6 +11,9 @@ import { runPhotoUploads, type PhotoStorage } from '../../reports/photo-upload';
 import { saveReport } from '../../reports/report-store';
 import { applyVerdicts, claimBatch } from '../../sync/outbox';
 import { DailyReportScreen } from '../DailyReportScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {

@@ -10,6 +10,7 @@ import type { DeviceDb } from '../db/device-db';
 import { dayLabel, reportStatusText, type ReportTone } from '../reports/report';
 import { findReport, listUnfinished, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
 export interface ReportSitesScreenProps {
@@ -107,6 +108,7 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTitle screen="report_sites" />
       <Text style={styles.title} accessibilityRole="header">
         Daily report
       </Text>

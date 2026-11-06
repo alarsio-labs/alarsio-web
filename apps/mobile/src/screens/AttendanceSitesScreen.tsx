@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors } from '../theme';
 
 export interface AttendanceSitesScreenProps {
@@ -45,6 +46,7 @@ export function AttendanceSitesScreen({ openDb, userId, onOpenSite }: Attendance
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTitle screen="attendance_sites" />
       <Text style={styles.title} accessibilityRole="header">
         Attendance
       </Text>

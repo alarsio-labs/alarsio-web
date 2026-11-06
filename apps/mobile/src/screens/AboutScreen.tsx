@@ -9,6 +9,7 @@ import {
   SUPPORT_WHATSAPP_DISPLAY,
   SUPPORT_WHATSAPP_URL,
 } from '../config/support';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, minTarget, primaryTarget, space, type } from '../theme';
 import { useSignOutFlow, type AccountMenuProps } from './AccountMenu';
 
@@ -22,6 +23,7 @@ export function AboutScreen({ appVersion, user, unsentCounts, signOut }: AboutSc
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
+      <ScreenTitle screen="help" />
       <Text accessibilityRole="header" style={styles.title}>
         Help and about
       </Text>

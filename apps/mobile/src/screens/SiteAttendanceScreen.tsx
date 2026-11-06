@@ -23,6 +23,7 @@ import {
 import { listVisits, resendWithReason, saveCheckIn, saveCheckOut, type StoredVisit } from '../attendance/visit-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
 export interface SiteAttendanceScreenProps {
@@ -288,6 +289,7 @@ export function SiteAttendanceScreen({
 
         {site && (
           <>
+            <ScreenTitle screen="check_in" siteName={site.name} />
             <Text style={styles.title} accessibilityRole="header">
               {site.name}
             </Text>

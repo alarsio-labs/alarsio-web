@@ -28,6 +28,7 @@ import {
 } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
 export interface DayRegisterScreenProps {
@@ -226,6 +227,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
 
         {site && register && (
           <>
+            <ScreenTitle screen="day_register" siteName={site.name} />
             <Text style={styles.title} accessibilityRole="header">
               {site.name}
             </Text>

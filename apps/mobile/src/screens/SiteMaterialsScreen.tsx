@@ -21,6 +21,7 @@ import {
 import { loadSiteMaterials, saveMovement, type SiteMaterial, type SiteMaterials } from '../materials/movement-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
 export interface SiteMaterialsScreenProps {
@@ -166,6 +167,7 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
 
         {load.kind === 'ready' && data && (
           <>
+            <ScreenTitle screen="site_materials" siteName={load.site.name} />
             <Text style={styles.title} accessibilityRole="header">
               {load.site.name}
             </Text>

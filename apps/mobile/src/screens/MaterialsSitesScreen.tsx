@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors } from '../theme';
 
 export interface MaterialsSitesScreenProps {
@@ -41,6 +42,7 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
 
   return (
     <SafeAreaView style={styles.container}>
+      <ScreenTitle screen="materials_sites" />
       <Text style={styles.title} accessibilityRole="header">
         Materials
       </Text>

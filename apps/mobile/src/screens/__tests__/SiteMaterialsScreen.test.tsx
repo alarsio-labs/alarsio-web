@@ -1,3 +1,4 @@
+import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
@@ -7,6 +8,11 @@ import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { applyVerdicts, claimBatch } from '../../sync/outbox';
 import { runPull, type MirrorSource } from '../../sync/pull';
 import { SiteMaterialsScreen } from '../SiteMaterialsScreen';
+
+// The header title is set through expo-router, which Jest does not load.
+jest.mock('expo-router', () => ({ Stack: { Screen: jest.fn(() => null) } }));
+
+const headerTitles = () => jest.mocked(Stack.Screen).mock.calls.map((c) => (c[0] as { options: { title: string } }).options.title);
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
 jest.mock('expo-crypto', () => {
@@ -72,6 +78,7 @@ describe('SiteMaterialsScreen (#82)', () => {
 
     expect(await screen.findByText('Kothrud')).toBeTruthy();
     expect(screen.getByText('Cement')).toBeTruthy();
+    expect(headerTitles()).toContain('Materials · Kothrud');
     expect(screen.getByText('Estimate: 40 bag')).toBeTruthy();
     expect(screen.getByText('Server balance: 40 bag')).toBeTruthy();
     expect(screen.getByText('Sand')).toBeTruthy();

@@ -30,6 +30,7 @@ import {
 } from '../reports/report';
 import { findReport, saveReport, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
 export interface DailyReportScreenProps {
@@ -220,6 +221,7 @@ export function DailyReportScreen({
   return (
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
+        <ScreenTitle screen="daily_report" siteName={site.name} />
         <Text style={styles.title} accessibilityRole="header">
           {site.name}
         </Text>
