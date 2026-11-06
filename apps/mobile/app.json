@@ -13,7 +13,7 @@
     "android": {
       "package": "in.alarsio.app",
       "adaptiveIcon": {
-        "backgroundColor": "#E6F4FE",
+        "backgroundColor": "#241A12",
         "foregroundImage": "./assets/android-icon-foreground.png",
         "backgroundImage": "./assets/android-icon-background.png",
         "monochromeImage": "./assets/android-icon-monochrome.png"
@@ -39,6 +39,14 @@
           "cameraPermission": "Alarsio opens the camera when you tap Take photo, to add a photo to your daily report.",
           "photosPermission": "Alarsio opens your photos when you tap Choose photo, to add one to your daily report.",
           "microphonePermission": false
+        }
+      ],
+      [
+        "expo-splash-screen",
+        {
+          "image": "./assets/splash-icon.png",
+          "backgroundColor": "#241A12",
+          "imageWidth": 200
         }
       ]
     ],

@@ -2,8 +2,9 @@
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
 import { Stack } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { ActivityIndicator, View } from 'react-native';
+import { useEffect } from 'react';
 
 import { supabaseAuthClient } from '../auth/auth-client';
 import { SessionUserContext } from '../auth/session-user';
@@ -15,6 +16,9 @@ import { AUTH_STORAGE_KEY, authStorage, getSupabase } from '../lib/supabase';
 import { AccountMenu } from '../screens/AccountMenu';
 import { SignInScreen } from '../screens/SignInScreen';
 import { countByStatus } from '../sync/outbox';
+
+// Keep the loam splash up until the session is known, so there is no white flash.
+SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 const config = readPublicConfig();
 const auth = config.ok ? supabaseAuthClient(getSupabase(config.config), authStorage, AUTH_STORAGE_KEY) : undefined;
@@ -30,6 +34,12 @@ const signOutKeepingNothingBehind = () => (auth ? signOutAndClearMirrors(auth.si
 export default function RootLayout() {
   const session = useSession(auth);
 
+  // Hide the splash once the auth state is known: signed in, signed out, or no config.
+  const ready = !auth || session.kind !== 'loading';
+  useEffect(() => {
+    if (ready) SplashScreen.hideAsync().catch(() => undefined);
+  }, [ready]);
+
   // No config: let the home screen say what is missing.
   if (!auth) {
     return (
@@ -41,11 +51,8 @@ export default function RootLayout() {
   }
 
   if (session.kind === 'loading') {
-    return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fff' }}>
-        <ActivityIndicator />
-      </View>
-    );
+    // The splash is still showing; render nothing under it.
+    return null;
   }
 
   if (session.kind === 'signed_out') {
