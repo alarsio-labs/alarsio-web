@@ -58,6 +58,11 @@ Take a backup before any push that changes a table with data in it.
 - [ ] **Redirect URLs**: add `https://<web-address>/auth/confirm` and `https://<web-address>/invite/**`
       (the verification link lands on `/auth/confirm`, invites on `/invite/<token>`). Add the preview
       domain pattern only if previews must sign in; leave it out otherwise.
+- [ ] **Password reset email.** Authentication, Email Templates, **Reset Password**: set the link to
+      `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/update-password">Set a new password</a>`
+      and save. Also list the Redirect URL as `https://<web-address>/auth/confirm**` (with the `**`) so the
+      `?next=` part is allowed. Then request a reset for your own account from `/forgot-password` and check
+      the link opens `/update-password`.
 - [ ] **Email confirmations on.** A user signs in only after the verification link (FEATURES: sign in).
 - [ ] **Custom SMTP**: the organisation's own mailbox, the same one the web app uses for invite emails, so
       verification and invites come from one address. Host, port, user, password and sender go in the
