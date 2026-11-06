@@ -23,20 +23,32 @@ apps/mobile
 ├── app.json        Expo config (package, plugins, permissions, EAS project ID, owner)
 ├── eas.json        EAS build profiles (only "pilot")
 ├── .env.local      Local dev variables (gitignored, never commit)
-├── assets/         Icons
+├── assets/         Icons (the PNGs are drawn from assets/brand/*.svg by scripts/export-icons.mjs)
+├── scripts/        export-icons.mjs
 └── src/
-    ├── app/        Expo Router screens: index, attendance, materials, reports
+    ├── app/        Expo Router screens: index (Today), about, attendance, materials, reports
     ├── attendance/ Attendance feature code
     ├── reports/    Daily reporting feature code
     ├── materials/  Materials feature code
     ├── auth/       Sign-in and session
     ├── sync/       Offline sync / outbox
     ├── db/         Local SQLite database
-    ├── config/     public-config.ts: reads the EXPO_PUBLIC_* variables
-    ├── lib/        Shared helpers
+    ├── config/     public-config.ts reads the EXPO_PUBLIC_* variables; support.ts holds the support contacts and web links
+    ├── lib/        Shared helpers (screen titles, date picker helpers)
+    ├── today/      Read-only data for the Today home screen
+    ├── theme.ts    Colour, spacing and type tokens (from docs/DESIGN.md)
     ├── screens/    Screen components
     └── __tests__/  Tests
 ```
+
+## 2a. What the app does for each role
+
+- **Supervisors and project managers** get the capture app: a Today home (a card per site with check in, register and report), a sync bar on every other screen, and Help and about.
+- **Owners and accountants** are shown a screen that points them to alarsio.com. A user with no company yet is told to ask for an invite link.
+- The role comes from the user's own `memberships` rows, which RLS already lets them read. The answer is cached on the phone (`alarsio-access:<userId>`, cleared on sign-out). With no signal and no cache the user gets the capture app; the server still refuses anything they may not record.
+- Support contacts (email, WhatsApp) and web links live only in `src/config/support.ts`. To move to a support@alarsio.com mailbox, change `SUPPORT_EMAIL` there.
+- The sync bar (`src/sync/SyncBar.tsx`) reads the outbox counts on the phone and the connection state, and uses the words in `src/sync/status-text.ts`. Tapping it opens Today, where the sync panel and Sync now are.
+- A material entry's date is chosen from the phone's calendar and cannot be in the future.
 
 ## 3. Environment variables
 
@@ -136,6 +148,7 @@ If a test fails, do not tick the row. Open an issue with the steps and what you 
 
 ## 8. Open items
 
+- [ ] The pilot polish adds native pieces (`expo-splash-screen`, `@react-native-community/datetimepicker`, the new icon and splash), so **a new APK is needed**: `eas build --profile pilot --platform android` from `apps/mobile`.
 - [ ] Install the APK on a real phone and confirm it opens (S6 onward).
 - [ ] Merge the PR that commits the `eas init` changes to `apps/mobile/app.json`. The pilot APK was built before that change; a new build is needed only if the permissions or plugins change.
 - [ ] Tick the matching rows in `docs/FEATURES.md` after each smoke test passes.

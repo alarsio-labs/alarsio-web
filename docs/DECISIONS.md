@@ -2146,6 +2146,29 @@ or against the team project (#58).
 
 ---
 
+## ADR-050 · The phone's role gate: supervisors and project managers capture, owners and accountants go to the web
+**Date:** 2026-11-06 · **Status:** Proposed · **By:** Manish (pilot polish, branch `feat/mobile-pilot-polish`). Identity owns the rule: Ishant to confirm. Nikhil and Anuradha review it too.
+
+**Context.** The phone is the capture app. An owner or accountant has no site capture job, so the phone sent them into
+screens they could not use. The role already sits in the user's own `memberships` rows, which RLS lets them read.
+Offline, the phone cannot ask the server.
+
+**Decision.**
+- R1. A supervisor or project manager membership gets the capture app. Only owner or accountant memberships get a
+  screen that says "Use alarsio.com". No membership gets a screen that asks for an invite link (`captureAccessFor`).
+- R2. The role is one `select` on `memberships` through the user's own session, the same read the web layout makes.
+  No view or function is added. Rejected: a published Identity view, since RLS already returns only the caller's rows.
+- R3. The answer is cached per user (`alarsio-access:<userId>`) and cleared on sign-out. Offline with no cache, the
+  user gets the capture app. Capture is never blocked (CLAUDE.md rule 6).
+- R4. The gate chooses a screen. It is not authority: RLS and `sync_push` still refuse any record the user may not make.
+
+**Consequences.** Owners and accountants get a clear route to the web and no outbox to fill. Costs: with no signal and
+no cache, an owner or accountant sees the capture app and can save a record the server will refuse; a removed
+supervisor keeps the capture app until the next online check; and the phone reads Identity's `memberships` table
+directly, which `ARCHITECTURE.md` does not name. If Identity wants a view later, the phone's answer does not change.
+
+---
+
 ## Template — copy this for a new decision
 
 The reviewer's approval of the PR that adds an ADR is its acceptance: the author sets
