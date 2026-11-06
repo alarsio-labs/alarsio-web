@@ -1,44 +1,43 @@
-/* The dashboard in the v2 look (docs/DESIGN.md). The header and tokens come from the
-   (app) layout; the form pieces from v2-form.css. */
+/* The dashboard hub in the app console (docs/DESIGN.md section 4). Tokens come from
+   (app)/console.css; the form pieces from v2-form.css, restyled there inside .app. */
 
+.db-main { display: grid; gap: 24px; max-width: 1240px; padding: 24px var(--pad) 0; }
+@media (min-width: 768px) { .db-main { padding-top: 32px; } }
 
-/* Dark band with the site grid */
-.db-band { position: relative; overflow: hidden; background: var(--loam); color: var(--cream); }
-.db-field { position: absolute; inset: 0; width: 100%; height: 100%; }
-.db-band-inner { position: relative; padding: 56px var(--pad) 40px; }
-.db-eyebrow { color: var(--cream-muted); }
-.db-title { font-size: clamp(44px, 8vw, 112px); margin-top: 10px; color: var(--cream); }
-
-.db-main { display: grid; gap: 24px; padding: 40px var(--pad) 80px; max-width: 1280px; }
-
-/* One paper card per organisation */
-.db-orgs { display: grid; gap: 24px; }
-.db-org { background: var(--paper); border: 1.5px solid var(--ink); }
-.db-org-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 8px 16px; padding: 20px 20px 18px; border-bottom: 1.5px solid var(--ink); }
-.db-org-name { font-size: clamp(32px, 4vw, 52px); min-width: 0; overflow-wrap: anywhere; }
-
-/* Page links: a ruled grid, 1 column on phones, up to 4 on desktop */
-.db-links { display: grid; grid-template-columns: repeat(auto-fill, minmax(min(100%, 240px), 1fr)); }
-.db-links li { border-top: 1px solid var(--hair); border-right: 1px solid var(--hair); margin: -1px -1px 0 0; }
-.db-link {
-  display: grid; grid-template-columns: 1fr auto; grid-template-rows: auto auto; gap: 4px 12px;
-  min-height: 76px; padding: 16px 20px; color: var(--ink); text-decoration: none;
-  transition: background-color 0.2s var(--ease), color 0.2s var(--ease);
+/* One card per organisation */
+.db-orgs { display: grid; gap: 20px; }
+.db-org { background: var(--paper); border: 1px solid var(--hair); border-radius: var(--r); box-shadow: var(--shadow); overflow: hidden; }
+.db-org-head { display: flex; align-items: center; gap: 12px; padding: 16px 20px; border-bottom: 1px solid var(--hair-faint); }
+.db-org-avatar {
+  display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--r-sm);
+  background: var(--ink); color: #fff; font-weight: 600; font-size: 15px;
 }
-.db-link-label { grid-column: 1; }
-.db-link-note { grid-column: 1; font-size: 14px; color: var(--muted); }
-.db-link-arrow { grid-column: 2; grid-row: 1 / span 2; align-self: center; font-size: 18px; transition: transform 0.2s var(--ease); }
-.db-link:hover { background: var(--ink); color: var(--cream); }
-.db-link:hover .db-link-note { color: var(--cream-muted); }
-.db-link:hover .db-link-arrow { transform: translateX(3px); }
-.db-link:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
+.db-org-name { font-size: 16px; font-weight: 600; min-width: 0; overflow-wrap: anywhere; margin-right: auto; }
 
-/* No organisation yet */
-.db-create .au-body { margin-top: 0; }
-.db-create-form { margin-top: 28px; }
-.db-create { max-width: 560px; }
-.db-fixed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 48px; padding: 12px 14px; border: 1.5px dashed var(--hair); background: transparent; }
-.db-review { display: grid; border-top: 1.5px solid var(--ink); }
-.db-review div { display: flex; justify-content: space-between; gap: 16px; padding: 12px 0; border-bottom: 1px solid var(--hair); }
+/* Page links: icon tiles, 1 column on phones, up to 3 on desktop */
+.db-links { display: grid; gap: 12px; padding: 16px 20px 20px; grid-template-columns: repeat(auto-fill, minmax(min(100%, 260px), 1fr)); }
+.db-link {
+  display: flex; align-items: center; gap: 12px; min-height: 64px; padding: 12px 14px;
+  border: 1px solid var(--hair); border-radius: var(--r); color: var(--ink); text-decoration: none;
+  transition: border-color 0.15s, background-color 0.15s, box-shadow 0.15s;
+}
+.db-link-icon {
+  display: inline-grid; place-items: center; width: 36px; height: 36px; flex: none; border-radius: var(--r-sm);
+  background: var(--hover); color: var(--muted);
+}
+.db-link-text { display: grid; min-width: 0; flex: 1; }
+.db-link-label { font-weight: 600; }
+.db-link-note { font-size: 13px; color: var(--faint); }
+.db-link-arrow { color: var(--line-strong); transition: color 0.15s, transform 0.15s; }
+.db-link:hover { border-color: var(--line-strong); box-shadow: var(--shadow); }
+.db-link:hover .db-link-icon { color: var(--ink); }
+.db-link:hover .db-link-arrow { color: var(--ink); transform: translateX(2px); }
+
+/* No organisation yet: the stepper in a card */
+.db-create { max-width: 640px; background: var(--paper); border: 1px solid var(--hair); border-radius: var(--r); box-shadow: var(--shadow); padding: 24px; }
+.db-create-form { margin-top: 0; }
+.db-fixed { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 14px; min-height: 38px; padding: 8px 12px; border: 1px dashed var(--line-strong); border-radius: var(--r-sm); background: #fafafa; }
+.db-review { display: grid; border-top: 1px solid var(--hair); }
+.db-review div { display: flex; justify-content: space-between; gap: 16px; padding: 10px 0; border-bottom: 1px solid var(--hair-faint); }
 .db-review dd { font-weight: 600; text-align: right; overflow-wrap: anywhere; }
-.db-next { color: var(--muted); }
+.db-next { color: var(--faint); }

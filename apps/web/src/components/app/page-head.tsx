@@ -1,7 +1,7 @@
 import type { ReactNode } from "react";
 
-// The head of a working screen: a mono eyebrow, the Anton title and one optional
-// action on the right (it drops under the title on a phone).
+// The head of a page in the app console: the title, a one-line note under it (the
+// eyebrow) and one optional action on the right (it drops under the title on a phone).
 export function PageHead({ eyebrow, title, action }: { eyebrow?: string; title: string; action?: ReactNode }) {
   return (
     <header className="ax-head">

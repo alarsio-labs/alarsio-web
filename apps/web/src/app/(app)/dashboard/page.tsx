@@ -6,14 +6,17 @@ import { orgLinks } from "@/lib/dashboard/links";
 import { ROLE_LABEL, homeFor, toMemberships } from "@/lib/dashboard/memberships";
 import { AuthNotice } from "@/components/v2-form";
 import { timezoneOptions } from "@/lib/dashboard/org-form";
-import { FieldCanvas } from "@/components/landing/field-canvas";
+import { Icon, iconForPath } from "@/components/app/nav-icon";
+import { PageHead } from "@/components/app/page-head";
+import { StatusTag } from "@/components/app/status-tag";
 import { createOrganization } from "./actions";
 import { CreateOrgWizard } from "./create-org-wizard";
 import "./dashboard.css";
 
-// The dashboard in the v2 look (docs/DESIGN.md): the create stepper with no
-// organisation, and the hub with several; one organisation goes to its home. Each organisation is a paper card with the pages the member's role can
-// open; the links come from orgLinks().
+// The dashboard in the app console (docs/DESIGN.md section 4): the create stepper
+// with no organisation, and the hub with several; one organisation goes to its home.
+// Each organisation is a card with the pages the member's role can open; the links
+// come from orgLinks().
 export const metadata = { title: "Dashboard" };
 
 export default async function DashboardPage({
@@ -40,49 +43,50 @@ export default async function DashboardPage({
   const hasOrgs = memberships.length > 0;
 
   return (
-    <div className="db">
-      <section className="db-band on-loam" aria-labelledby="db-title">
-        <FieldCanvas className="db-field" />
-        <div className="db-band-inner">
-          <p className="lp-mono db-eyebrow">Dashboard</p>
-          <h1 id="db-title" className="lp-display db-title">{hasOrgs ? "Your organisations" : "Create your organisation"}</h1>
-        </div>
-      </section>
+    <main className="db-main">
+      <PageHead
+        eyebrow={hasOrgs ? "Choose an organisation to open its workspace" : "You will be its owner. Joining someone else's? Open the invite link they sent you."}
+        title={hasOrgs ? "Your organisations" : "Create your organisation"}
+      />
 
-      <main className="db-main">
-        {error && <AuthNotice kind="error">{error}</AuthNotice>}
+      {error && <AuthNotice kind="error">{error}</AuthNotice>}
 
-        {hasOrgs ? (
-          <ul className="db-orgs">
-            {memberships.map((m) => (
-              <li key={m.orgId} className="db-org">
-                <div className="db-org-head">
-                  <h2 className="lp-display db-org-name">{m.orgName}</h2>
-                  <p className="lp-mono lp-role">{ROLE_LABEL[m.role]}</p>
-                </div>
-                <ul className="db-links">
-                  {orgLinks(m.role, m.orgId).map((l) => (
+      {hasOrgs ? (
+        <ul className="db-orgs">
+          {memberships.map((m) => (
+            <li key={m.orgId} className="db-org">
+              <div className="db-org-head">
+                <span className="db-org-avatar" aria-hidden="true">
+                  {m.orgName.trim().charAt(0).toUpperCase() || "A"}
+                </span>
+                <h2 className="db-org-name">{m.orgName}</h2>
+                <StatusTag tone="muted">{ROLE_LABEL[m.role]}</StatusTag>
+              </div>
+              <ul className="db-links">
+                {orgLinks(m.role, m.orgId).map((l) => {
+                  const icon = iconForPath(l.path);
+                  return (
                     <li key={l.path}>
                       <Link href={l.path} className="db-link">
-                        <span className="lp-mono db-link-label">{l.label}</span>
-                        <span className="db-link-note">{l.note}</span>
-                        <span aria-hidden="true" className="db-link-arrow">→</span>
+                        <span className="db-link-icon">{icon && <Icon name={icon} />}</span>
+                        <span className="db-link-text">
+                          <span className="db-link-label">{l.label}</span>
+                          <span className="db-link-note">{l.note}</span>
+                        </span>
+                        <span className="db-link-arrow"><Icon name="arrow" size={16} /></span>
                       </Link>
                     </li>
-                  ))}
-                </ul>
-              </li>
-            ))}
-          </ul>
-        ) : (
-          <div className="db-create">
-            <p className="au-body">
-              You will be its owner. Joining someone else&apos;s? Open the invite link they sent you.
-            </p>
-            <CreateOrgWizard action={createOrganization} timezones={timezoneOptions(Intl.supportedValuesOf("timeZone"))} />
-          </div>
-        )}
-      </main>
-    </div>
+                  );
+                })}
+              </ul>
+            </li>
+          ))}
+        </ul>
+      ) : (
+        <div className="db-create">
+          <CreateOrgWizard action={createOrganization} timezones={timezoneOptions(Intl.supportedValuesOf("timeZone"))} />
+        </div>
+      )}
+    </main>
   );
 }

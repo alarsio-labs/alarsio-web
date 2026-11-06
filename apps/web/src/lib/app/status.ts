@@ -1,9 +1,8 @@
-// Which tone a status tag takes on the working screens (docs/DESIGN.md section 4,
-// "Warm print, calm"). The word carries the meaning; the tone only repeats it, so
-// there is no green or amber.
-//   action: red-deep, for a state that asks someone to act;
-//   ink:    a settled state (approved, filed);
-//   muted:  nothing yet (draft, none, not started).
+// Which tone a status tag takes in the app console (docs/DESIGN.md section 4). The
+// word carries the meaning; the colour only repeats it.
+//   action: amber, for a state that asks someone to act;
+//   ink:    green, a settled state (approved, filed);
+//   muted:  grey, nothing yet (draft, none, not started).
 
 export type StatusTone = "action" | "ink" | "muted";
 
