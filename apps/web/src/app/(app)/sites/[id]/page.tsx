@@ -17,6 +17,8 @@ import { SiteForm } from "../site-form";
 import { Supervisors } from "./supervisors";
 import { archiveSite, setSiteStatus, updateSite } from "../actions";
 
+export const metadata = { title: "Site" };
+
 export default async function SitePage({
   params,
   searchParams

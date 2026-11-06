@@ -46,6 +46,8 @@ function toChange(v: unknown): Change | null {
   };
 }
 
+export const metadata = { title: "Wage period" };
+
 export default async function WagePeriodPage({
   params,
   searchParams

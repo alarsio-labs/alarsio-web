@@ -14,6 +14,8 @@ import "./dashboard.css";
 // The dashboard in the v2 look (docs/DESIGN.md): the create stepper with no
 // organisation, and the hub with several; one organisation goes to its home. Each organisation is a paper card with the pages the member's role can
 // open; the links come from orgLinks().
+export const metadata = { title: "Dashboard" };
+
 export default async function DashboardPage({
   searchParams
 }: {

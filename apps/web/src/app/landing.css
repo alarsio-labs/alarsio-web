@@ -67,7 +67,17 @@
 .lp-btn-red { background: var(--red); border-color: var(--red); color: var(--ink); }
 .lp-btn-cream { border-color: var(--cream); color: var(--cream); }
 .lp-btn-cream:hover { background: var(--cream); color: var(--ink); }
-@media (max-width: 520px) { .lp-head .lp-btn-line { display: none; } }
+/* Phones: "Sign in" stays visible, as a text link, so the wordmark, Sign in and Join the pilot
+   fit on one row down to 320px. Both header actions keep a 48px tap target. */
+@media (max-width: 520px) {
+  .lp-head { gap: 8px; }
+  .lp-head .lp-wordmark { font-size: 22px; }
+  .lp-head-actions { gap: 2px; align-items: center; }
+  .lp-head .lp-btn { min-height: 48px; padding: 0 10px; letter-spacing: 0.1em; }
+  .lp-head .lp-btn-line { padding: 0 6px; border-color: transparent; }
+  .lp-head .lp-btn-line:hover { border-color: var(--ink); }
+}
+@media (max-width: 360px) { .lp-head .lp-wordmark { font-size: 20px; } }
 
 /* Stages: tall section, sticky 100svh inner. */
 .lp-stage { position: relative; }

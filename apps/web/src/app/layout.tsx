@@ -36,7 +36,10 @@ export const viewport: Viewport = { themeColor: "#241a12" };
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html lang="en-IN" className={inter.variable}>
-      <body className="min-h-screen bg-white font-sans text-neutral-900 antialiased">{children}</body>
+      <body className="min-h-screen bg-white font-sans text-neutral-900 antialiased">
+        <a href="#main" className="skip-link">Skip to content</a>
+        {children}
+      </body>
     </html>
   );
 }

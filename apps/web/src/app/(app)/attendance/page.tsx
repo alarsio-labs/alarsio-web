@@ -24,6 +24,8 @@ const DAY_LIMIT = 1000;
 const REVIEW_EXCEPTION_LIMIT = 1000;
 const FLAG_EXCEPTION_LIMIT = 1000;
 
+export const metadata = { title: "Attendance" };
+
 export default async function AttendancePage({
   searchParams
 }: {

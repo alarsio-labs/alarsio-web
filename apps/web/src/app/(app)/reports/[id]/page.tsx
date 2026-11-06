@@ -30,6 +30,8 @@ function Block({ title, text }: { title: string; text: string | null }) {
   );
 }
 
+export const metadata = { title: "Daily report" };
+
 export default async function ReportPage({
   params,
   searchParams

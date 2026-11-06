@@ -24,6 +24,8 @@ const EXCEPTION_LIMIT = 1000;
 const APPROVED_LIMIT = 5000;
 const ALERT_LIMIT = 1000;
 
+export const metadata = { title: "Overview" };
+
 export default async function OverviewPage({
   searchParams
 }: {

@@ -13,6 +13,8 @@ import { PageHead } from "@/components/app/page-head";
 import { StatusTag } from "@/components/app/status-tag";
 import { createPeriod } from "./actions";
 
+export const metadata = { title: "Wages" };
+
 export default async function WagesPage({
   searchParams
 }: {

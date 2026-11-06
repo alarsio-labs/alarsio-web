@@ -29,7 +29,8 @@ export default async function AppLayout({ children }: { children: ReactNode }) {
       <Suspense fallback={<AppTopBar signOut={signOut} />}>
         <AppFrame memberships={memberships} signOut={signOut} />
       </Suspense>
-      <div className="app-body">{children}</div>
+      {/* Each page draws its own <main>; this wrapper is the skip link's target. */}
+      <div id="main" tabIndex={-1} className="app-body">{children}</div>
     </div>
   );
 }

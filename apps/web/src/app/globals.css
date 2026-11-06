@@ -39,3 +39,14 @@
     scroll-behavior: auto !important;
   }
 }
+
+/* Skip link: first thing Tab reaches on every page, hidden until it has focus. Colours are the
+   DESIGN.md ink and cream, written out because this sits outside the .lp scope. */
+.skip-link {
+  position: fixed; top: 8px; left: 8px; z-index: 100; display: inline-flex; align-items: center; min-height: 48px;
+  padding: 0 18px; background: #171717; color: #e7e2d8; border: 2px solid #ef493c; font-weight: 600;
+  text-decoration: none; transform: translateY(-200%);
+}
+.skip-link:focus-visible { transform: none; outline: 2px solid #e7e2d8; outline-offset: 2px; }
+/* The skip link's target takes focus without showing a ring; the page itself is not a control. */
+[id="main"]:focus { outline: none; }

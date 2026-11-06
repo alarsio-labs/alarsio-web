@@ -29,7 +29,7 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
           ))}
         </ul>
       </aside>
-      <main className="au-main">
+      <main id="main" tabIndex={-1} className="au-main">
         <div className="au-card">{children}</div>
       </main>
     </div>

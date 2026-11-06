@@ -5,6 +5,7 @@ import { CTA, DAY_RECORD, FAQ, HERO, MANIFESTO, RAIL, ROLES, WAGES } from "@/lib
 import { LandingMotion } from "@/components/landing/landing-motion";
 import { StructuredData } from "@/components/landing/structured-data";
 import { Words } from "@/components/landing/words";
+import { HeadActions, Wordmark } from "@/components/site/public-frame";
 import { anton, mono } from "./fonts";
 import "./landing.css";
 
@@ -20,14 +21,6 @@ type Vars = CSSProperties & Record<`--${string}`, string | number>;
 const d = (i: number, step = 60): Vars => ({ "--d": `${i * step}ms` });
 const LAST = DAY_RECORD.status.length - 1;
 
-function Wordmark() {
-  return (
-    <Link href="/" className="lp-display lp-wordmark" aria-label="Alarsio, home">
-      Alar<span>sio</span>
-    </Link>
-  );
-}
-
 // The public landing page (docs/DESIGN.md v2). Static: proxy.ts sends a signed-in
 // visitor to their dashboard before this renders. The server renders the finished
 // state; the motion script rewinds it to the start only when it runs.
@@ -41,13 +34,10 @@ export default function Home() {
             <a key={href} href={href} data-rev="" style={d(i, 50)}>{label}</a>
           ))}
         </nav>
-        <div className="lp-head-actions">
-          <Link href={CTA.secondary.href} className="lp-btn lp-btn-line lp-mono">{CTA.secondary.label}</Link>
-          <Link href={CTA.primary.href} className="lp-btn lp-btn-ink lp-mono">{CTA.primary.label}</Link>
-        </div>
+        <HeadActions />
       </header>
 
-      <main>
+      <main id="main" tabIndex={-1}>
         {/* 1 · Poster hero */}
         <section className="lp-stage lp-hero on-loam" style={{ "--h": "280svh" } as Vars} data-stage="hero" aria-labelledby="hero-title">
           <div className="lp-pin">
