@@ -2,17 +2,22 @@ import { fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
 import Index from '../app/index';
+import { deviceMigrations } from '../db/migrations';
+import { prepareDeviceDb } from '../db/prepare-device-db';
+import { openTestDeviceDb } from '../db/test-support/sqljs-device-db';
 import { SessionUserContext } from '../auth/session-user';
 import type { DeviceDb } from '../db/device-db';
 import { runPhotoUploads } from '../reports/photo-upload';
 import { startSyncEngine, type SyncHandle } from '../sync/engine';
+
+jest.setTimeout(30_000);
 
 // This file is not under src/app, so expo-router does not take it for a route.
 // It checks the wiring that decides whose records the home screen shows: the
 // signed-in user's id must reach the sync engine, and no user means no engine.
 
 // Jest hoists jest.mock above the imports.
-const mockDb = {} as DeviceDb;
+let mockDb: DeviceDb = {} as DeviceDb;
 jest.mock('../config/public-config', () => ({
   readPublicConfig: () => ({
     ok: true,
@@ -88,26 +93,46 @@ describe('home route wiring', () => {
     expect(runPhotoUploads).toHaveBeenCalledWith(mockDb, USER.id, 'storage', 'files');
   });
 
-  it('opens the Attendance route for a signed-in user (#79)', async () => {
-    await render(
-      <SessionUserContext.Provider value={USER}>
-        <Index />
-      </SessionUserContext.Provider>,
-    );
+  describe('Today rows open their routes', () => {
+    const SITE = '51000000-0000-4000-8000-000000000001';
+    const ORG = '0a0a0a0a-0000-4000-8000-0000000000a1';
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Attendance' }));
-    expect(router.push).toHaveBeenCalledWith('/attendance');
-  });
+    beforeEach(async () => {
+      const real = await openTestDeviceDb();
+      await prepareDeviceDb(real, deviceMigrations);
+      await real.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, '2026-10-20T03:00:00.000Z')`, [USER.id]);
+      await real.run(
+        `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
+         values (?, ?, 'Kothrud', 'Pune', 18.52, 73.85, 200, 'active')`,
+        [SITE, ORG],
+      );
+      mockDb = real;
+    });
+    afterEach(() => {
+      mockDb = {} as DeviceDb;
+    });
 
-  it('opens the Daily report route for a signed-in user (#81)', async () => {
-    await render(
-      <SessionUserContext.Provider value={USER}>
-        <Index />
-      </SessionUserContext.Provider>,
-    );
+    const open = (name: RegExp) =>
+      render(
+        <SessionUserContext.Provider value={USER}>
+          <Index />
+        </SessionUserContext.Provider>,
+      ).then(async () => fireEvent.press(await screen.findByRole('button', { name })));
 
-    await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
-    expect(router.push).toHaveBeenCalledWith('/reports');
+    it('opens check-in for the site (#79)', async () => {
+      await open(/^Kothrud. Check in/);
+      expect(router.push).toHaveBeenCalledWith({ pathname: '/attendance/[siteId]', params: { siteId: SITE } });
+    });
+
+    it('opens the day register for the site (#79)', async () => {
+      await open(/^Kothrud. Register/);
+      expect(router.push).toHaveBeenCalledWith({ pathname: '/attendance/register/[siteId]', params: { siteId: SITE } });
+    });
+
+    it("opens today's report for the site (#81)", async () => {
+      await open(/^Kothrud. Report/);
+      expect(router.push).toHaveBeenCalledWith({ pathname: '/reports/[siteId]', params: { siteId: SITE } });
+    });
   });
 
   it('opens the Materials route for a signed-in user (#82)', async () => {
@@ -124,7 +149,7 @@ describe('home route wiring', () => {
   it('starts no engine when no user is signed in', async () => {
     await render(<Index />);
 
-    expect(await screen.findByText('Alarsio')).toBeTruthy();
+    expect(await screen.findByText('Today')).toBeTruthy();
     expect(startSyncEngine).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });

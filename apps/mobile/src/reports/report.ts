@@ -319,6 +319,19 @@ export function reportStatusText(
   }
 }
 
+/**
+ * The one-line status for a site's report on a list or card: "Not started" with none,
+ * and a draft still on the phone says so, not only "waiting to send".
+ */
+export function reportCardStatus(
+  stored: { report: { status: ReportStatus }; status: OutboxStatus; reason: string | null } | null,
+): { tone: ReportTone | null; text: string } {
+  if (!stored) return { tone: null, text: 'Not started' };
+  const s = reportStatusText(stored.report.status, stored.status, stored.reason);
+  if (stored.report.status === 'draft' && s.tone === 'wait') return { tone: 'wait', text: 'Draft, saved on this phone' };
+  return s;
+}
+
 /** One fixed sentence per failure, never the error's own text (it can name files, ADR-029). */
 export function reportErrorText(error: unknown): string {
   if (error instanceof ReportError) {

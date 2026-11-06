@@ -45,7 +45,7 @@ describe('HomeScreen', () => {
   it('shows no developer text once the database opens', async () => {
     await render(<HomeScreen openDb={openFakeDb} config={goodConfig} />);
 
-    expect(await screen.findByText('Alarsio')).toBeTruthy();
+    expect(await screen.findByText('Today')).toBeTruthy();
     expect(screen.queryByText(/Device database/)).toBeNull();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
     expect(screen.queryByText(/The app could not start/)).toBeNull();
@@ -97,7 +97,7 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} />);
 
-    expect(await screen.findByText('Alarsio')).toBeTruthy();
+    expect(await screen.findByText('Today')).toBeTruthy();
     expect(startSync).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
     expect(screen.queryByText(/waiting to send|need attention/)).toBeNull();
@@ -143,68 +143,5 @@ describe('HomeScreen', () => {
 
     await fireEvent.press(await screen.findByRole('button', { name: 'Sync now' }));
     expect(retryNow).toHaveBeenCalledTimes(1);
-  });
-
-  describe('the Attendance entry (#79)', () => {
-    it('opens Attendance for a signed-in user', async () => {
-      const onOpenAttendance = jest.fn();
-      await render(
-        <HomeScreen
-          openDb={openFakeDb}
-          userId={USER}
-          onOpenAttendance={onOpenAttendance}
-          config={goodConfig}
-         
-        />,
-      );
-
-      await fireEvent.press(await screen.findByRole('button', { name: 'Attendance' }));
-      expect(onOpenAttendance).toHaveBeenCalledTimes(1);
-    });
-
-    it('offers no Attendance when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenAttendance={jest.fn()} config={goodConfig} />);
-
-      await screen.findByText('Alarsio');
-      expect(screen.queryByRole('button', { name: 'Attendance' })).toBeNull();
-    });
-  });
-
-  describe('the Daily report entry (#81)', () => {
-    it('opens Daily report for a signed-in user', async () => {
-      const onOpenReports = jest.fn();
-      await render(
-        <HomeScreen openDb={openFakeDb} userId={USER} onOpenReports={onOpenReports} config={goodConfig} />,
-      );
-
-      await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
-      expect(onOpenReports).toHaveBeenCalledTimes(1);
-    });
-
-    it('offers no Daily report when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenReports={jest.fn()} config={goodConfig} />);
-
-      await screen.findByText('Alarsio');
-      expect(screen.queryByRole('button', { name: 'Daily report' })).toBeNull();
-    });
-  });
-
-  describe('the Materials entry (#82)', () => {
-    it('opens Materials for a signed-in user', async () => {
-      const onOpenMaterials = jest.fn();
-      await render(
-        <HomeScreen openDb={openFakeDb} userId={USER} onOpenMaterials={onOpenMaterials} config={goodConfig} />,
-      );
-
-      await fireEvent.press(await screen.findByRole('button', { name: 'Materials' }));
-      expect(onOpenMaterials).toHaveBeenCalledTimes(1);
-    });
-
-    it('offers no Materials when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenMaterials={jest.fn()} config={goodConfig} />);
-
-      await screen.findByText('Alarsio');
-      expect(screen.queryByRole('button', { name: 'Materials' })).toBeNull();
-    });
   });
 });

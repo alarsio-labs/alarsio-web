@@ -38,7 +38,9 @@ export default function Index() {
       openDb={openAppDb}
       startSync={startSync}
       userId={user?.id}
-      onOpenAttendance={() => router.push('/attendance')}
+      onOpenCheckIn={(siteId) => router.push({ pathname: '/attendance/[siteId]', params: { siteId } })}
+      onOpenRegister={(siteId) => router.push({ pathname: '/attendance/register/[siteId]', params: { siteId } })}
+      onOpenReport={(siteId) => router.push({ pathname: '/reports/[siteId]', params: { siteId } })}
       onOpenReports={() => router.push('/reports')}
       onOpenMaterials={() => router.push('/materials')}
       onOpenRoute={(route) => router.push(route as Href)}

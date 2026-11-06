@@ -7,7 +7,7 @@ import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
-import { dayLabel, reportStatusText, type ReportTone } from '../reports/report';
+import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
 import { findReport, listUnfinished, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ScreenTitle } from './ScreenTitle';
@@ -40,13 +40,7 @@ const toneStyle: Record<ReportTone, { color: string }> = {
   attention: { color: tone.attention },
 };
 
-function statusOf(stored: StoredReport | null): { tone: ReportTone | null; text: string } {
-  if (!stored) return { tone: null, text: 'Not started' };
-  const s = reportStatusText(stored.report.status, stored.status, stored.reason);
-  // A draft still on the phone says so, not only "waiting to send".
-  if (stored.report.status === 'draft' && s.tone === 'wait') return { tone: 'wait', text: 'Draft, saved on this phone' };
-  return s;
-}
+const statusOf = reportCardStatus;
 
 export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => new Date(), pollMs = 3000 }: ReportSitesScreenProps) {
   const [db, setDb] = useState<DeviceDb | null>(null);
