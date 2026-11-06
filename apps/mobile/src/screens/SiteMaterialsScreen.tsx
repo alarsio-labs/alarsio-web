@@ -23,7 +23,7 @@ import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
 import { DatePickerField, type OpenDatePicker } from './DatePickerField';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, tone } from '../theme';
+import { colors, radius, tone } from '../theme';
 
 export interface SiteMaterialsScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -313,7 +313,7 @@ const toneStyle: Record<MovementTone, { color: string }> = {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
+  container: { flex: 1, backgroundColor: colors.cream },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   heading: { fontSize: 18, fontWeight: '600', marginTop: 8 },
@@ -321,18 +321,18 @@ const styles = StyleSheet.create({
   line: { fontSize: 16, color: colors.ink },
   error: { fontSize: 16, color: colors.redDeep },
   warning: { fontSize: 16, color: tone.wait },
-  material: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 6 },
+  material: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 6, backgroundColor: colors.paper },
   materialName: { fontSize: 18, fontWeight: '600' },
   estimate: { fontSize: 16, fontWeight: '500' },
-  panel: { gap: 10, borderWidth: 1, borderColor: colors.ink, borderRadius: 8, padding: 12 },
+  panel: { gap: 10, borderWidth: 1, borderColor: colors.ink, borderRadius: radius.md, padding: 12, backgroundColor: colors.paper },
   panelTitle: { fontSize: 18, fontWeight: '600' },
   kinds: { gap: 8 },
-  field: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, minHeight: 44, fontSize: 16 },
+  field: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, minHeight: 44, fontSize: 16, backgroundColor: colors.paper },
   multiline: { minHeight: 80, textAlignVertical: 'top' },
-  entry: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 4 },
+  entry: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 4, backgroundColor: colors.paper },
   entryLine: { fontSize: 16, fontWeight: '500' },
   status: { fontSize: 14 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
   buttonText: { color: colors.white, fontSize: 16 },
   buttonTextSecondary: { color: colors.ink },

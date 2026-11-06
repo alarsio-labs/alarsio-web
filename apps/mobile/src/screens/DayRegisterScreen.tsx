@@ -29,7 +29,7 @@ import {
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, tone } from '../theme';
+import { colors, radius, tone } from '../theme';
 
 export interface DayRegisterScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -401,7 +401,7 @@ const toneStyle: Record<StatusTone, { color: string }> = {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
+  container: { flex: 1, backgroundColor: colors.cream },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   sub: { fontSize: 14, color: colors.muted },
@@ -410,15 +410,15 @@ const styles = StyleSheet.create({
   name: { fontSize: 18, fontWeight: '500' },
   status: { fontSize: 14 },
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8 },
+  card: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
   panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, fontSize: 16 },
+  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, fontSize: 16, backgroundColor: colors.paper },
   tall: { minHeight: 70, textAlignVertical: 'top' },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: 8, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   chipOn: { backgroundColor: colors.ink },
   chipText: { color: colors.ink, fontSize: 15 },
   chipTextOn: { color: colors.white, fontSize: 15 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
   buttonDisabled: { opacity: 0.4 },
   buttonText: { color: colors.white, fontSize: 16 },

@@ -119,3 +119,21 @@ function lastRunNote(last: SyncStatus['last'], userId: string | null, waiting: b
   if (SAFE_SERVER_REASON.test(reason)) return `Last try failed (${reason})`;
   return 'Last try failed. Will retry.';
 }
+
+export type SyncChipTone = 'ok' | 'wait' | 'attention';
+
+/**
+ * The short chip on Today: one tone and a few words, always visible. Like syncLine it
+ * says "All sent" only about counts it has read; a record that needs attention wins.
+ */
+export function syncChip(status: SyncStatus): { tone: SyncChipTone; text: string } {
+  const { counts, running, loaded, readFailed } = status;
+  const waiting = counts.pending + counts.syncing + counts.failed;
+  const attention = counts.conflict + counts.rejected;
+  if (readFailed) return { tone: 'attention', text: 'Could not read this phone' };
+  if (attention > 0) return { tone: 'attention', text: `${attention} need attention` };
+  if (!loaded) return { tone: 'wait', text: 'Checking…' };
+  if (running) return { tone: 'wait', text: `Sending… ${waiting} waiting` };
+  if (waiting > 0) return { tone: 'wait', text: `${waiting} waiting to send` };
+  return { tone: 'ok', text: 'All sent' };
+}

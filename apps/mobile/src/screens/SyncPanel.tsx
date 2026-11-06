@@ -11,7 +11,7 @@ import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import type { SyncStatus } from '../sync/engine';
 import { attentionRoute } from '../sync/attention-route';
 import { entityLabel, pullLine, reasonText, syncLine } from '../sync/status-text';
-import { colors } from '../theme';
+import { colors, radius } from '../theme';
 
 export interface SyncPanelProps {
   status: SyncStatus;
@@ -82,7 +82,16 @@ export function SyncPanel({ status, onSyncNow, openRoute }: SyncPanelProps) {
 }
 
 const styles = StyleSheet.create({
-  panel: { alignSelf: 'stretch', alignItems: 'center', gap: 12 },
+  panel: {
+    alignSelf: 'stretch',
+    alignItems: 'center',
+    gap: 12,
+    padding: 16,
+    backgroundColor: colors.paper,
+    borderWidth: 1,
+    borderColor: colors.hair,
+    borderRadius: radius.md,
+  },
   line: { fontSize: 16, textAlign: 'center' },
   subline: { fontSize: 14, color: colors.muted, textAlign: 'center' },
   listBox: { alignSelf: 'stretch', gap: 8 },
@@ -94,10 +103,10 @@ const styles = StyleSheet.create({
   itemReason: { fontSize: 14, color: colors.muted },
   more: { fontSize: 14, color: colors.muted },
   button: {
-    minHeight: 44,
+    minHeight: 48,
     minWidth: 120,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',

@@ -5,11 +5,12 @@
 
 import NetInfo from '@react-native-community/netinfo';
 import { useEffect, useState } from 'react';
-import { Pressable, StyleSheet, Text } from 'react-native';
+import { Pressable, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
-import { colors, minTarget, type } from '../theme';
+import { colors, minTarget, tone, type } from '../theme';
+import { Icon } from '../ui/Icon';
 import type { SyncStatus } from './engine';
 import { countByStatus } from './outbox';
 import { syncLine } from './status-text';
@@ -82,9 +83,16 @@ export function SyncBar({ openDb, userId, onOpen, pollMs = 5000, netInfo = NetIn
         onPress={onOpen}
         style={styles.bar}
       >
-        <Text style={[styles.text, needs && styles.attention]} numberOfLines={2}>
-          {text}
-        </Text>
+        <View style={styles.inner}>
+          <Icon
+            name={needs ? 'attention' : !online ? 'offline' : status.counts.pending + status.counts.syncing + status.counts.failed > 0 ? 'sending' : 'synced'}
+            color={needs ? colors.redDeep : tone.wait}
+            size={18}
+          />
+          <Text style={[styles.text, needs && styles.attention]} numberOfLines={2}>
+            {text}
+          </Text>
+        </View>
       </Pressable>
     </SafeAreaView>
   );
@@ -92,7 +100,8 @@ export function SyncBar({ openDb, userId, onOpen, pollMs = 5000, netInfo = NetIn
 
 const styles = StyleSheet.create({
   safe: { backgroundColor: colors.cream },
-  bar: { minHeight: minTarget, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center' },
-  text: { fontSize: type.small, color: colors.ink, textAlign: 'center' },
+  bar: { minHeight: minTarget, paddingHorizontal: 16, justifyContent: 'center', alignItems: 'center', borderTopWidth: 1, borderTopColor: colors.hair },
+  inner: { flexDirection: 'row', alignItems: 'center', gap: 6, flexShrink: 1 },
+  text: { fontSize: type.small, color: colors.ink, textAlign: 'center', flexShrink: 1 },
   attention: { color: colors.redDeep, fontWeight: '600' },
 });

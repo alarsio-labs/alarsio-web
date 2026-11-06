@@ -2,11 +2,12 @@
 
 import { useRef, useState } from 'react';
 import {
-  ActivityIndicator,
+  Image,
   KeyboardAvoidingView,
   Linking,
   Platform,
   Pressable,
+  ScrollView,
   StyleSheet,
   Text,
   TextInput,
@@ -16,13 +17,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { SignInResult } from '../auth/auth-client';
 import { RESET_PASSWORD_URL } from '../config/support';
-import { colors, minTarget } from '../theme';
+import { colors, fonts, minTarget, primaryTarget, radius, space } from '../theme';
+import { Icon } from '../ui/Icon';
+import { Pill } from '../ui/Pill';
+import { Wordmark } from '../ui/Wordmark';
 
 export interface SignInScreenProps {
   signIn: (email: string, password: string) => Promise<SignInResult>;
+  /** Opens the tutorial again. Without it, the link is not shown. */
+  onShowTutorial?: () => void;
 }
 
-export function SignInScreen({ signIn }: SignInScreenProps) {
+export function SignInScreen({ signIn, onShowTutorial }: SignInScreenProps) {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [busy, setBusy] = useState(false);
@@ -47,13 +53,21 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
   };
 
   return (
-    <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.container}>
-        <Text style={styles.title}>Sign in</Text>
+    <SafeAreaView style={styles.safe} edges={['top']}>
+      <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={styles.fill}>
+        <ScrollView contentContainerStyle={styles.scroll} keyboardShouldPersistTaps="handled">
+        <View style={styles.band}>
+          <Image source={require('../../assets/splash-icon.png')} style={styles.logo} resizeMode="contain" />
+          <Wordmark size={34} onDark />
+          <Text style={styles.bandLine}>Site records with no signal</Text>
+        </View>
         <View style={styles.form}>
+          <Text style={styles.eyebrow}>Welcome back</Text>
+          <Text style={styles.title} accessibilityRole="header">Sign in</Text>
           <TextInput
             accessibilityLabel="Email"
             placeholder="Email"
+            placeholderTextColor={colors.muted}
             value={email}
             onChangeText={setEmail}
             autoCapitalize="none"
@@ -68,6 +82,7 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
             ref={passwordRef}
             accessibilityLabel="Password"
             placeholder="Password"
+            placeholderTextColor={colors.muted}
             value={password}
             onChangeText={setPassword}
             secureTextEntry
@@ -90,33 +105,58 @@ export function SignInScreen({ signIn }: SignInScreenProps) {
               {error}
             </Text>
           )}
-          <Pressable
-            accessibilityRole="button"
+          <Pill
+            label="Sign in"
+            kind="red"
             accessibilityLabel={busy ? 'Signing in' : 'Sign in'}
-            accessibilityState={{ disabled: busy, busy }}
+            busy={busy}
             onPress={() => void submit()}
-            style={[styles.button, busy && styles.buttonBusy]}
-          >
-            {busy ? <ActivityIndicator color={colors.white} /> : <Text style={styles.buttonText}>Sign in</Text>}
-          </Pressable>
+          />
           <Text style={styles.hint}>New to Alarsio? Open the invite link your manager sent you to create your account.</Text>
+          {onShowTutorial && (
+            <Pressable accessibilityRole="button" accessibilityLabel="How Alarsio works" onPress={onShowTutorial} style={styles.tour}>
+              <Icon name="help" color={colors.ink} />
+              <Text style={styles.forgotText}>How Alarsio works</Text>
+            </Pressable>
+          )}
         </View>
+        </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.paper },
-  container: { flex: 1, justifyContent: 'center', padding: 24 },
-  title: { fontSize: 28, fontWeight: '600', marginBottom: 24 },
-  form: { gap: 12 },
-  input: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, paddingHorizontal: 12, paddingVertical: 12, fontSize: 16 },
+  safe: { flex: 1, backgroundColor: colors.loam },
+  fill: { flex: 1, backgroundColor: colors.cream },
+  scroll: { flexGrow: 1 },
+  band: { backgroundColor: colors.loam, alignItems: 'center', paddingTop: space.xl, paddingBottom: space.xl * 1.5, gap: space.sm },
+  logo: { width: 72, height: 72 },
+  bandLine: { color: colors.creamMuted, fontSize: 14, letterSpacing: 1.5, textTransform: 'uppercase' },
+  form: {
+    flex: 1,
+    gap: space.md,
+    padding: space.xl,
+    marginTop: -space.lg,
+    backgroundColor: colors.cream,
+    borderTopLeftRadius: radius.md * 1.5,
+    borderTopRightRadius: radius.md * 1.5,
+  },
+  eyebrow: { color: colors.redDeep, fontSize: 13, letterSpacing: 2, textTransform: 'uppercase' },
+  title: { fontFamily: fonts.display, fontSize: 40, color: colors.ink, textTransform: 'uppercase', marginBottom: space.sm },
+  input: {
+    minHeight: primaryTarget,
+    borderWidth: 1.5,
+    borderColor: colors.ink,
+    borderRadius: radius.sm,
+    backgroundColor: colors.paper,
+    paddingHorizontal: space.lg,
+    fontSize: 16,
+    color: colors.ink,
+  },
   error: { color: colors.redDeep, fontSize: 15 },
-  button: { backgroundColor: colors.ink, borderRadius: 8, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
-  buttonBusy: { opacity: 0.6 },
-  buttonText: { color: colors.white, fontSize: 16, fontWeight: '600' },
   forgot: { minHeight: minTarget, justifyContent: 'center', alignSelf: 'flex-start' },
-  forgotText: { color: colors.ink, fontSize: 14, textDecorationLine: 'underline' },
-  hint: { color: colors.muted, fontSize: 14, marginTop: 8 },
+  forgotText: { color: colors.ink, fontSize: 15, textDecorationLine: 'underline' },
+  hint: { color: colors.muted, fontSize: 14, lineHeight: 20 },
+  tour: { minHeight: minTarget, flexDirection: 'row', alignItems: 'center', gap: space.sm, alignSelf: 'flex-start' },
 });

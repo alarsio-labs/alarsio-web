@@ -1,6 +1,6 @@
 import type { SyncStatus } from '../engine';
 import { SYNC_ENTITIES } from '../entities';
-import { entityLabel, pullLine, reasonText, syncLine } from '../status-text';
+import { entityLabel, pullLine, reasonText, syncChip, syncLine } from '../status-text';
 
 const USER = '11111111-0000-4000-8000-00000000000a';
 const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
@@ -172,5 +172,28 @@ describe('labels', () => {
   it('shows an unknown code as it is, and a missing one as refused', () => {
     expect(reasonText('something_new')).toBe('Refused (something_new)');
     expect(reasonText(null)).toBe('Refused');
+  });
+});
+
+describe('syncChip (Today)', () => {
+  const zero = { pending: 0, syncing: 0, synced: 0, failed: 0, conflict: 0, rejected: 0 };
+
+  it('says All sent only when every count is read and nothing waits', () => {
+    expect(syncChip(status({ counts: { ...zero, synced: 4 } }))).toEqual({ tone: 'ok', text: 'All sent' });
+    expect(syncChip(status({ loaded: false })).text).toBe('Checking…');
+  });
+
+  it('counts what is waiting, failed sends included', () => {
+    expect(syncChip(status({ counts: { ...zero, pending: 2, failed: 1 } }))).toEqual({ tone: 'wait', text: '3 waiting to send' });
+    expect(syncChip(status({ running: true, counts: { ...zero, syncing: 1 } })).text).toBe('Sending… 1 waiting');
+  });
+
+  it('puts records that need attention first', () => {
+    expect(syncChip(status({ counts: { ...zero, pending: 5, rejected: 1, conflict: 1 } }))).toEqual({ tone: 'attention', text: '2 need attention' });
+    expect(syncChip(status({ readFailed: true })).tone).toBe('attention');
+  });
+
+  it('never says submitted', () => {
+    expect(JSON.stringify(syncChip(status()))).not.toMatch(/submitted/i);
   });
 });

@@ -7,7 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { SignedInUser } from '../auth/auth-client';
 import { WEB_URL } from '../config/support';
 import { AccountMenu, type AccountMenuProps } from './AccountMenu';
-import { colors, primaryTarget, space, type } from '../theme';
+import { colors, primaryTarget, radius, space, type } from '../theme';
 
 export interface UseWebScreenProps {
   kind: 'web' | 'none';
@@ -45,12 +45,12 @@ export function UseWebScreen({ kind, user, unsentCounts, signOut }: UseWebScreen
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper, justifyContent: 'center', padding: space.xl, gap: space.lg },
+  container: { flex: 1, backgroundColor: colors.cream, justifyContent: 'center', padding: space.xl, gap: space.lg },
   title: { fontSize: type.title, fontWeight: '600', color: colors.ink },
   text: { fontSize: type.body, color: colors.ink },
   button: {
     minHeight: primaryTarget,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',

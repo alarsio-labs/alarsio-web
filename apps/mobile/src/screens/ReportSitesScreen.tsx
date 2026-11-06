@@ -11,7 +11,7 @@ import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
 import { findReport, listUnfinished, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, tone } from '../theme';
+import { colors, radius, tone } from '../theme';
 
 export interface ReportSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -154,14 +154,14 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper, padding: 16, gap: 12 },
+  container: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   line: { fontSize: 16, color: colors.ink },
   error: { fontSize: 16, color: colors.redDeep },
   section: { fontSize: 14, fontWeight: '600', color: colors.muted, marginTop: 8 },
   list: { flex: 1 },
   listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 2 },
+  card: { minHeight: 44, borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 2, backgroundColor: colors.paper },
   siteName: { fontSize: 18, fontWeight: '600' },
   status: { fontSize: 14, color: colors.ink },
 });

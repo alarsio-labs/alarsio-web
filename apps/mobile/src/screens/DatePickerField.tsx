@@ -6,7 +6,7 @@ import { useState } from 'react';
 import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { dayToPickerDate, pickerDateToDay, pickerDayLabel } from '../lib/day-picker';
-import { colors, minTarget, type } from '../theme';
+import { colors, minTarget, radius, type } from '../theme';
 
 /** How a picker is opened. Tests pass their own; the default is the native one. */
 export type OpenDatePicker = (options: { value: Date; maximumDate: Date; onPick: (picked: Date) => void }) => void;
@@ -72,7 +72,7 @@ const styles = StyleSheet.create({
     minHeight: minTarget,
     borderWidth: 1,
     borderColor: colors.fieldLine,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     paddingHorizontal: 12,
     justifyContent: 'center',
   },
