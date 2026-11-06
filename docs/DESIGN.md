@@ -198,6 +198,26 @@ area, not centred in it.
 
 ---
 
+## 3b · Phone app (v2.1, proposed 6 Nov 2026)
+
+**Status:** proposed by Manish under the deadline override; **Ishant confirms or changes it after 15 Nov.**
+It brings the phone app in line with the public site (section 2). Tokens are in `apps/mobile/src/theme.ts`.
+
+- **Ground and cards.** Every screen sits on `cream`; cards are `paper` with a 1 px `hair` border and a
+  16 px radius. Inputs are `paper` with a 10 px radius. Red stays a mark, never body text.
+- **Type.** Anton (bundled, `src/ui/fonts.ts`) for screen titles, the header title, the wordmark and
+  tutorial titles only; the system font for everything else, 16 px body.
+- **Buttons** (`src/ui/Pill.tsx`): pills at least 48 px tall. Red with ink text for the one main action on
+  a screen, ink for normal actions, line for a second action, cream on loam.
+- **Icons** (`src/ui/Icon.tsx`): one fixed set from MaterialCommunityIcons, always beside a word and hidden
+  from screen readers.
+- **Start.** Native splash (loam, logo) → brand splash (logo, wordmark, one line; 1.5 s, a tap skips) →
+  signed out: the four-slide tutorial on the first open only (`alarsio.onboarding.seen.v1` in
+  AsyncStorage), then Sign in; signed in: Today. "How Alarsio works" on Sign in and on Help reopens it.
+- **Sign in.** Loam band with logo and wordmark over a rounded cream form.
+- **Today.** A sync chip under the date that is always shown (`syncChip` in `sync/status-text.ts`: All sent
+  / N waiting to send / N need attention), an icon beside each row label, pill buttons below the cards.
+
 ## 4 · App screens: the app console (v3)
 
 **Status: Accepted by Ishant, 6 Nov 2026, under the deadline override in CLAUDE.md. Manish to confirm
@@ -301,4 +321,4 @@ Fields stay in `v2-form.tsx`. A screen uses these pieces and does not restyle th
   published views only). The Overview's "Headcount reported" sums `daily_report_status.headcount`.
 - **Phone.** Check every page at 375 px.
 - **No new colour.** Any colour or size not in this section updates this file in the same PR.
-- **Out of scope:** the phone app (its own decision after the pilot), dark mode, motion.
+- **Out of scope:** the phone app (see section 3b), dark mode, motion.

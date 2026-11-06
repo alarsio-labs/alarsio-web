@@ -9,7 +9,7 @@ import {
   SUPPORT_WHATSAPP_DISPLAY,
   SUPPORT_WHATSAPP_URL,
 } from '../config/support';
-import { colors, primaryTarget, space, type } from '../theme';
+import { colors, primaryTarget, radius, space, type } from '../theme';
 
 export function StartupError({ detail }: { detail: string }) {
   const [showDetails, setShowDetails] = useState(false);
@@ -63,7 +63,7 @@ const styles = StyleSheet.create({
   text: { fontSize: type.body, color: colors.ink },
   button: {
     minHeight: primaryTarget,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',

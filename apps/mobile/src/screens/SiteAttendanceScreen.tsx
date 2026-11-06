@@ -24,7 +24,7 @@ import { listVisits, resendWithReason, saveCheckIn, saveCheckOut, type StoredVis
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, tone } from '../theme';
+import { colors, radius, tone } from '../theme';
 
 export interface SiteAttendanceScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -436,18 +436,18 @@ const toneStyle: Record<StatusTone, { color: string }> = {
 };
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
+  container: { flex: 1, backgroundColor: colors.cream },
   content: { padding: 16, gap: 12 },
   title: { fontSize: 24, fontWeight: '600' },
   sub: { fontSize: 14, color: colors.muted },
   line: { fontSize: 16, color: colors.ink },
   error: { fontSize: 16, color: colors.redDeep },
-  panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: 8, padding: 10, minHeight: 80, fontSize: 16, textAlignVertical: 'top' },
-  visit: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: 12, gap: 8 },
+  panel: { gap: 12, backgroundColor: colors.paper },
+  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, minHeight: 80, fontSize: 16, textAlignVertical: 'top', backgroundColor: colors.paper },
+  visit: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
   visitLine: { fontSize: 16, fontWeight: '500' },
   status: { fontSize: 14 },
-  button: { minHeight: 44, paddingHorizontal: 16, borderRadius: 8, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
+  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
   buttonText: { color: colors.white, fontSize: 16 },
   buttonTextSecondary: { color: colors.ink },

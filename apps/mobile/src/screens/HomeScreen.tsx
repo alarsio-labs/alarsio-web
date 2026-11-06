@@ -14,10 +14,13 @@ import type { DeviceDb } from '../db/device-db';
 import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
 import { istDate } from '../sync/pull';
+import { syncChip, type SyncChipTone } from '../sync/status-text';
 import { readToday, type TodayData, type TodaySite } from '../today/read-today';
 import { StartupError } from './StartupError';
 import { SyncPanel } from './SyncPanel';
-import { colors, primaryTarget, space, tone, type } from '../theme';
+import { colors, fonts, primaryTarget, radius, space, surface, tone, type } from '../theme';
+import { Icon, type IconName } from '../ui/Icon';
+import { Pill } from '../ui/Pill';
 
 type DbStatus =
   | { kind: 'opening' }
@@ -149,6 +152,7 @@ export function HomeScreen({
           Today
         </Text>
         {userId && <Text style={styles.sub}>{dayLabel(day)}</Text>}
+        {sync && <SyncChip status={sync} />}
 
         {!config.ok && <StartupError detail={`Missing: ${config.missing.join(', ')}`} />}
         {db.kind === 'failed' && <StartupError detail={db.message} />}
@@ -169,25 +173,44 @@ export function HomeScreen({
           ))}
 
         {userId && today && today.unfinished.length > 0 && onOpenReports && (
-          <Pressable
+          <Pill
+            kind="line"
+            icon="report"
             accessibilityRole="link"
+            label={`Not finished reports (${today.unfinished.length})`}
             accessibilityLabel={`Not finished reports: ${today.unfinished.length}`}
             onPress={onOpenReports}
-            style={styles.link}
-          >
-            <Text style={styles.linkText}>{`Not finished reports (${today.unfinished.length})`}</Text>
-          </Pressable>
+          />
         )}
 
-        {userId && onOpenMaterials && (
-          <Pressable accessibilityRole="button" accessibilityLabel="Materials" onPress={onOpenMaterials} style={styles.button}>
-            <Text style={styles.buttonText}>Materials</Text>
-          </Pressable>
-        )}
+        {userId && onOpenMaterials && <Pill kind="ink" icon="materials" label="Materials" onPress={onOpenMaterials} />}
 
         {sync && <SyncPanel status={sync} onSyncNow={syncNow} openRoute={onOpenRoute} />}
       </ScrollView>
     </SafeAreaView>
+  );
+}
+
+const CHIP: Record<SyncChipTone, { color: string; bg: string; icon: IconName }> = {
+  ok: { color: tone.ok, bg: '#e6f2e7', icon: 'synced' },
+  wait: { color: tone.wait, bg: '#fbefd6', icon: 'sending' },
+  attention: { color: tone.attention, bg: colors.redTint, icon: 'attention' },
+};
+
+/** Always on Today, under the date: whether this phone's records are on the server. */
+function SyncChip({ status }: { status: SyncStatus }) {
+  const chip = syncChip(status);
+  const look = CHIP[chip.tone];
+  return (
+    <View
+      accessible
+      accessibilityLabel={`Sync: ${chip.text}`}
+      accessibilityLiveRegion="polite"
+      style={[styles.chip, { backgroundColor: look.bg }]}
+    >
+      <Icon name={look.icon} color={look.color} size={18} />
+      <Text style={[styles.chipText, { color: look.color }]}>{chip.text}</Text>
+    </View>
   );
 }
 
@@ -211,14 +234,15 @@ function SiteCard({
       <Text style={styles.siteName} accessibilityRole="header">
         {row.site.name}
       </Text>
-      <CardRow label="Check in" value={checkIn} done={row.checkedIn} site={row.site.name} onPress={onCheckIn} />
-      <CardRow label="Register" value={register} site={row.site.name} onPress={onRegister} />
-      <CardRow label="Report" value={report.text} tone={report.tone} site={row.site.name} onPress={onReport} />
+      <CardRow icon="checkIn" label="Check in" value={checkIn} done={row.checkedIn} site={row.site.name} onPress={onCheckIn} />
+      <CardRow icon="register" label="Register" value={register} site={row.site.name} onPress={onRegister} />
+      <CardRow icon="report" label="Report" value={report.text} tone={report.tone} site={row.site.name} onPress={onReport} />
     </View>
   );
 }
 
 function CardRow({
+  icon,
   label,
   value,
   site,
@@ -226,6 +250,7 @@ function CardRow({
   tone: rowTone,
   onPress,
 }: {
+  icon: IconName;
   label: string;
   value: string;
   site: string;
@@ -240,37 +265,51 @@ function CardRow({
       onPress={onPress}
       style={styles.row}
     >
-      <Text style={styles.rowLabel}>{label}</Text>
+      <View style={styles.rowHead}>
+        <Icon name={icon} color={colors.muted} />
+        <Text style={styles.rowLabel}>{label}</Text>
+      </View>
       <Text style={[styles.rowValue, done && { color: tone.ok }, rowTone ? toneStyle[rowTone] : null]}>{value}</Text>
     </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
+  container: { flex: 1, backgroundColor: surface.ground },
   content: { padding: space.lg, gap: space.md },
-  title: { fontSize: type.title, fontWeight: '600', color: colors.ink },
+  title: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44, color: colors.ink, textTransform: 'uppercase' },
   sub: { fontSize: type.small, color: colors.muted },
   line: { fontSize: type.body, color: colors.ink },
-  card: { borderWidth: 1, borderColor: colors.line, borderRadius: 8, padding: space.md, gap: space.xs },
-  siteName: { fontSize: type.body, fontWeight: '600', color: colors.ink },
+  chip: {
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: space.xs + 2,
+    paddingHorizontal: space.md,
+    paddingVertical: space.xs + 2,
+    borderRadius: radius.pill,
+  },
+  chipText: { fontSize: type.small, fontWeight: '600' },
+  card: {
+    backgroundColor: surface.card,
+    borderWidth: 1,
+    borderColor: colors.hair,
+    borderRadius: radius.md,
+    paddingHorizontal: space.lg,
+    paddingVertical: space.md,
+    gap: space.xs,
+  },
+  siteName: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: space.xs },
   row: {
     minHeight: primaryTarget,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     gap: space.md,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(23, 23, 23, 0.08)',
   },
+  rowHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
   rowLabel: { fontSize: type.body, color: colors.ink },
   rowValue: { flexShrink: 1, fontSize: type.small, color: colors.muted, textAlign: 'right' },
-  link: { minHeight: 44, justifyContent: 'center' },
-  linkText: { fontSize: type.body, color: colors.ink, textDecorationLine: 'underline' },
-  button: {
-    minHeight: primaryTarget,
-    borderRadius: 8,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: { color: colors.white, fontSize: type.body },
 });

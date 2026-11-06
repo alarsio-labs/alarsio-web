@@ -4,7 +4,8 @@
 import { router, Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
-import { useEffect } from 'react';
+import AsyncStorage from '@react-native-async-storage/async-storage';
+import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import {
@@ -20,8 +21,11 @@ import { openAppDb } from '../lib/app-db';
 import { SyncBar } from '../sync/SyncBar';
 import { AccessGate } from '../screens/AccessGate';
 import { AccountMenu } from '../screens/AccountMenu';
-import { SignInScreen } from '../screens/SignInScreen';
+import { BrandSplash } from '../screens/BrandSplash';
+import { SignedOutFlow } from '../screens/SignedOutFlow';
 import { StartupError } from '../screens/StartupError';
+import { colors, fonts } from '../theme';
+import { useBrandFonts } from '../ui/fonts';
 
 // Keep the loam splash up until the session is known, so there is no white flash.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
@@ -38,35 +42,60 @@ function SyncBarOnOtherScreens({ userId }: { userId: string }) {
   return <SyncBar openDb={openAppDb} userId={userId} onOpen={() => router.navigate('/')} />;
 }
 
+// The header on every signed-in screen (docs/DESIGN.md, phone app v2.1).
+const HEADER = {
+  headerStyle: { backgroundColor: colors.cream },
+  headerTintColor: colors.ink,
+  headerTitleStyle: { fontFamily: fonts.display, fontSize: 22 },
+  headerShadowVisible: false,
+  contentStyle: { backgroundColor: colors.cream },
+} as const;
+
 export default function RootLayout() {
   const session = useSession(auth);
+  const fontsReady = useBrandFonts();
+  // The brand splash (logo and one line) follows the native one on every cold start.
+  const [splashDone, setSplashDone] = useState(false);
 
-  // Hide the splash once the auth state is known: signed in, signed out, or no config.
-  const ready = !auth || session.kind !== 'loading';
+  // Hide the native splash once the auth state is known (signed in, signed out, or no
+  // config) and the display font is in, so the brand splash takes over with no flash.
+  const ready = (!auth || session.kind !== 'loading') && fontsReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
+
+  if (!ready) {
+    // The native splash is still showing; render nothing under it.
+    return null;
+  }
+
+  if (!splashDone) {
+    return (
+      <>
+        <BrandSplash onDone={() => setSplashDone(true)} />
+        <StatusBar style="light" />
+      </>
+    );
+  }
 
   // No config: let the home screen say what is missing.
   if (!auth) {
     return (
       <>
         <Stack screenOptions={{ headerShown: false }} />
-        <StatusBar style="auto" />
+        <StatusBar style="dark" />
       </>
     );
   }
 
-  if (session.kind === 'loading') {
-    // The splash is still showing; render nothing under it.
-    return null;
-  }
+  // Not reached (ready waits for it), but it narrows the session for the code below.
+  if (session.kind === 'loading') return null;
 
   if (session.kind === 'signed_out') {
     return (
       <>
-        <SignInScreen signIn={auth.signIn} />
-        <StatusBar style="auto" />
+        <SignedOutFlow signIn={auth.signIn} store={AsyncStorage} />
+        <StatusBar style="light" />
       </>
     );
   }
@@ -88,6 +117,7 @@ export default function RootLayout() {
         <View style={{ flex: 1 }}>
           <Stack
             screenOptions={{
+              ...HEADER,
               title: 'Alarsio',
               headerRight: () => (
                 <AccountMenu
@@ -102,7 +132,7 @@ export default function RootLayout() {
           <SyncBarOnOtherScreens userId={session.user.id} />
         </View>
       </AccessGate>
-      <StatusBar style="auto" />
+      <StatusBar style="dark" />
     </SessionUserContext.Provider>
   );
 }

@@ -10,14 +10,16 @@ import {
   SUPPORT_WHATSAPP_URL,
 } from '../config/support';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, minTarget, primaryTarget, space, type } from '../theme';
+import { colors, minTarget, primaryTarget, radius, space, type } from '../theme';
 import { useSignOutFlow, type AccountMenuProps } from './AccountMenu';
 
 export interface AboutScreenProps extends AccountMenuProps {
   appVersion: string;
+  /** Opens the tutorial again ("How Alarsio works"). Without it, the link is not shown. */
+  onOpenTutorial?: () => void;
 }
 
-export function AboutScreen({ appVersion, user, unsentCounts, signOut }: AboutScreenProps) {
+export function AboutScreen({ appVersion, user, unsentCounts, signOut, onOpenTutorial }: AboutScreenProps) {
   const onSignOut = useSignOutFlow({ user, unsentCounts, signOut });
   const open = (url: string) => void Linking.openURL(url).catch(() => undefined);
 
@@ -44,6 +46,11 @@ export function AboutScreen({ appVersion, user, unsentCounts, signOut }: AboutSc
       >
         <Text style={styles.buttonText}>WhatsApp support</Text>
       </Pressable>
+      {onOpenTutorial && (
+        <Pressable accessibilityRole="button" accessibilityLabel="How Alarsio works" onPress={onOpenTutorial} style={styles.link}>
+          <Text style={styles.linkText}>How Alarsio works</Text>
+        </Pressable>
+      )}
       <Pressable
         accessibilityRole="link"
         accessibilityLabel="Privacy policy"
@@ -67,14 +74,14 @@ export function AboutScreen({ appVersion, user, unsentCounts, signOut }: AboutSc
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.paper },
+  container: { flex: 1, backgroundColor: colors.cream },
   content: { padding: space.lg, gap: space.md },
   title: { fontSize: type.title, fontWeight: '600', color: colors.ink },
   text: { fontSize: type.body, color: colors.ink },
   small: { fontSize: type.small, color: colors.muted },
   button: {
     minHeight: primaryTarget,
-    borderRadius: 8,
+    borderRadius: radius.pill,
     backgroundColor: colors.ink,
     alignItems: 'center',
     justifyContent: 'center',

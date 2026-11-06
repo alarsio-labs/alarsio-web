@@ -26,7 +26,7 @@ export function AccessGate({ user, fetchAccess, store, unsentCounts, signOut, ch
 
   if (access === null) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.paper }}>
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream }}>
         <ActivityIndicator accessibilityLabel="Loading" />
       </View>
     );

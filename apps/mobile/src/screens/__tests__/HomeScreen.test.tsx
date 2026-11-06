@@ -88,7 +88,9 @@ describe('HomeScreen', () => {
       <HomeScreen openDb={openFakeDb} startSync={startSync} userId={USER} config={goodConfig} />,
     );
 
-    expect(await screen.findByText('3 waiting to send')).toBeTruthy();
+    // Once in the chip under the date and once in the sync panel.
+    expect(await screen.findAllByText('3 waiting to send')).toHaveLength(2);
+    expect(screen.getByLabelText('Sync: 3 waiting to send')).toBeTruthy();
     expect(startSync).toHaveBeenCalledTimes(1);
   });
 
@@ -112,7 +114,9 @@ describe('HomeScreen', () => {
     const { rerender } = await render(
       <HomeScreen openDb={openDb} startSync={startSync} userId={USER} config={goodConfig} />,
     );
-    expect(await screen.findByText('3 waiting to send')).toBeTruthy();
+    // Once in the chip under the date and once in the sync panel.
+    expect(await screen.findAllByText('3 waiting to send')).toHaveLength(2);
+    expect(screen.getByLabelText('Sync: 3 waiting to send')).toBeTruthy();
 
     await rerender(
       <HomeScreen

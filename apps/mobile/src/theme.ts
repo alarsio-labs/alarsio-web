@@ -13,6 +13,10 @@ export const colors = {
   redDeep: '#B92725',
   redTint: '#fdecee',
   white: '#ffffff',
+  /** Hairline borders on cards (ink at 16 % on cream / paper). */
+  hair: 'rgba(23, 23, 23, 0.16)',
+  /** Secondary text on loam. */
+  creamMuted: '#B0AAA1',
   line: '#ccc',
   fieldLine: '#888',
   disabled: '#767676',
@@ -30,3 +34,12 @@ export const type = { title: 24, body: 16, small: 14 } as const;
 
 export const minTarget = 44;
 export const primaryTarget = 48;
+
+/** Corner radii (docs/DESIGN.md, phone app v2.1): inputs and small boxes, cards, pills. */
+export const radius = { sm: 10, md: 16, pill: 999 } as const;
+
+/** The display face: Anton, loaded by useBrandFonts (src/ui/fonts.ts). Headings only. */
+export const fonts = { display: 'Anton_400Regular' } as const;
+
+/** Screen ground and card surface for every signed-in screen. */
+export const surface = { ground: colors.cream, card: colors.paper } as const;
