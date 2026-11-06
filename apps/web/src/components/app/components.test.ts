@@ -11,7 +11,8 @@ vi.mock("next/link", () => ({
 
 const { Button, ButtonLink } = await import("./button");
 const { DataTable } = await import("./data-table");
-const { ModuleTabs } = await import("./module-tabs");
+const { SidebarNav } = await import("./sidebar-nav");
+const { AppTopBar } = await import("./app-top-bar");
 const { StatCard } = await import("./stat-card");
 const { StatusTag } = await import("./status-tag");
 
@@ -56,25 +57,47 @@ describe("Button", () => {
   });
 });
 
-describe("ModuleTabs", () => {
+describe("SidebarNav", () => {
   const links = orgLinks("owner", "org-1");
   const current = links.find((l) => l.label === "Sites")?.path ?? null;
 
-  it("marks only the current tab, in the row and in the phone menu", () => {
-    const out = html(h(ModuleTabs, { links, current }));
-    expect(out.match(/aria-current="page"/g)).toHaveLength(2);
-    expect(out).toContain("Menu · Sites");
+  it("marks only the current module", () => {
+    const out = html(h(SidebarNav, { links, current }));
+    expect(out.match(/aria-current="page"/g)).toHaveLength(1);
   });
 
-  it("draws one tab per link the role may open", () => {
-    const out = html(h(ModuleTabs, { links: orgLinks("accountant", "org-1"), current: null }));
+  it("draws one link per page the role may open, each with its icon", () => {
+    const out = html(h(SidebarNav, { links: orgLinks("accountant", "org-1"), current: null }));
     expect(out).toContain(">Workers<");
     expect(out).toContain(">Wages<");
     expect(out).not.toContain(">Overview<");
+    expect(out.match(/<svg/g)).toHaveLength(2);
   });
 
   it("draws nothing when there are no links", () => {
-    expect(html(h(ModuleTabs, { links: [], current: null }))).toBe("");
+    expect(html(h(SidebarNav, { links: [], current: null }))).toBe("");
+  });
+});
+
+describe("AppTopBar", () => {
+  const signOut = () => undefined;
+  const links = orgLinks("owner", "org-1");
+  const current = links.find((l) => l.label === "Sites")?.path ?? null;
+
+  it("folds the modules into a native menu, with the current one marked", () => {
+    const out = html(h(AppTopBar, { orgName: "Shree Builders", roleLabel: "Owner", pageLabel: "Sites", links, current, signOut }));
+    expect(out).toContain("<details");
+    expect(out).toContain('aria-label="Menu"');
+    // The breadcrumb's current page and the menu's current link.
+    expect(out.match(/aria-current="page"/g)).toHaveLength(2);
+    expect(out).toContain(">Shree Builders<");
+  });
+
+  it("has no menu and keeps Sign out in the bar without an organisation", () => {
+    const out = html(h(AppTopBar, { email: "owner@example.com", signOut }));
+    expect(out).not.toContain("<details");
+    expect(out).toContain("Sign out");
+    expect(out).toContain("owner@example.com");
   });
 });
 

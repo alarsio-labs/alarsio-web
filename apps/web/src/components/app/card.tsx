@@ -1,6 +1,7 @@
 import type { ReactNode } from "react";
 
-// A paper card with a 1.5 px ink border and an optional Anton title and action.
+// A white card with a hairline border, a faint shadow and an optional title row
+// with one action (docs/DESIGN.md section 4).
 export function Card({ title, action, children, id }: { title?: string; action?: ReactNode; children: ReactNode; id?: string }) {
   return (
     <section className="ax-card" aria-labelledby={title && id ? id : undefined}>

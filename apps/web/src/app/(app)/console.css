@@ -1,0 +1,371 @@
+/* The app console (docs/DESIGN.md section 4): every signed-in page. A calm SaaS
+   console, separate from the landing page's print look: Inter only, a light grey page,
+   white surfaces with a hairline border and a faint shadow, 8 px radii, near-black
+   primary actions. Brand red marks only the wordmark and the current module.
+   Everything is scoped to .app, so the landing and sign-in pages are untouched.
+   The rules are unlayered on purpose: they beat Tailwind's utility layer, so the
+   pages' existing classes draw in this look without editing each page. */
+
+/* ---------- Tokens ---------- */
+/* The landing tokens are redefined inside .app, so anything still drawn with them
+   (landing.css, v2-form.css) lands in the console's colours. */
+.app {
+  --cream: #f7f8fa;            /* page ground */
+  --paper: #ffffff;            /* surfaces */
+  --ink: #18181b;              /* text, primary buttons: 17.7:1 on white */
+  --muted: #52525b;            /* secondary text: 7.7:1 on white, 7.2:1 on the page */
+  --faint: #71717a;            /* tertiary text, labels: 4.8:1 on white, 4.5:1 on the page */
+  --hair: #e4e4e7;             /* borders */
+  --hair-faint: #f0f0f2;       /* row lines, dividers */
+  --line-strong: #d4d4d8;      /* input borders */
+  --red: #ef493c;              /* brand mark only */
+  --red-deep: #b42318;         /* error text: 6.5:1 on white */
+  --hover: #f4f4f5;
+  --shadow: 0 1px 2px rgb(16 24 40 / 0.05);
+  --shadow-lg: 0 12px 32px -8px rgb(16 24 40 / 0.18), 0 2px 6px rgb(16 24 40 / 0.06);
+  --r: 8px;
+  --r-sm: 6px;
+  --side: 248px;
+  --top: 56px;
+  --pad: 16px;
+
+  /* Tailwind's neutral scale and radii back to a cool grey and real corners, so the
+     pages' utility classes match the tokens above. */
+  --color-white: #ffffff;
+  --color-neutral-50: #fafafa;
+  --color-neutral-100: #f4f4f5;
+  --color-neutral-200: #e4e4e7;
+  --color-neutral-300: #d4d4d8;
+  --color-neutral-400: #a1a1aa;
+  --color-neutral-500: #71717a;
+  --color-neutral-600: #52525b;
+  --color-neutral-700: #3f3f46;
+  --color-neutral-800: #27272a;
+  --color-neutral-900: #18181b;
+
+  min-height: 100svh;
+  background: var(--cream);
+  color: var(--ink);
+  font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+@media (min-width: 768px) { .app { --pad: 32px; } }
+
+/* The print look's type, re-pointed: no Anton and no uppercase mono inside the app. */
+.app .lp-mono {
+  font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1.4; color: var(--ink);
+}
+.app .lp-muted, .app .lp-mono.lp-muted { color: var(--faint); font-weight: 400; }
+.app .lp-display {
+  font-family: inherit; font-weight: 600; text-transform: none; letter-spacing: -0.015em; line-height: 1.25;
+}
+.app .lp-role { color: var(--muted); }
+.app h1 { font-family: inherit; font-weight: 600; text-transform: none; font-size: 24px; line-height: 1.25; letter-spacing: -0.015em; color: var(--ink); }
+.app h2 { font-family: inherit; font-weight: 600; text-transform: none; font-size: 16px; line-height: 1.4; letter-spacing: -0.005em; }
+.app th { font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--faint); }
+.app :is(a, button, summary, input, select, textarea):focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+.app .tabular-nums, .app .ax-num { font-variant-numeric: tabular-nums; }
+
+/* ---------- Frame ---------- */
+/* Desktop: a fixed sidebar, and the top bar and page beside it. :has() finds the
+   sidebar, which only exists when the page has an organisation. */
+.cx-side { display: none; }
+@media (min-width: 1024px) {
+  .cx-side {
+    position: fixed; inset: 0 auto 0 0; z-index: 30; width: var(--side);
+    display: flex; flex-direction: column; gap: 12px; padding: 12px;
+    background: var(--paper); border-right: 1px solid var(--hair);
+  }
+  .app:has(> .cx-side) { padding-left: var(--side); }
+}
+.cx-side-brand { display: flex; align-items: center; height: 44px; padding: 0 8px; }
+.cx-side-nav { flex: 1; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.cx-side-foot { display: grid; gap: 4px; padding-top: 12px; border-top: 1px solid var(--hair-faint); }
+
+.cx-brand {
+  display: inline-flex; align-items: center; gap: 10px; min-height: 40px;
+  font-weight: 700; font-size: 17px; letter-spacing: -0.02em; color: var(--ink); text-decoration: none;
+}
+.cx-brand-mark { width: 22px; height: 22px; border-radius: 6px; background: var(--red); position: relative; flex: none; }
+.cx-brand-mark::after { content: ""; position: absolute; inset: 6px; border-radius: 2px; background: var(--paper); clip-path: polygon(0 100%, 50% 0, 100% 100%); }
+
+/* The organisation switcher: avatar, name and role, then the up/down chevrons. */
+.cx-org {
+  display: flex; align-items: center; gap: 10px; min-height: 52px; padding: 8px 10px;
+  border: 1px solid var(--hair); border-radius: var(--r); background: var(--paper); box-shadow: var(--shadow);
+  color: var(--ink); text-decoration: none; transition: background-color 0.15s, border-color 0.15s;
+}
+.cx-org:hover { background: var(--hover); border-color: var(--line-strong); }
+.cx-org > .cx-icon { color: var(--faint); flex: none; margin-left: auto; }
+.cx-org-avatar {
+  display: inline-grid; place-items: center; width: 32px; height: 32px; flex: none; border-radius: var(--r-sm);
+  background: var(--ink); color: var(--paper); font-weight: 600; font-size: 14px;
+}
+.cx-org-text { display: grid; min-width: 0; line-height: 1.3; }
+.cx-org-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-org-role { font-size: 12px; color: var(--faint); }
+
+/* Module links: icon and label; the current one gets a grey ground and a red bar. */
+.cx-nav { display: grid; gap: 2px; }
+.cx-nav-link {
+  position: relative; display: flex; align-items: center; gap: 10px; min-height: 36px; padding: 0 10px;
+  border-radius: var(--r-sm); color: var(--muted); font-weight: 500; text-decoration: none;
+  transition: background-color 0.15s, color 0.15s;
+}
+.cx-nav-link .cx-icon { color: var(--faint); flex: none; transition: color 0.15s; }
+.cx-nav-link:hover { background: var(--hover); color: var(--ink); }
+.cx-nav-link:hover .cx-icon { color: var(--ink); }
+.cx-nav-link[aria-current="page"] { background: var(--hover); color: var(--ink); font-weight: 600; }
+.cx-nav-link[aria-current="page"] .cx-icon { color: var(--ink); }
+.cx-nav-link[aria-current="page"]::before {
+  content: ""; position: absolute; left: -4px; top: 8px; bottom: 8px; width: 3px; border-radius: 2px; background: var(--red);
+}
+.cx-email { font-size: 12px; color: var(--faint); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; padding: 0 10px; }
+.cx-signout { display: contents; }
+.cx-signout-btn {
+  display: flex; align-items: center; gap: 10px; width: 100%; min-height: 36px; padding: 0 10px;
+  border: 0; border-radius: var(--r-sm); background: transparent; color: var(--muted); font: inherit; font-weight: 500; cursor: pointer;
+}
+.cx-signout-btn:hover { background: var(--hover); color: var(--ink); }
+
+/* The top bar: sticky, white, one line at every width. */
+.cx-top {
+  position: sticky; top: 0; z-index: 20; display: flex; align-items: center; gap: 12px 16px;
+  height: var(--top); padding: 0 var(--pad);
+  background: rgb(255 255 255 / 0.92); backdrop-filter: saturate(1.4) blur(8px);
+  border-bottom: 1px solid var(--hair);
+}
+.cx-top-brand { flex: none; }
+.cx-crumbs { flex: 1 1 0; min-width: 0; }
+.cx-crumbs ol { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cx-crumbs li { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.cx-crumb { color: var(--faint); text-decoration: none; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+a.cx-crumb:hover { color: var(--ink); }
+.cx-crumb-here { color: var(--ink); font-weight: 500; }
+.cx-crumb-sep { color: var(--line-strong); }
+.cx-top-end { display: flex; align-items: center; gap: 12px; margin-left: auto; flex: none; min-width: 0; }
+.cx-top-end .cx-email { padding: 0; max-width: 28ch; }
+@media (max-width: 640px) { .cx-top-end .cx-email { display: none; } }
+/* With an organisation, Sign out lives in the sidebar (desktop) or the menu (phone). */
+.cx-top-nav .cx-top-end { display: none; }
+
+/* Phone and tablet menu: a native <details>, so it opens without JavaScript. */
+.cx-menu { flex: none; margin-left: auto; }
+.cx-menu-button {
+  display: inline-grid; place-items: center; width: 40px; height: 40px; list-style: none; cursor: pointer;
+  border: 1px solid var(--hair); border-radius: var(--r-sm); background: var(--paper); color: var(--ink);
+}
+.cx-menu-button::-webkit-details-marker { display: none; }
+.cx-menu[open] .cx-menu-button { background: var(--hover); }
+.cx-menu-panel {
+  position: absolute; top: calc(100% + 1px); left: 0; right: 0; display: grid; gap: 12px;
+  max-height: calc(100svh - var(--top)); overflow-y: auto; padding: 12px var(--pad) 16px;
+  background: var(--paper); border-bottom: 1px solid var(--hair); box-shadow: var(--shadow-lg);
+}
+.cx-menu-panel .cx-nav-link { min-height: 44px; }
+.cx-menu-foot { display: grid; gap: 4px; padding-top: 12px; border-top: 1px solid var(--hair-faint); }
+.cx-menu-foot .cx-signout-btn { min-height: 44px; }
+
+@media (min-width: 1024px) {
+  .cx-top-nav .cx-top-brand, .cx-menu { display: none; }
+}
+@media (max-width: 1023px) {
+  /* Beside the wordmark a phone shows only where you are, not the organisation. */
+  .cx-top-nav .cx-crumbs li:first-child { display: none; }
+  .cx-top-nav .cx-crumb-sep { display: none; }
+  .cx-top-nav .cx-crumbs { padding-left: 12px; border-left: 1px solid var(--hair); }
+}
+
+/* ---------- Page ---------- */
+/* The pages keep their own <main> (mx-auto, max-w-*): in the console they sit at the
+   left of the content area with the console's padding, not centred in it. */
+.app .app-body { padding-bottom: 64px; }
+.app .app-body > main.mx-auto { margin-inline: 0; padding: 24px var(--pad) 0; }
+.app .app-body > main.max-w-6xl { max-width: 1240px; }
+@media (min-width: 768px) {
+  .app .app-body > main.mx-auto { padding-top: 32px; }
+  .app main.gap-6 { gap: 24px; }
+}
+.app main p { line-height: 1.55; }
+.app main :is(.space-y-3, .space-y-2) > :not(:last-child) { margin-bottom: 16px; }
+.app main .space-y-4 > :not(:last-child) { margin-bottom: 20px; }
+
+/* "← Back" links above a detail page. */
+.app-back {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 32px; margin-bottom: 4px;
+  font-size: 13px; font-weight: 500; color: var(--faint); text-decoration: none;
+}
+.app-back:hover { color: var(--ink); }
+
+/* Page head: title, eyebrow under it, one action on the right. */
+.ax-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 12px 24px; }
+.ax-head-text { display: flex; flex-direction: column-reverse; gap: 4px; min-width: 0; }
+.ax-eyebrow { font-size: 13px; color: var(--faint); }
+.ax-title { font-size: 22px; font-weight: 600; line-height: 1.25; letter-spacing: -0.015em; color: var(--ink); }
+@media (min-width: 768px) { .ax-title { font-size: 26px; } }
+.ax-head-action { display: flex; gap: 8px; }
+
+/* ---------- Buttons ---------- */
+/* The components' buttons and the pages' own (buttonClass is lp-btn lp-btn-ink). */
+.app :is(.ax-btn, .lp-btn) {
+  display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 38px; padding: 0 14px;
+  border: 1px solid transparent; border-radius: var(--r-sm); box-shadow: var(--shadow);
+  font-family: inherit; font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; line-height: 1;
+  text-decoration: none; white-space: nowrap; cursor: pointer; transition: background-color 0.15s, border-color 0.15s, color 0.15s;
+}
+.app :is(.ax-btn-primary, .lp-btn-ink, .lp-btn-red) { background: var(--ink); border-color: var(--ink); color: #fff; }
+.app :is(.ax-btn-primary, .lp-btn-ink, .lp-btn-red):hover { background: #27272a; border-color: #27272a; }
+.app :is(.ax-btn-secondary, .lp-btn-line, .lp-btn-cream) { background: var(--paper); border-color: var(--line-strong); color: var(--ink); }
+.app :is(.ax-btn-secondary, .lp-btn-line, .lp-btn-cream):hover { background: var(--hover); color: var(--ink); }
+.app .ax-btn-full { width: 100%; }
+.app .ax-btn-sm { min-height: 34px; padding: 0 12px; font-size: 13px; }
+.app :is(.ax-btn, .lp-btn):disabled { opacity: 0.55; cursor: not-allowed; }
+
+/* Pages' own dark buttons ("New site", "Show", "Filter") read the same as a primary. */
+.app main :is(a, button)[class*="bg-neutral-900"] {
+  display: inline-flex; align-items: center; justify-content: center; min-height: 38px; border-radius: var(--r-sm);
+  font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none;
+}
+.app :where(main) :where(button) { min-height: 36px; }
+
+/* ---------- Forms ---------- */
+.app .au-field-row { gap: 6px; }
+.app .au-field-row > .lp-mono:first-child { font-size: 13px; font-weight: 500; color: var(--ink); }
+.app .au-hint { font-size: 12px; font-weight: 400; color: var(--faint); letter-spacing: 0; }
+.app .au-input, .app main :is(select, input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="search"], input[type="tel"], textarea) {
+  min-height: 38px; padding: 0 12px; font: inherit; font-size: 14px; color: var(--ink);
+  background: var(--paper); border: 1px solid var(--line-strong); border-radius: var(--r-sm); box-shadow: var(--shadow);
+  transition: border-color 0.15s, box-shadow 0.15s;
+}
+.app textarea.au-input, .app main textarea { padding: 10px 12px; min-height: 96px; }
+.app .au-input:hover { border-color: var(--color-neutral-400); }
+.app .au-input:focus-visible, .app main :is(select, input, textarea):focus-visible {
+  outline: none; border-color: var(--ink); box-shadow: 0 0 0 3px rgb(24 24 27 / 0.12);
+}
+.app .au-input::placeholder { color: var(--color-neutral-400); }
+.app .au-input[aria-invalid="true"] { border-color: var(--red-deep); }
+.app .au-submit { min-height: 40px; font-size: 14px; }
+
+/* Notices: a soft ground and a left rule. */
+.app .au-notice {
+  background: #f0f6ff; border: 1px solid #c7dcfb; border-left: 3px solid #2e6bd8; border-radius: var(--r-sm);
+  padding: 10px 14px; font-size: 14px; line-height: 1.5; color: #1e3a6b;
+}
+.app .au-notice-error { background: #fef3f2; border-color: #fecdca; border-left-color: var(--red-deep); color: #7a271a; }
+.app .au-body { font-size: 14px; color: var(--muted); margin-top: 0; max-width: 60ch; }
+
+/* Touch targets: on a touch screen every control is at least 44 px (DESIGN section 3). */
+@media (pointer: coarse) {
+  .app :is(.ax-btn, .lp-btn, .au-input, .cx-nav-link, .cx-signout-btn),
+  .app main :is(select, input[type="text"], input[type="email"], input[type="number"], input[type="date"], input[type="search"], input[type="tel"]),
+  .app :where(main) :where(button) { min-height: 44px; }
+  .app .cx-menu-button { width: 44px; height: 44px; }
+}
+.app main a.underline:not(p a, td a, li > span a) { display: inline-block; padding-block: 8px; margin-block: -8px; }
+.app main input[type="checkbox"] { width: 18px; height: 18px; accent-color: var(--ink); cursor: pointer; }
+.app main label:has(> input[type="checkbox"]) { display: inline-flex; align-items: center; gap: 10px; min-height: 40px; cursor: pointer; }
+.app main input[type="file"] { min-height: 40px; font-size: 14px; }
+.app main input[type="file"]::file-selector-button {
+  min-height: 36px; margin-right: 12px; padding: 0 14px; border: 1px solid var(--line-strong); border-radius: var(--r-sm);
+  background: var(--paper); color: var(--ink); font: inherit; font-weight: 500; letter-spacing: 0; text-transform: none; cursor: pointer;
+}
+
+/* ---------- Status tags: soft pills ---------- */
+/* Three tones from lib/app/status.ts; the word carries the meaning, the colour repeats it. */
+.ax-tag {
+  display: inline-flex; align-items: center; gap: 6px; min-height: 22px; padding: 0 8px; border-radius: 999px;
+  border: 1px solid transparent; font-family: inherit; font-size: 12px; font-weight: 500; letter-spacing: 0; text-transform: none; white-space: nowrap;
+}
+.ax-tag::before { content: ""; width: 6px; height: 6px; border-radius: 50%; background: currentColor; flex: none; }
+.ax-tag-action { background: #fffaeb; border-color: #fedf89; color: #93370d; }
+.ax-tag-ink { background: #ecfdf3; border-color: #abefc6; color: #067647; }
+.ax-tag-muted { background: #f4f4f5; border-color: #e4e4e7; color: #52525b; }
+
+/* ---------- Cards and numbers ---------- */
+.ax-card { background: var(--paper); border: 1px solid var(--hair); border-radius: var(--r); box-shadow: var(--shadow); min-width: 0; }
+.ax-card-head {
+  display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px;
+  min-height: 52px; padding: 12px 20px; border-bottom: 1px solid var(--hair-faint);
+}
+.ax-card-title { font-size: 15px; font-weight: 600; line-height: 1.4; letter-spacing: -0.005em; }
+.ax-card-body { padding: 16px 20px 20px; font-size: 14px; line-height: 1.55; }
+.ax-card-body > :is(p, div) + form { margin-top: 16px; }
+/* A table fills its card edge to edge. */
+.ax-card-body > .ax-table-wrap:only-child { margin: -16px -20px -20px; }
+.ax-card-body > .ax-table-wrap:only-child .ax-table tr:last-child > * { border-bottom: 0; }
+
+.ax-stat { background: var(--paper); border: 1px solid var(--hair); border-radius: var(--r); box-shadow: var(--shadow); padding: 16px 18px; min-width: 0; }
+.ax-stat-label { display: flex; align-items: center; gap: 8px; font-family: inherit; font-size: 13px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--faint); }
+.ax-stat-value { margin-top: 8px; font-size: 28px; font-weight: 600; line-height: 1.15; letter-spacing: -0.02em; font-variant-numeric: tabular-nums; color: var(--ink); }
+.ax-stat-alert .ax-stat-value { color: #b54708; }
+.ax-stat-alert .ax-stat-label::before { content: ""; width: 8px; height: 8px; border-radius: 50%; background: #f79009; flex: none; }
+
+/* ---------- Tables ---------- */
+/* Scroll inside their box with the first column pinned; the page never scrolls sideways. */
+.ax-table-wrap { overflow-x: auto; }
+.ax-table { width: 100%; border-collapse: separate; border-spacing: 0; font-size: 14px; }
+.ax-table :is(th, td) { padding: 12px 20px; text-align: left; vertical-align: middle; border-bottom: 1px solid var(--hair-faint); line-height: 1.45; }
+.ax-table thead th { background: #fafafa; border-bottom: 1px solid var(--hair); font-size: 12px; font-weight: 500; color: var(--faint); white-space: nowrap; padding-block: 10px; }
+.ax-table tbody th { font-family: inherit; font-size: 14px; font-weight: 500; letter-spacing: 0; text-transform: none; color: var(--ink); }
+.ax-table tbody tr { transition: background-color 0.15s; }
+.ax-table tbody tr:hover > * { background: #fafafa; }
+.ax-table :is(th, td):first-child { position: sticky; left: 0; z-index: 1; background: var(--paper); box-shadow: inset -1px 0 0 var(--hair-faint); }
+.ax-table thead :is(th, td):first-child { background: #fafafa; }
+.ax-table .ax-num { text-align: right; }
+.ax-table a { color: var(--ink); font-weight: 500; text-underline-offset: 3px; }
+.ax-table a:hover { text-decoration: underline; }
+.ax-empty { color: var(--faint); }
+
+/* Plain tables a page still draws itself: the same look. */
+.app main .overflow-x-auto > table :is(th, td):first-child {
+  position: sticky; left: 0; z-index: 1; background: var(--paper); box-shadow: inset -1px 0 0 var(--hair-faint);
+}
+.app main .overflow-x-auto > table thead.bg-neutral-50 :is(th, td):first-child { background: var(--color-neutral-50); }
+.app main .overflow-x-auto { border-radius: var(--r); }
+
+/* ---------- Page-specific pieces ---------- */
+/* Overview: two columns that stack under 900 px. */
+.ov-columns { display: grid; gap: 24px; }
+@media (min-width: 900px) { .ov-columns { grid-template-columns: minmax(0, 1.7fr) minmax(0, 1fr); align-items: start; } }
+.ov-site-status { color: var(--faint); font-weight: 400; }
+.ov-tags { display: inline-flex; flex-wrap: wrap; gap: 6px; }
+.ov-todo { display: grid; }
+.ov-todo li { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px; padding: 12px 0; border-top: 1px solid var(--hair-faint); }
+.ov-todo li:first-child { border-top: 0; padding-top: 0; }
+
+/* Attendance: the filter row wraps, the button sits on the fields' baseline. */
+.at-filters { display: grid; gap: 12px 16px; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr)); align-items: end; }
+.at-change { display: grid; gap: 4px; }
+.at-changes { display: grid; gap: 16px; margin-top: 12px; }
+@media (min-width: 640px) { .at-changes { grid-template-columns: 1fr 1fr; } }
+.at-list { display: grid; }
+.at-list > li { padding: 16px 0; border-top: 1px solid var(--hair-faint); }
+.at-list > li:first-child { border-top: 0; padding-top: 0; }
+.at-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin-top: 12px; }
+
+/* ---------- Stepper (Create organisation), in the console's look ---------- */
+.app .st-dot { width: 32px; height: 32px; border: 1px solid var(--line-strong); border-radius: 50%; font-family: inherit; font-size: 13px; font-weight: 600; }
+.app .st-active .st-dot { border: 2px solid var(--ink); }
+.app .st-done .st-dot { background: var(--ink); border-color: var(--ink); color: #fff; }
+.app .st-todo .st-dot { border-color: var(--hair); }
+.app .st-step-title { font-size: 13px; font-weight: 500; }
+.app .st-bar { background: var(--hair); height: 2px; border-radius: 2px; }
+.app .st-bar i { background: var(--ink); top: 0; height: 2px; border-radius: 2px; }
+.app .st-title { font-size: 20px; margin-top: 4px; }
+.app .st-foot .st-back { background: var(--paper); }
+
+/* ---------- Loading ---------- */
+.app-loading-bar { position: relative; height: 2px; overflow: hidden; background: var(--hair); border-radius: 2px; }
+.app-loading-bar::after {
+  content: ""; position: absolute; inset: 0 auto 0 0; width: 40%; background: var(--ink);
+  animation: app-loading 1.1s cubic-bezier(0.65, 0, 0.35, 1) infinite;
+}
+@keyframes app-loading { from { transform: translateX(-100%); } to { transform: translateX(250%); } }
+.cx-skel { background: var(--hover); border-radius: var(--r-sm); }
+.cx-skel-card { background: var(--paper); border: 1px solid var(--hair); border-radius: var(--r); }
+@media (prefers-reduced-motion: reduce) {
+  .app-loading-bar::after { animation: none; width: 100%; opacity: 0.5; }
+  .app * { transition: none !important; }
+}

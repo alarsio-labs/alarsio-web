@@ -1,9 +1,9 @@
 import type { ButtonHTMLAttributes, ReactNode } from "react";
 import Link from "next/link";
 
-// Buttons on the working screens (docs/DESIGN.md section 4): at least 44 px, mono
-// uppercase. Primary is ink with paper text, secondary an ink outline. There is no
-// red button; a destructive action keeps its own confirm step instead.
+// Buttons in the app console (docs/DESIGN.md section 4): 38 px, 44 px on a touch
+// screen. Primary is near-black with white text, secondary a white outline. There is
+// no red button; a destructive action keeps its own confirm step instead.
 
 export type ButtonVariant = "primary" | "secondary";
 
