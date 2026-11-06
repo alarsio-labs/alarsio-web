@@ -1,4 +1,4 @@
-import { router } from 'expo-router';
+import { router, type Href } from 'expo-router';
 
 import { useSessionUser } from '../auth/session-user';
 import { readPublicConfig } from '../config/public-config';
@@ -41,6 +41,7 @@ export default function Index() {
       onOpenAttendance={() => router.push('/attendance')}
       onOpenReports={() => router.push('/reports')}
       onOpenMaterials={() => router.push('/materials')}
+      onOpenRoute={(route) => router.push(route as Href)}
       config={config}
     />
   );

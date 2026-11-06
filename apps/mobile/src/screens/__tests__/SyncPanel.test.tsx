@@ -25,8 +25,8 @@ describe('SyncPanel (#68)', () => {
         status={status({
           counts: { ...zero, conflict: 1, rejected: 1 },
           attention: [
-            { entity: 'daily_reports', recordId: ID(1), status: 'conflict', reason: 'reviewed', updatedAt: 'x' },
-            { entity: 'material_transactions', recordId: ID(2), status: 'rejected', reason: 'brand_new', updatedAt: 'x' },
+            { entity: 'daily_reports', recordId: ID(1), status: 'conflict', reason: 'reviewed', updatedAt: 'x', siteId: null, day: null },
+            { entity: 'material_transactions', recordId: ID(2), status: 'rejected', reason: 'brand_new', updatedAt: 'x', siteId: null, day: null },
           ],
         })}
         onSyncNow={jest.fn()}
@@ -75,6 +75,8 @@ describe('SyncPanel (#68)', () => {
       status: 'rejected' as const,
       reason: 'invalid_input',
       updatedAt: 'x',
+      siteId: null,
+      day: null,
     }));
     await render(
       <SyncPanel status={status({ counts: { ...zero, rejected: 60 }, attention })} onSyncNow={jest.fn()} />,
@@ -89,7 +91,7 @@ describe('SyncPanel (#68)', () => {
 
   it('shows no "more" line when the whole list is shown', async () => {
     const attention = [
-      { entity: 'daily_reports' as const, recordId: ID(1), status: 'conflict' as const, reason: 'reviewed', updatedAt: 'x' },
+      { entity: 'daily_reports' as const, recordId: ID(1), status: 'conflict' as const, reason: 'reviewed', updatedAt: 'x', siteId: null, day: null },
     ];
     await render(<SyncPanel status={status({ counts: { ...zero, conflict: 1 }, attention })} onSyncNow={jest.fn()} />);
     expect(screen.queryByText(/and \d+ more/)).toBeNull();
@@ -98,5 +100,34 @@ describe('SyncPanel (#68)', () => {
   it('announces changes to the sync line to a screen reader', async () => {
     await render(<SyncPanel status={status()} onSyncNow={jest.fn()} />);
     expect(screen.getByText('All your records are on the server').props.accessibilityLiveRegion).toBe('polite');
+  });
+
+  describe('opening a record that needs attention (A14)', () => {
+    const SITE = '51000000-0000-4000-8000-000000000001';
+    const attention = [
+      { entity: 'daily_reports' as const, recordId: ID(1), status: 'conflict' as const, reason: 'reviewed', updatedAt: 'x', siteId: SITE, day: '2026-11-05' },
+      { entity: 'report_photos' as const, recordId: ID(2), status: 'rejected' as const, reason: 'invalid_input', updatedAt: 'x', siteId: SITE, day: null },
+    ];
+    const panel = (openRoute = jest.fn()) =>
+      render(<SyncPanel status={status({ counts: { ...zero, conflict: 1, rejected: 1 }, attention })} onSyncNow={jest.fn()} openRoute={openRoute} />);
+
+    it('opens the record from a row that has a screen', async () => {
+      const openRoute = jest.fn();
+      await panel(openRoute);
+
+      await fireEvent.press(screen.getByRole('button', { name: 'Daily report · Conflict. A manager already reviewed it. Opens the record' }));
+      expect(openRoute).toHaveBeenCalledWith(`/reports/${SITE}?date=2026-11-05`);
+    });
+
+    it('leaves a row with no screen plain', async () => {
+      await panel();
+      expect(screen.getByText('Report photo · Refused')).toBeTruthy();
+      expect(screen.queryByRole('button', { name: /^Report photo/ })).toBeNull();
+    });
+
+    it('keeps every row plain when the screen gives no way to open one', async () => {
+      await render(<SyncPanel status={status({ counts: { ...zero, conflict: 1 }, attention: [attention[0]!] })} onSyncNow={jest.fn()} />);
+      expect(screen.queryByRole('button', { name: /Opens the record/ })).toBeNull();
+    });
   });
 });

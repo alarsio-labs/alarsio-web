@@ -501,10 +501,40 @@ describe('outbox', () => {
       await applyVerdicts(db, [verdict(5, 'rejected', 'permission_denied')], at(4));
 
       expect(await listAttention(db, USER_A)).toEqual([
-        { entity: 'material_transactions', recordId: ID(3), status: 'conflict', reason: 'reviewed', updatedAt: at(2).toISOString() },
-        { entity: 'material_transactions', recordId: ID(1), status: 'rejected', reason: 'invalid_input', updatedAt: at(1).toISOString() },
+        { entity: 'material_transactions', recordId: ID(3), status: 'conflict', reason: 'reviewed', updatedAt: at(2).toISOString(), siteId: null, day: null },
+        { entity: 'material_transactions', recordId: ID(1), status: 'rejected', reason: 'invalid_input', updatedAt: at(1).toISOString(), siteId: null, day: null },
       ]);
       expect(await listAttention(db, USER_A, 1)).toHaveLength(1);
+    });
+
+    it('brings back the site and day each record is for (A14)', async () => {
+      const SITE = '51000000-0000-4000-8000-0000000000aa';
+      const MATERIAL = '66000000-0000-4000-8000-0000000000bb';
+      await db.run(
+        `insert into mirror_materials (id, site_id, name, unit, threshold_milli, balance_milli) values (?, ?, 'Cement', 'bag', null, 0)`,
+        [MATERIAL, SITE],
+      );
+      await enqueue(db, { ...entry(1, { site_id: SITE.toUpperCase(), report_date: '2026-11-05' }), entity: 'daily_reports' }, T0);
+      await enqueue(db, { ...entry(2, { site_id: SITE, attendance_date: '2026-11-04' }), entity: 'attendance_entries' }, T0);
+      await enqueue(db, entry(3, { material_id: MATERIAL, occurred_on: '2026-11-03' }), T0);
+      await enqueue(db, { ...entry(4, { report_id: ID(1) }), entity: 'report_photos' }, T0);
+      await claimBatch(db, USER_A, T0);
+      await applyVerdicts(
+        db,
+        [
+          { ...verdict(1, 'conflict', 'reviewed'), entity: 'daily_reports' },
+          { ...verdict(2, 'rejected', 'locked'), entity: 'attendance_entries' },
+          verdict(3, 'rejected', 'invalid_input'),
+          { ...verdict(4, 'rejected', 'invalid_input'), entity: 'report_photos' },
+        ],
+        at(1),
+      );
+
+      const byId = Object.fromEntries((await listAttention(db, USER_A)).map((r) => [r.recordId, r]));
+      expect(byId[ID(1)]).toMatchObject({ siteId: SITE, day: '2026-11-05' });
+      expect(byId[ID(2)]).toMatchObject({ siteId: SITE, day: '2026-11-04' });
+      expect(byId[ID(3)]).toMatchObject({ siteId: SITE, day: null }); // the site comes through its material
+      expect(byId[ID(4)]).toMatchObject({ siteId: null, day: null });
     });
 
     it('lists nothing and changes nothing without an author, rather than covering every user', async () => {

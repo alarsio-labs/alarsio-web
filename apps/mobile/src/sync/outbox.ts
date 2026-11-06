@@ -304,6 +304,10 @@ export interface AttentionRow {
   status: 'conflict' | 'rejected';
   reason: string | null;
   updatedAt: string;
+  /** The site the record is for, read from its payload (a material entry through its material); null if unknown. */
+  siteId: string | null;
+  /** The day the record is for (report_date or attendance_date); null if it has none. */
+  day: string | null;
 }
 
 /**
@@ -319,8 +323,16 @@ export async function listAttention(db: DeviceDb, authorId: string, limit = 50):
     status: 'conflict' | 'rejected';
     reason: string | null;
     updated_at: string;
+    site_id: string | null;
+    day: string | null;
   }>(
-    `select entity, record_id, status, reason, updated_at from outbox
+    `select entity, record_id, status, reason, updated_at,
+            coalesce(
+              json_extract(payload, '$.site_id'),
+              (select m.site_id from mirror_materials m where m.id = json_extract(payload, '$.material_id'))
+            ) as site_id,
+            coalesce(json_extract(payload, '$.report_date'), json_extract(payload, '$.attendance_date')) as day
+       from outbox
       where status in ('conflict', 'rejected') and author_id = ?
       order by updated_at desc, seq desc
       limit ?`,
@@ -332,6 +344,8 @@ export async function listAttention(db: DeviceDb, authorId: string, limit = 50):
     status: r.status,
     reason: r.reason,
     updatedAt: r.updated_at,
+    siteId: r.site_id ? r.site_id.toLowerCase() : null,
+    day: r.day,
   }));
 }
 

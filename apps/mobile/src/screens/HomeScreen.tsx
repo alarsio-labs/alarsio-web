@@ -36,6 +36,8 @@ export interface HomeScreenProps {
   onOpenReports?: () => void;
   /** Opens the Materials screens (#82). Shown only for a signed-in user. */
   onOpenMaterials?: () => void;
+  /** Opens the screen for a record that needs attention (A14). */
+  onOpenRoute?: (route: string) => void;
 }
 
 export function HomeScreen({
@@ -46,6 +48,7 @@ export function HomeScreen({
   onOpenAttendance,
   onOpenReports,
   onOpenMaterials,
+  onOpenRoute,
 }: HomeScreenProps) {
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [sync, setSync] = useState<SyncStatus | null>(null);
@@ -107,7 +110,11 @@ export function HomeScreen({
       )}
 
       {sync && (
-        <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow().catch(() => undefined)} />
+        <SyncPanel
+          status={sync}
+          onSyncNow={() => void handleRef.current?.retryNow().catch(() => undefined)}
+          openRoute={onOpenRoute}
+        />
       )}
 
     </SafeAreaView>
