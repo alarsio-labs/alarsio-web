@@ -60,7 +60,15 @@ const PATHS: Record<string, ReactNode> = {
   close: <path d="M6 6l12 12M18 6L6 18" />,
   chevrons: <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />,
   signout: <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />,
-  arrow: <path d="M5 12h14M13 6l6 6-6 6" />
+  arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
+  "arrow-up-right": <path d="M7 17L17 7M8 7h9v9" />,
+  folder: <path d="M3 7a2 2 0 0 1 2-2h4l2 2h8a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z" />,
+  calendar: (
+    <>
+      <rect x="3" y="5" width="18" height="16" rx="2" />
+      <path d="M16 3v4M8 3v4M3 10h18" />
+    </>
+  )
 };
 
 export type IconName = keyof typeof PATHS;
