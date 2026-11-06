@@ -18,8 +18,11 @@ import { clearMirrors } from '../sync/pull';
 export async function signOutAndClearMirrors(
   signOut: () => Promise<void>,
   openDb: () => Promise<DeviceDb>,
+  clearAccess?: () => Promise<void>,
 ): Promise<void> {
   await signOut();
+  // The cached "which app" answer goes too; it never fails a sign-out.
+  await clearAccess?.().catch(() => undefined);
   try {
     await clearMirrors(await openDb());
   } catch {

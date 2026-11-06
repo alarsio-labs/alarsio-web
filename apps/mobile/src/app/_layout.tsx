@@ -1,6 +1,7 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
@@ -13,6 +14,8 @@ import { readPublicConfig } from '../config/public-config';
 import { signOutAndClearMirrors } from '../auth/sign-out';
 import { openAppDb } from '../lib/app-db';
 import { AUTH_STORAGE_KEY, authStorage, getSupabase } from '../lib/supabase';
+import { clearAccessCache, fetchCaptureAccess } from '../auth/role';
+import { AccessGate } from '../screens/AccessGate';
 import { AccountMenu } from '../screens/AccountMenu';
 import { SignInScreen } from '../screens/SignInScreen';
 import { StartupError } from '../screens/StartupError';
@@ -30,7 +33,13 @@ async function unsentCounts(userId: string) {
 }
 
 // Sign-out also clears the offline copy of sites, materials and roster.
-const signOutKeepingNothingBehind = () => (auth ? signOutAndClearMirrors(auth.signOut, openAppDb) : Promise.resolve());
+const signOutKeepingNothingBehind = () =>
+  auth ? signOutAndClearMirrors(auth.signOut, openAppDb, () => clearAccessCache(AsyncStorage)) : Promise.resolve();
+
+// The role read goes through the user's own session; RLS decides what comes back.
+const supabase = config.ok ? getSupabase(config.config) : undefined;
+const fetchAccessForUser = (userId: string) =>
+  supabase ? fetchCaptureAccess(supabase, userId) : Promise.reject(new Error('No configuration'));
 
 // Expo Router renders this when any screen throws, instead of a red error screen.
 export function ErrorBoundary({ error }: ErrorBoundaryProps) {
@@ -76,15 +85,23 @@ export default function RootLayout() {
   // user's records only (ADR-029).
   return (
     <SessionUserContext.Provider value={session.user}>
-      <Stack
+      <AccessGate
         key={session.user.id}
-        screenOptions={{
-          title: 'Alarsio',
-          headerRight: () => (
-            <AccountMenu user={session.user} unsentCounts={unsentCounts} signOut={signOutKeepingNothingBehind} />
-          ),
-        }}
-      />
+        user={session.user}
+        fetchAccess={fetchAccessForUser}
+        store={AsyncStorage}
+        unsentCounts={unsentCounts}
+        signOut={signOutKeepingNothingBehind}
+      >
+        <Stack
+          screenOptions={{
+            title: 'Alarsio',
+            headerRight: () => (
+              <AccountMenu user={session.user} unsentCounts={unsentCounts} signOut={signOutKeepingNothingBehind} />
+            ),
+          }}
+        />
+      </AccessGate>
       <StatusBar style="auto" />
     </SessionUserContext.Provider>
   );
