@@ -60,4 +60,18 @@ describe('AccountMenu', () => {
     await flush();
     expect(alert).toHaveBeenCalledWith('Sign out failed', expect.any(String));
   });
+
+  it('opens Help and about when the screen offers it', async () => {
+    const onOpenAbout = jest.fn();
+    await render(
+      <AccountMenu user={user} unsentCounts={async () => ({ waiting: 0, needFix: 0 })} signOut={jest.fn()} onOpenAbout={onOpenAbout} />,
+    );
+    await fireEvent.press(screen.getByLabelText('Help and about'));
+    expect(onOpenAbout).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no Help link where there is no about screen', async () => {
+    await render(<AccountMenu user={user} unsentCounts={async () => ({ waiting: 0, needFix: 0 })} signOut={jest.fn()} />);
+    expect(screen.queryByLabelText('Help and about')).toBeNull();
+  });
 });

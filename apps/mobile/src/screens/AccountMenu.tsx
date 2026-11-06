@@ -14,9 +14,12 @@ export interface AccountMenuProps {
   /** This user's unsent records, split by whether they will resend. */
   unsentCounts: (userId: string) => Promise<UnsentCounts>;
   signOut: () => Promise<void>;
+  /** Opens Help and about. Absent where the screen has no router (the "use the web" screen). */
+  onOpenAbout?: () => void;
 }
 
-export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
+/** Sign-out with the unsent-records warning; never blocks (ADR-020). Shared by the header and the About screen. */
+export function useSignOutFlow({ user, unsentCounts, signOut }: AccountMenuProps): () => Promise<void> {
   const busy = useRef(false);
 
   const doSignOut = async () => {
@@ -29,7 +32,7 @@ export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
     }
   };
 
-  const onSignOut = async () => {
+  return async () => {
     if (busy.current) return;
     busy.current = true;
     const counts = await unsentCounts(user.id).catch(() => null);
@@ -43,12 +46,27 @@ export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
       { text: 'Sign out', style: 'destructive', onPress: () => void doSignOut() },
     ]);
   };
+}
+
+export function AccountMenu({ user, unsentCounts, signOut, onOpenAbout }: AccountMenuProps) {
+  const onSignOut = useSignOutFlow({ user, unsentCounts, signOut });
 
   return (
     <View style={styles.row}>
       <Text style={styles.email} numberOfLines={1}>
         {user.email}
       </Text>
+      {onOpenAbout && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Help and about"
+          hitSlop={8}
+          onPress={onOpenAbout}
+          style={styles.target}
+        >
+          <Text style={styles.link}>Help</Text>
+        </Pressable>
+      )}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel={`Sign out ${user.email}`}
@@ -63,7 +81,7 @@ export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 260 },
+  row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 300 },
   email: { flexShrink: 1, color: colors.muted, fontSize: 13 },
   target: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
   link: { color: colors.ink, fontSize: 15, textDecorationLine: 'underline' },

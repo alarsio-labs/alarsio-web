@@ -30,7 +30,6 @@ export interface HomeScreenProps {
    */
   userId?: string;
   config: PublicConfigResult;
-  appVersion: string;
   /** Opens the Attendance screens (#79). Shown only for a signed-in user. */
   onOpenAttendance?: () => void;
   /** Opens the Daily report screens (#81). Shown only for a signed-in user. */
@@ -44,7 +43,6 @@ export function HomeScreen({
   startSync,
   userId,
   config,
-  appVersion,
   onOpenAttendance,
   onOpenReports,
   onOpenMaterials,
@@ -112,7 +110,6 @@ export function HomeScreen({
         <SyncPanel status={sync} onSyncNow={() => void handleRef.current?.retryNow().catch(() => undefined)} />
       )}
 
-      <Text style={styles.version}>{`Version ${appVersion}`}</Text>
     </SafeAreaView>
   );
 }
@@ -127,7 +124,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: { fontSize: 28, fontWeight: '600' },
-  version: { fontSize: 12, color: colors.muted },
   button: {
     minHeight: 44,
     minWidth: 160,

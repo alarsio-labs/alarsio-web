@@ -1,4 +1,3 @@
-import Constants from 'expo-constants';
 import { router } from 'expo-router';
 
 import { useSessionUser } from '../auth/session-user';
@@ -43,7 +42,6 @@ export default function Index() {
       onOpenReports={() => router.push('/reports')}
       onOpenMaterials={() => router.push('/materials')}
       config={config}
-      appVersion={Constants.expoConfig?.version ?? 'unknown'}
     />
   );
 }

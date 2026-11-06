@@ -43,19 +43,19 @@ function fakeHandle(over: Partial<SyncHandle> = {}): SyncHandle {
 
 describe('HomeScreen', () => {
   it('shows no developer text once the database opens', async () => {
-    await render(<HomeScreen openDb={openFakeDb} config={goodConfig} appVersion="0.1.0" />);
+    await render(<HomeScreen openDb={openFakeDb} config={goodConfig} />);
 
     expect(await screen.findByText('Alarsio')).toBeTruthy();
     expect(screen.queryByText(/Device database/)).toBeNull();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
     expect(screen.queryByText(/The app could not start/)).toBeNull();
-    expect(screen.getByText('Version 0.1.0')).toBeTruthy();
+    expect(screen.queryByText(/^Version/)).toBeNull();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });
 
   it('shows the support text, not the raw error, when the database fails', async () => {
     await render(
-      <HomeScreen openDb={() => Promise.reject(new Error('disk full'))} config={goodConfig} appVersion="0.1.0" />,
+      <HomeScreen openDb={() => Promise.reject(new Error('disk full'))} config={goodConfig} />,
     );
 
     expect(await screen.findByText(/The app could not start/)).toBeTruthy();
@@ -67,7 +67,7 @@ describe('HomeScreen', () => {
 
   it('shows the support text when the app settings are missing', async () => {
     await render(
-      <HomeScreen openDb={openFakeDb} config={{ ok: false, missing: ['EXPO_PUBLIC_SUPABASE_URL'] }} appVersion="0.1.0" />,
+      <HomeScreen openDb={openFakeDb} config={{ ok: false, missing: ['EXPO_PUBLIC_SUPABASE_URL'] }} />,
     );
 
     expect(await screen.findByText(/alarsio.team@gmail.com/)).toBeTruthy();
@@ -85,7 +85,7 @@ describe('HomeScreen', () => {
     });
 
     await render(
-      <HomeScreen openDb={openFakeDb} startSync={startSync} userId={USER} config={goodConfig} appVersion="0.1.0" />,
+      <HomeScreen openDb={openFakeDb} startSync={startSync} userId={USER} config={goodConfig} />,
     );
 
     expect(await screen.findByText('3 waiting to send')).toBeTruthy();
@@ -95,7 +95,7 @@ describe('HomeScreen', () => {
   it('starts no sync and shows no sync panel when no user is given, instead of showing every user', async () => {
     const startSync = jest.fn(() => fakeHandle());
 
-    await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} appVersion="0.1.0" />);
+    await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} />);
 
     expect(await screen.findByText('Alarsio')).toBeTruthy();
     expect(startSync).not.toHaveBeenCalled();
@@ -110,7 +110,7 @@ describe('HomeScreen', () => {
     const stop = jest.fn();
     const startSync = jest.fn(() => fakeHandle({ stop }));
     const { rerender } = await render(
-      <HomeScreen openDb={openDb} startSync={startSync} userId={USER} config={goodConfig} appVersion="0.1.0" />,
+      <HomeScreen openDb={openDb} startSync={startSync} userId={USER} config={goodConfig} />,
     );
     expect(await screen.findByText('3 waiting to send')).toBeTruthy();
 
@@ -120,7 +120,7 @@ describe('HomeScreen', () => {
         startSync={startSync}
         userId="22222222-0000-4000-8000-00000000000b"
         config={goodConfig}
-        appVersion="0.1.0"
+       
       />,
     );
 
@@ -137,7 +137,7 @@ describe('HomeScreen', () => {
         startSync={() => fakeHandle({ retryNow })}
         userId={USER}
         config={goodConfig}
-        appVersion="0.1.0"
+       
       />,
     );
 
@@ -154,7 +154,7 @@ describe('HomeScreen', () => {
           userId={USER}
           onOpenAttendance={onOpenAttendance}
           config={goodConfig}
-          appVersion="0.1.0"
+         
         />,
       );
 
@@ -163,7 +163,7 @@ describe('HomeScreen', () => {
     });
 
     it('offers no Attendance when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenAttendance={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+      await render(<HomeScreen openDb={openFakeDb} onOpenAttendance={jest.fn()} config={goodConfig} />);
 
       await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Attendance' })).toBeNull();
@@ -174,7 +174,7 @@ describe('HomeScreen', () => {
     it('opens Daily report for a signed-in user', async () => {
       const onOpenReports = jest.fn();
       await render(
-        <HomeScreen openDb={openFakeDb} userId={USER} onOpenReports={onOpenReports} config={goodConfig} appVersion="0.1.0" />,
+        <HomeScreen openDb={openFakeDb} userId={USER} onOpenReports={onOpenReports} config={goodConfig} />,
       );
 
       await fireEvent.press(await screen.findByRole('button', { name: 'Daily report' }));
@@ -182,7 +182,7 @@ describe('HomeScreen', () => {
     });
 
     it('offers no Daily report when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenReports={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+      await render(<HomeScreen openDb={openFakeDb} onOpenReports={jest.fn()} config={goodConfig} />);
 
       await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Daily report' })).toBeNull();
@@ -193,7 +193,7 @@ describe('HomeScreen', () => {
     it('opens Materials for a signed-in user', async () => {
       const onOpenMaterials = jest.fn();
       await render(
-        <HomeScreen openDb={openFakeDb} userId={USER} onOpenMaterials={onOpenMaterials} config={goodConfig} appVersion="0.1.0" />,
+        <HomeScreen openDb={openFakeDb} userId={USER} onOpenMaterials={onOpenMaterials} config={goodConfig} />,
       );
 
       await fireEvent.press(await screen.findByRole('button', { name: 'Materials' }));
@@ -201,7 +201,7 @@ describe('HomeScreen', () => {
     });
 
     it('offers no Materials when no user is signed in', async () => {
-      await render(<HomeScreen openDb={openFakeDb} onOpenMaterials={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
+      await render(<HomeScreen openDb={openFakeDb} onOpenMaterials={jest.fn()} config={goodConfig} />);
 
       await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Materials' })).toBeNull();
