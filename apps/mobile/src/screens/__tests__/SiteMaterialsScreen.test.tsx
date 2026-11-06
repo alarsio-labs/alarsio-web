@@ -102,6 +102,45 @@ describe('SiteMaterialsScreen (#82)', () => {
     expect(JSON.parse(rows[0]!.payload)).toEqual({ material_id: CEMENT, kind: 'usage', quantity: 12.5, occurred_on: '2026-10-20' });
   });
 
+  describe('the date picker (A9)', () => {
+    const showWithPicker = async (openDatePicker: NonNullable<Parameters<typeof SiteMaterialsScreen>[0]['openDatePicker']>) =>
+      render(
+        <SiteMaterialsScreen openDb={() => Promise.resolve(db)} userId={USER_A} siteId={SITE} now={() => NOW} pollMs={50} openDatePicker={openDatePicker} />,
+      );
+
+    it('starts on today in IST, with no typing field', async () => {
+      await showWithPicker(jest.fn());
+      await press('Record for Cement');
+
+      expect(await screen.findByRole('button', { name: 'Date: Tue 20 Oct. Opens a calendar' })).toBeTruthy();
+      expect(screen.queryByLabelText('Date')).toBeNull();
+      expect(screen.queryByText(/YYYY-MM-DD/)).toBeNull();
+    });
+
+    it('saves the chosen day as YYYY-MM-DD, and the picker stops at today', async () => {
+      const openDatePicker = jest.fn((o: { value: Date; maximumDate: Date; onPick: (d: Date) => void }) => o.onPick(new Date(2026, 9, 18, 9)));
+      await showWithPicker(openDatePicker);
+      await record('Cement', 'Used', '3');
+      await press(/^Date:/);
+
+      expect(openDatePicker).toHaveBeenCalledTimes(1);
+      expect(openDatePicker.mock.calls[0]![0].maximumDate.getDate()).toBe(20);
+      expect(await screen.findByRole('button', { name: 'Date: Sun 18 Oct. Opens a calendar' })).toBeTruthy();
+
+      await press('Save');
+      await screen.findByText('Estimate: 37 bag');
+      expect(JSON.parse((await outboxRows(db))[0]!.payload)).toMatchObject({ occurred_on: '2026-10-18' });
+    });
+
+    it('does not take tomorrow', async () => {
+      await showWithPicker((o) => o.onPick(new Date(2026, 9, 21, 9)));
+      await press('Record for Cement');
+      await press(/^Date:/);
+
+      expect(await screen.findByRole('button', { name: 'Date: Tue 20 Oct. Opens a calendar' })).toBeTruthy();
+    });
+  });
+
   it('closes the form after saving, and the supervisor chooses the kind every time', async () => {
     await show();
     await press('Record for Cement');

@@ -21,6 +21,7 @@ import {
 import { loadSiteMaterials, saveMovement, type SiteMaterial, type SiteMaterials } from '../materials/movement-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
+import { DatePickerField, type OpenDatePicker } from './DatePickerField';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, tone } from '../theme';
 
@@ -31,6 +32,8 @@ export interface SiteMaterialsScreenProps {
   siteId: string;
   /** The phone's clock. Tests pass their own. */
   now?: () => Date;
+  /** Opens the date picker. Tests pass a fake; the default is the phone's own picker. */
+  openDatePicker?: OpenDatePicker;
   /** How often the screen re-reads the outbox to show a verdict. 0 turns it off. */
   pollMs?: number;
 }
@@ -66,7 +69,7 @@ function takesBelowZero(material: SiteMaterial, form: Form): boolean {
   return delta < 0 && material.estimateMilli + delta < 0;
 }
 
-export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Date(), pollMs = 3000 }: SiteMaterialsScreenProps) {
+export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Date(), pollMs = 3000, openDatePicker }: SiteMaterialsScreenProps) {
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [form, setForm] = useState<Form | null>(null);
@@ -231,13 +234,12 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
                   maxLength={500}
                   multiline
                 />
-                <Text style={styles.sub}>Date (YYYY-MM-DD)</Text>
-                <TextInput
-                  accessibilityLabel="Date"
-                  style={styles.field}
+                <Text style={styles.sub}>Date</Text>
+                <DatePickerField
                   value={form.occurredOn}
-                  onChangeText={(occurredOn) => patch({ occurredOn })}
-                  autoCorrect={false}
+                  max={istDate(now().toISOString())}
+                  onChange={(occurredOn) => patch({ occurredOn })}
+                  openPicker={openDatePicker}
                 />
                 {takesBelowZero(selected, form) && (
                   <Text style={styles.warning} accessibilityLiveRegion="polite">
