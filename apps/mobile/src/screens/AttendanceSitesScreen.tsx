@@ -61,6 +61,7 @@ export function AttendanceSitesScreen({ openDb, userId, onOpenSite }: Attendance
             <Pressable
               key={site.id}
               accessibilityRole="button"
+              accessibilityLabel={`${site.name}, ${statusLabel(site.status).toLowerCase()}${site.orgId === null ? ', needs a refresh' : ''}`}
               onPress={() => onOpenSite(site.id)}
               style={styles.card}
             >

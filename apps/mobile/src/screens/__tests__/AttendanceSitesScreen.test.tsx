@@ -52,7 +52,9 @@ describe('AttendanceSitesScreen (#79)', () => {
     expect(screen.getByText('Baner')).toBeTruthy();
     expect(screen.getByText('Paused')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: /Kothrud/ }));
+    // Each card is one button named with the site and its state.
+    expect(screen.getByRole('button', { name: 'Baner, paused, needs a refresh' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kothrud, active' }));
     expect(onOpenSite).toHaveBeenCalledWith(SITE_1);
   });
 
@@ -60,6 +62,7 @@ describe('AttendanceSitesScreen (#79)', () => {
     await seed(db, USER_A);
     await show(USER_A);
     expect(await screen.findByText(/Needs a refresh/)).toBeTruthy();
+    expect(screen.getByRole('button', { name: /needs a refresh$/ })).toBeTruthy();
   });
 
   it("shows nothing of another user's mirror", async () => {

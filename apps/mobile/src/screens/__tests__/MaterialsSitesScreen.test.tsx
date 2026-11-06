@@ -51,7 +51,8 @@ describe('MaterialsSitesScreen (#82)', () => {
     expect(headerTitles()).toContain('Materials');
     expect(screen.getByText('Baner')).toBeTruthy();
 
-    await fireEvent.press(screen.getByRole('button', { name: /Kothrud/ }));
+    expect(screen.getByRole('button', { name: 'Baner, Pune, Baner' })).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Kothrud, Pune, Kothrud' }));
     expect(onOpenSite).toHaveBeenCalledWith(SITE_1);
   });
 

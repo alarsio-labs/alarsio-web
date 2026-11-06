@@ -54,7 +54,13 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
       {load.kind === 'ready' && load.sites.length > 0 && (
         <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
           {load.sites.map((site) => (
-            <Pressable key={site.id} accessibilityRole="button" onPress={() => onOpenSite(site.id)} style={styles.card}>
+            <Pressable
+              key={site.id}
+              accessibilityRole="button"
+              accessibilityLabel={`${site.name}, ${site.address}`}
+              onPress={() => onOpenSite(site.id)}
+              style={styles.card}
+            >
               <Text style={styles.siteName}>{site.name}</Text>
               <Text style={styles.siteAddress}>{site.address}</Text>
             </Pressable>
