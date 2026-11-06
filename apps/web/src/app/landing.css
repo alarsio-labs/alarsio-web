@@ -82,8 +82,12 @@
 /* Stages: tall section, sticky 100svh inner. */
 .lp-stage { position: relative; }
 .lp-pin { position: relative; overflow: hidden; padding: 96px var(--pad) 72px; }
-html.lp-motion .lp-stage { height: var(--h); }
-html.lp-motion .lp-pin { position: sticky; top: 0; height: 100svh; padding: 0; }
+/* Pinning is for wide screens only (landing-motion.tsx sets html.lp-motion under the same 768px rule).
+   Phones get the still page: each stage is as tall as its content. */
+@media (min-width: 768px) {
+  html.lp-motion .lp-stage { height: var(--h); }
+  html.lp-motion .lp-pin { position: sticky; top: 0; height: 100svh; padding: 0; }
+}
 
 /* 1 · Hero */
 .lp-hero { background: var(--loam); color: var(--cream); }
