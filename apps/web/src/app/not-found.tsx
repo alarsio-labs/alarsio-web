@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { ContactLink } from "@/components/site/doc";
-import { HeadActions, SiteFooter, Wordmark } from "@/components/site/public-frame";
+import { PublicHeader, SiteFooter } from "@/components/site/public-frame";
 import { anton, mono } from "./fonts";
 import "./landing.css";
 import "./(site)/site.css";
@@ -12,10 +12,7 @@ export const metadata: Metadata = { title: "Page not found", robots: { index: fa
 export default function NotFound() {
   return (
     <div className={`lp lp-site ${anton.variable} ${mono.variable}`}>
-      <header className="lp-head">
-        <Wordmark />
-        <HeadActions />
-      </header>
+      <PublicHeader />
       <main id="main" tabIndex={-1} className="nf-main">
         <p className="lp-mono lp-muted">Error 404</p>
         <h1 className="ds-title">Page not found</h1>

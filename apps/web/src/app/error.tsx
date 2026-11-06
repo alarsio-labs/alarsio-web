@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { ContactLink } from "@/components/site/doc";
-import { HeadActions, Wordmark } from "@/components/site/public-frame";
+import { PublicHeader } from "@/components/site/public-frame";
 import { anton, mono } from "./fonts";
 import "./landing.css";
 import "./(site)/site.css";
@@ -12,10 +12,7 @@ import "./(site)/site.css";
 export default function ErrorPage({ reset }: { error: Error & { digest?: string }; reset: () => void }) {
   return (
     <div className={`lp lp-site ${anton.variable} ${mono.variable}`}>
-      <header className="lp-head">
-        <Wordmark />
-        <HeadActions />
-      </header>
+      <PublicHeader />
       <main id="main" tabIndex={-1} className="nf-main">
         <p className="lp-mono lp-muted">Error</p>
         <h1 className="ds-title">Something went wrong</h1>

@@ -329,13 +329,14 @@ Unticked until a download runs end to end against the team project (#58), as wit
 
 ## Web landing page (not a module)
 
-*The public page at `/` (docs/DESIGN.md v2): five scroll-pinned stages (poster hero, manifesto, a rail of
-six records, the day record printing itself, the wage period) and a roles table, FAQ and footer. "Join the
-pilot" goes to the existing sign-up. It owns no table and reads no data; a signed-in visitor goes to
-`/dashboard` as before. Every claim on it is a row above, and it quotes no prices. Plates are generated on
-canvas, not screenshots. Under reduced motion or without JavaScript it is a still, complete page.
-`lib/landing/stage.test.ts` proves the scroll maths and `lib/landing/content.test.ts` the copy rules. It
-adds no row and ticks none.*
+*The public page at `/` (docs/DESIGN.md v2.1): a hero with two screen mocks, problem, six features, four
+role cards, five steps beside the honest-sync card, a sample-site heatmap, four data guarantees, eight FAQ
+rows and a closing call to action, inside a header with a full-screen menu and a four-column footer.
+`/download` explains installing the pilot APK. "Start free pilot" goes to the existing sign-up. It owns no
+table and reads no data; a signed-in visitor goes to `/dashboard` as before. Every claim on it is a row
+above, and it quotes no prices; mock and heatmap figures are labelled sample data. Under reduced motion or
+without JavaScript it is a still, complete page. `lib/landing/content.test.ts` proves the copy rules and
+`lib/landing/sample-site.test.ts` the heatmap data. It adds no row and ticks none.*
 
 ---
 
