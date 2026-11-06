@@ -2,10 +2,11 @@ import { redirect } from "next/navigation";
 import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { isSiteRow } from "@/lib/reports/rows";
-import { parseOverviewParams } from "@/lib/overview/params";
+import { parseOverviewParams, previousDay } from "@/lib/overview/params";
+import { istToday } from "@/lib/attendance/time";
 import { isAlertRow, isApprovedDayRow, isOverviewExceptionRow, isOverviewReportRow, strictRows } from "@/lib/overview/rows";
 import { buildBoard, sortBoard, type BoardRow } from "@/lib/overview/board";
-import { DAY_WORD, eyebrowFor, needsYou, overviewStats, reportWord } from "@/lib/overview/screen";
+import { DAY_WORD, eyebrowFor, needsYou, overviewStatDetails, overviewStats, reportWord } from "@/lib/overview/screen";
 import { inputClass } from "@/components/form";
 import { ButtonLink } from "@/components/app/button";
 import { Card } from "@/components/app/card";
@@ -97,6 +98,10 @@ export default async function OverviewPage({
   const alerts = read.alerts ?? [];
   const board = sortBoard(buildBoard({ sites, reports, exceptions, approvedDays, alerts }));
   const stats = overviewStats(board);
+  const details = overviewStatDetails(board);
+  const today = istToday(new Date());
+  const yesterday = previousDay(today);
+  const q = encodeURIComponent(org);
   const todo = needsYou(board, org, date);
   const capped = [
     sites.length === SITE_LIMIT && `${SITE_LIMIT} sites`,
@@ -111,6 +116,18 @@ export default async function OverviewPage({
       <PageHead
         eyebrow={eyebrowFor(date)}
         title="Overview"
+        aside={
+          <nav className="ax-seg" aria-label="Day">
+            {[
+              { label: "Yesterday", day: yesterday },
+              { label: "Today", day: today }
+            ].map((d) => (
+              <a key={d.day} href={`/overview?org=${q}&date=${d.day}`} className="ax-seg-item" aria-current={d.day === date ? "page" : undefined}>
+                {d.label}
+              </a>
+            ))}
+          </nav>
+        }
         action={isOwner === true ? <ButtonLink href={`/export?org=${org}`}>Export data</ButtonLink> : undefined}
       />
 
@@ -140,10 +157,40 @@ export default async function OverviewPage({
           )}
 
           <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-            <StatCard label="Active sites" value={stats.activeSites} />
-            <StatCard label="Headcount reported" value={stats.headcountReported} />
-            <StatCard label="To approve" value={stats.toApprove} alertAbove0 />
-            <StatCard label="Low stock" value={stats.lowStock} alertAbove0 />
+            <StatCard
+              label="Active sites"
+              value={stats.activeSites}
+              href={`/sites?org=${q}`}
+              foot={`of ${details.allSites} ${details.allSites === 1 ? "site" : "sites"}`}
+              progress={details.activeSites}
+            />
+            <StatCard
+              label="Headcount reported"
+              value={stats.headcountReported}
+              unit="workers"
+              href={`/reports?org=${q}`}
+              foot="from reports"
+              footEnd={`${details.reportsFiled.value} of ${details.reportsFiled.max} filed`}
+              progress={details.reportsFiled}
+            />
+            <StatCard
+              label="To approve"
+              value={stats.toApprove}
+              alertAbove0
+              href={`/attendance?org=${q}`}
+              foot="waiting for review"
+              footEnd={`${details.daysApproved.value} of ${details.daysApproved.max} days approved`}
+              progress={details.daysApproved}
+            />
+            <StatCard
+              label="Low stock"
+              value={stats.lowStock}
+              alertAbove0
+              unit={stats.lowStock === 1 ? "material" : "materials"}
+              href={`/materials?org=${q}`}
+              foot="low or below zero"
+              footEnd={`across ${details.lowStockSites} ${details.lowStockSites === 1 ? "site" : "sites"}`}
+            />
           </div>
 
           <div className="ov-columns">
@@ -183,19 +230,30 @@ export default async function OverviewPage({
               />
             </Card>
 
-            <Card title="Needs you" id="ov-todo">
-              {todo.length === 0 ? (
-                <p className="ax-empty">Nothing to act on for this day.</p>
-              ) : (
-                <ul className="ov-todo">
-                  {todo.map((t) => (
-                    <li key={t.key}>
-                      <span>{t.text}</span>
-                      <ButtonLink href={t.href} variant={t.primary ? "primary" : "secondary"}>{t.action}</ButtonLink>
-                    </li>
-                  ))}
-                </ul>
-              )}
+            <Card title="Alerts & tasks" id="ov-todo">
+              <ul className="ov-alerts">
+                {todo.length === 0 ? (
+                  <li className="ov-alert ov-alert-ok">
+                    <span className="ov-alert-text">
+                      <span className="ov-alert-title">All clear for this day</span>
+                      <span className="ov-alert-sub">Nothing waiting on a manager</span>
+                    </span>
+                  </li>
+                ) : (
+                  todo.map((t) => {
+                    const [site, ...rest] = t.text.split(" · ");
+                    return (
+                      <li key={t.key} className={`ov-alert ${t.primary ? "ov-alert-act" : "ov-alert-warn"}`}>
+                        <span className="ov-alert-text">
+                          <span className="ov-alert-title">{rest.length > 0 ? rest.join(" · ") : t.text}</span>
+                          {rest.length > 0 && <span className="ov-alert-sub">{site}</span>}
+                        </span>
+                        <ButtonLink href={t.href} variant={t.primary ? "primary" : "secondary"}>{t.action}</ButtonLink>
+                      </li>
+                    );
+                  })
+                )}
+              </ul>
             </Card>
           </div>
 
