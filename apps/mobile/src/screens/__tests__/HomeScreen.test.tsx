@@ -42,40 +42,39 @@ function fakeHandle(over: Partial<SyncHandle> = {}): SyncHandle {
 }
 
 describe('HomeScreen', () => {
-  it('shows the database as ready once it opens', async () => {
+  it('shows no developer text once the database opens', async () => {
     await render(<HomeScreen openDb={openFakeDb} config={goodConfig} appVersion="0.1.0" />);
 
-    expect(await screen.findByText('Device database ready')).toBeTruthy();
-    expect(screen.getByText('Version 0.1.0')).toBeTruthy();
+    expect(await screen.findByText('Alarsio')).toBeTruthy();
+    expect(screen.queryByText(/Device database/)).toBeNull();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
+    expect(screen.queryByText(/The app could not start/)).toBeNull();
+    expect(screen.getByText('Version 0.1.0')).toBeTruthy();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });
 
-  it('shows why the database failed instead of crashing', async () => {
+  it('shows the support text, not the raw error, when the database fails', async () => {
     await render(
-      <HomeScreen
-        openDb={() => Promise.reject(new Error('disk full'))}
-        config={goodConfig}
-        appVersion="0.1.0"
-      />,
+      <HomeScreen openDb={() => Promise.reject(new Error('disk full'))} config={goodConfig} appVersion="0.1.0" />,
     );
 
-    expect(await screen.findByText('Device database failed: disk full')).toBeTruthy();
+    expect(await screen.findByText(/The app could not start/)).toBeTruthy();
+    expect(screen.queryByText(/Device database/)).toBeNull();
+    expect(screen.queryByText('disk full')).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Show details' }));
+    expect(screen.getByText('disk full')).toBeTruthy();
   });
 
-  it('names the missing settings', async () => {
+  it('shows the support text when the app settings are missing', async () => {
     await render(
-      <HomeScreen
-        openDb={openFakeDb}
-        config={{ ok: false, missing: ['EXPO_PUBLIC_SUPABASE_URL'] }}
-        appVersion="0.1.0"
-      />,
+      <HomeScreen openDb={openFakeDb} config={{ ok: false, missing: ['EXPO_PUBLIC_SUPABASE_URL'] }} appVersion="0.1.0" />,
     );
 
-    expect(
-      await screen.findByText('Configuration missing: EXPO_PUBLIC_SUPABASE_URL'),
-    ).toBeTruthy();
-    expect(await screen.findByText('Device database ready')).toBeTruthy();
+    expect(await screen.findByText(/alarsio.team@gmail.com/)).toBeTruthy();
+    expect(screen.queryByText(/Configuration missing/)).toBeNull();
+    expect(screen.queryByText(/Device database/)).toBeNull();
+    await fireEvent.press(screen.getByRole('button', { name: 'Show details' }));
+    expect(screen.getByText('Missing: EXPO_PUBLIC_SUPABASE_URL')).toBeTruthy();
   });
 
   it('starts sync for the signed-in user with the opened database and shows its status', async () => {
@@ -98,7 +97,7 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} appVersion="0.1.0" />);
 
-    expect(await screen.findByText('Device database ready')).toBeTruthy();
+    expect(await screen.findByText('Alarsio')).toBeTruthy();
     expect(startSync).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
     expect(screen.queryByText(/waiting to send|need attention/)).toBeNull();
@@ -166,7 +165,7 @@ describe('HomeScreen', () => {
     it('offers no Attendance when no user is signed in', async () => {
       await render(<HomeScreen openDb={openFakeDb} onOpenAttendance={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
 
-      await screen.findByText('Device database ready');
+      await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Attendance' })).toBeNull();
     });
   });
@@ -185,7 +184,7 @@ describe('HomeScreen', () => {
     it('offers no Daily report when no user is signed in', async () => {
       await render(<HomeScreen openDb={openFakeDb} onOpenReports={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
 
-      await screen.findByText('Device database ready');
+      await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Daily report' })).toBeNull();
     });
   });
@@ -204,7 +203,7 @@ describe('HomeScreen', () => {
     it('offers no Materials when no user is signed in', async () => {
       await render(<HomeScreen openDb={openFakeDb} onOpenMaterials={jest.fn()} config={goodConfig} appVersion="0.1.0" />);
 
-      await screen.findByText('Device database ready');
+      await screen.findByText('Alarsio');
       expect(screen.queryByRole('button', { name: 'Materials' })).toBeNull();
     });
   });

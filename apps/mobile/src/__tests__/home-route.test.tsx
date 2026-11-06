@@ -124,7 +124,7 @@ describe('home route wiring', () => {
   it('starts no engine when no user is signed in', async () => {
     await render(<Index />);
 
-    expect(await screen.findByText('Device database ready')).toBeTruthy();
+    expect(await screen.findByText('Alarsio')).toBeTruthy();
     expect(startSyncEngine).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });

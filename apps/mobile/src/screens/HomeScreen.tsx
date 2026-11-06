@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { PublicConfigResult } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
+import { StartupError } from './StartupError';
 import { SyncPanel } from './SyncPanel';
 import { colors } from '../theme';
 
@@ -86,14 +87,8 @@ export function HomeScreen({
     <SafeAreaView style={styles.container}>
       <Text style={styles.title}>Alarsio</Text>
 
-      {!config.ok && (
-        <View style={styles.errorBox}>
-          <Text style={styles.errorText}>{`Configuration missing: ${config.missing.join(', ')}`}</Text>
-          <Text style={styles.errorHint}>Add it to apps/mobile/.env.local and restart Expo.</Text>
-        </View>
-      )}
-
-      <Text style={db.kind === 'failed' ? styles.errorText : styles.line}>{dbLine(db)}</Text>
+      {!config.ok && <StartupError detail={`Missing: ${config.missing.join(', ')}`} />}
+      {db.kind === 'failed' && <StartupError detail={db.message} />}
 
       {userId && onOpenAttendance && (
         <Pressable accessibilityRole="button" accessibilityLabel="Attendance" onPress={onOpenAttendance} style={styles.button}>
@@ -122,17 +117,6 @@ export function HomeScreen({
   );
 }
 
-function dbLine(db: DbStatus): string {
-  switch (db.kind) {
-    case 'opening':
-      return 'Device database: opening…';
-    case 'ready':
-      return 'Device database ready';
-    case 'failed':
-      return `Device database failed: ${db.message}`;
-  }
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -143,10 +127,6 @@ const styles = StyleSheet.create({
     gap: 12,
   },
   title: { fontSize: 28, fontWeight: '600' },
-  line: { fontSize: 16, textAlign: 'center' },
-  errorBox: { gap: 4, alignItems: 'center' },
-  errorText: { fontSize: 16, color: colors.redDeep, textAlign: 'center' },
-  errorHint: { fontSize: 14, color: colors.muted, textAlign: 'center' },
   version: { fontSize: 12, color: colors.muted },
   button: {
     minHeight: 44,

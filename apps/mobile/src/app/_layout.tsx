@@ -1,7 +1,7 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
-import { Stack } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import { useEffect } from 'react';
@@ -15,6 +15,7 @@ import { openAppDb } from '../lib/app-db';
 import { AUTH_STORAGE_KEY, authStorage, getSupabase } from '../lib/supabase';
 import { AccountMenu } from '../screens/AccountMenu';
 import { SignInScreen } from '../screens/SignInScreen';
+import { StartupError } from '../screens/StartupError';
 import { countByStatus } from '../sync/outbox';
 
 // Keep the loam splash up until the session is known, so there is no white flash.
@@ -30,6 +31,11 @@ async function unsentCounts(userId: string) {
 
 // Sign-out also clears the offline copy of sites, materials and roster.
 const signOutKeepingNothingBehind = () => (auth ? signOutAndClearMirrors(auth.signOut, openAppDb) : Promise.resolve());
+
+// Expo Router renders this when any screen throws, instead of a red error screen.
+export function ErrorBoundary({ error }: ErrorBoundaryProps) {
+  return <StartupError detail={error.message} />;
+}
 
 export default function RootLayout() {
   const session = useSession(auth);
