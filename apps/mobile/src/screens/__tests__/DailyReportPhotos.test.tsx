@@ -1,4 +1,3 @@
-import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';

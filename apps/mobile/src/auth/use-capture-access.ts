@@ -18,7 +18,6 @@ export function useCaptureAccess(
   useEffect(() => {
     let cancelled = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
-    setAccess(null);
     void (async () => {
       const cached = await readCachedAccess(store, userId);
       if (cancelled) return;
