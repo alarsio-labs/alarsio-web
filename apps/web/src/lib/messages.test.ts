@@ -63,6 +63,19 @@ describe("messageFor", () => {
     expect(messageFor("site_exists")).toMatch(/already exists/i);
   });
 
+  it("has its own message for each sign-in and password reset code", () => {
+    const codes = ["weak_password", "password_mismatch", "update_password_failed", "terms_required", "link_invalid"];
+    const texts = new Set<string | null>();
+    for (const code of codes) {
+      expect(messageFor(code)).not.toBeNull();
+      expect(messageFor(code)).not.toBe(messageFor("made_up"));
+      texts.add(messageFor(code));
+    }
+    expect(texts.size).toBe(codes.length);
+    expect(messageFor("password_mismatch")).toMatch(/do not match/i);
+    expect(messageFor("terms_required")).toMatch(/terms/i);
+  });
+
   it("never returns an inherited property for a crafted code", () => {
     for (const code of ["__proto__", "constructor", "toString", "hasOwnProperty"]) {
       expect(messageFor(code)).toBe("Something went wrong. Try again.");

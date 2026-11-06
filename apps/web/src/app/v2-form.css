@@ -10,6 +10,22 @@
 .au-input::placeholder { color: var(--muted); }
 textarea.au-input { padding: 12px 14px; min-height: 96px; line-height: 1.5; resize: vertical; }
 .au-hint { text-transform: none; letter-spacing: 0.06em; }
+/* Password field with a Show/Hide button inside its right edge (components/password-input.tsx). */
+.au-pw { position: relative; }
+.au-pw-input { padding-right: 76px; }
+.au-pw-btn {
+  position: absolute; top: 0; right: 0; min-width: 64px; min-height: 48px; padding: 0 12px; background: transparent;
+  border: 0; color: var(--ink); cursor: pointer; font-size: 10.5px; letter-spacing: 0.14em; text-transform: uppercase;
+}
+.au-pw-btn:hover { color: var(--red-deep); }
+.au-pw-btn:focus-visible { outline: 2px solid var(--ink); outline-offset: -4px; }
+.au-forgot { justify-self: start; display: inline-flex; align-items: center; min-height: 48px; margin-top: -10px; color: var(--ink); text-underline-offset: 3px; }
+.au-forgot:hover { color: var(--red-deep); }
+.au-forgot:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+/* The agreement checkbox: a 48 px row, links inside it keep their own underline. */
+.au-card label.au-check { min-height: 48px; align-items: center; font-size: 15px; line-height: 1.4; }
+.au-check a { color: var(--ink); font-weight: 600; text-underline-offset: 3px; }
+.au-check a:hover { color: var(--red-deep); }
 .au-submit { width: 100%; margin-top: 6px; cursor: pointer; font-size: 11px; }
 .au-submit:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 .au-notice { background: var(--paper); border: 1.5px solid var(--ink); border-left-width: 4px; padding: 12px 14px; font-size: 15px; line-height: 1.5; }

@@ -5,6 +5,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { ensureProfile } from "@/lib/profile";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { publicEnv } from "@/lib/env";
+import { checkNewPassword } from "@/lib/auth/password";
 
 function text(form: FormData, name: string): string {
   const v = form.get(name);
@@ -38,7 +39,9 @@ export async function signUp(form: FormData) {
   const email = text(form, "email").toLowerCase();
   const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
   if (!fullName || !email || !password) back("/sign-up", "missing_fields", next);
-  if (password.length < 8) back("/sign-up", "weak_password", next);
+  if (checkNewPassword(password)) back("/sign-up", "weak_password", next);
+  // The agreement is checked in the form only; nothing is stored (no database change).
+  if (form.get("terms") !== "on") back("/sign-up", "terms_required", next);
 
   const { siteUrl } = publicEnv();
   const supabase = await supabaseServer();
@@ -54,6 +57,35 @@ export async function signUp(form: FormData) {
   // does not reveal who has an account.
   if (error && error.code !== "user_already_exists") back("/sign-up", "sign_up_failed", next);
   redirect("/check-email");
+}
+
+export async function requestPasswordReset(form: FormData) {
+  const email = text(form, "email").toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) back("/forgot-password", "missing_fields", "/dashboard");
+
+  const { siteUrl } = publicEnv();
+  const supabase = await supabaseServer();
+  await supabase.auth.resetPasswordForEmail(email, {
+    redirectTo: `${siteUrl}/auth/confirm?next=${encodeURIComponent("/update-password")}`
+  });
+  // Same page whether or not the address has an account, and even if sending failed,
+  // so the form does not reveal who has an account (the same rule as signUp).
+  redirect("/check-email?for=reset");
+}
+
+export async function updatePassword(form: FormData) {
+  const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
+  const confirm = typeof form.get("confirm") === "string" ? (form.get("confirm") as string) : "";
+  const problem = checkNewPassword(password, confirm);
+  if (problem) back("/update-password", problem, "/dashboard");
+
+  const supabase = await supabaseServer();
+  const { data } = await supabase.auth.getUser();
+  if (!data.user) back("/forgot-password", "link_invalid", "/dashboard");
+
+  const { error } = await supabase.auth.updateUser({ password });
+  if (error) back("/update-password", "update_password_failed", "/dashboard");
+  redirect("/dashboard");
 }
 
 export async function signOut() {

@@ -1,8 +1,12 @@
+import type { Metadata } from "next";
 import Link from "next/link";
 import { signIn } from "../actions";
 import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
+import { PasswordInput } from "@/components/password-input";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
+
+export const metadata: Metadata = { title: "Sign in" };
 
 export default async function SignInPage({
   searchParams
@@ -23,9 +27,8 @@ export default async function SignInPage({
         <AuthField label="Email">
           <input name="email" type="email" autoComplete="email" required className={authInput} />
         </AuthField>
-        <AuthField label="Password">
-          <input name="password" type="password" autoComplete="current-password" required className={authInput} />
-        </AuthField>
+        <PasswordInput label="Password" name="password" autoComplete="current-password" />
+        <Link href="/forgot-password" className="au-forgot lp-mono">Forgot password?</Link>
         <button type="submit" className={authButton}>Sign in</button>
       </form>
       <AuthFoot>
