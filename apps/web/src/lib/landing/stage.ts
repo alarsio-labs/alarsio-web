@@ -21,6 +21,14 @@ export function phaseOf(p: number, count: number): number {
   return Math.min(count - 1, Math.floor(clamp01(p) * count));
 }
 
+/** Below this viewport width the landing page is not pinned: phones get the still page. */
+export const PIN_MIN_WIDTH = 768;
+
+/** Whether the pinned scroll stages run: not under reduced motion, and only on a wide viewport. */
+export function shouldPin(v: { reducedMotion: boolean; width: number }): boolean {
+  return !v.reducedMotion && v.width >= PIN_MIN_WIDTH;
+}
+
 /** How far the rail moves so its last card lands flush at the end: never negative. */
 export function railOverflow(trackScrollWidth: number, viewportWidth: number): number {
   return Math.max(0, trackScrollWidth - viewportWidth);

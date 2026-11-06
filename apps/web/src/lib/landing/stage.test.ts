@@ -1,5 +1,23 @@
 import { describe, expect, it } from "vitest";
-import { phaseOf, railOverflow, span, stageProgress } from "./stage";
+import { PIN_MIN_WIDTH, phaseOf, railOverflow, shouldPin, span, stageProgress } from "./stage";
+
+describe("shouldPin", () => {
+  it("pins on a wide viewport when motion is allowed", () => {
+    expect(shouldPin({ reducedMotion: false, width: 1280 })).toBe(true);
+    expect(shouldPin({ reducedMotion: false, width: PIN_MIN_WIDTH })).toBe(true);
+  });
+
+  it("does not pin on a phone or a narrow tablet", () => {
+    expect(shouldPin({ reducedMotion: false, width: 375 })).toBe(false);
+    expect(shouldPin({ reducedMotion: false, width: PIN_MIN_WIDTH - 1 })).toBe(false);
+    expect(shouldPin({ reducedMotion: false, width: 0 })).toBe(false);
+  });
+
+  it("never pins under reduced motion, at any width", () => {
+    expect(shouldPin({ reducedMotion: true, width: 1920 })).toBe(false);
+    expect(shouldPin({ reducedMotion: true, width: 375 })).toBe(false);
+  });
+});
 
 describe("stageProgress", () => {
   it("is 0 when the stage top reaches the viewport top, and 1 when its bottom reaches the bottom", () => {

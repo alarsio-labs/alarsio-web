@@ -39,7 +39,7 @@ export default function Home() {
 
       <main id="main" tabIndex={-1}>
         {/* 1 · Poster hero */}
-        <section className="lp-stage lp-hero on-loam" style={{ "--h": "280svh" } as Vars} data-stage="hero" aria-labelledby="hero-title">
+        <section className="lp-stage lp-hero on-loam" style={{ "--h": "200svh" } as Vars} data-stage="hero" aria-labelledby="hero-title">
           <div className="lp-pin">
             <canvas data-live="hero" aria-hidden="true" />
             <h1 id="hero-title" className="lp-lockup lp-display">
@@ -57,7 +57,7 @@ export default function Home() {
         </section>
 
         {/* 2 · Clip-wipe manifesto */}
-        <section className="lp-stage lp-man" style={{ "--h": "260svh" } as Vars} data-stage="manifesto" aria-label="What Alarsio is for">
+        <section className="lp-stage lp-man" style={{ "--h": "160svh" } as Vars} data-stage="manifesto" aria-label="What Alarsio is for">
           <div className="lp-pin">
             <div className="lp-man-box lp-display">
               <Words as="p" text={MANIFESTO} className="lp-man-base" />

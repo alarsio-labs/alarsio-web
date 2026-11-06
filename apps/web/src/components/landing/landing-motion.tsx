@@ -2,7 +2,7 @@
 
 import { useEffect } from "react";
 import { DAY_RECORD } from "@/lib/landing/content";
-import { phaseOf, railOverflow, span, stageProgress } from "@/lib/landing/stage";
+import { phaseOf, railOverflow, shouldPin, span, stageProgress } from "@/lib/landing/stage";
 import { PLATES, contours, heroField, type Draw } from "./plates";
 
 // The landing page's one scroll driver (docs/DESIGN.md section 2). It writes each
@@ -69,9 +69,29 @@ export function LandingMotion() {
     window.addEventListener("resize", onResize);
     cleanups.push(() => window.removeEventListener("resize", onResize));
 
-    if (reduced) return () => cleanups.forEach((f) => f());
+    // Phones (under 768px) and reduced motion get the complete still page: no pins, no hidden
+    // reveals. This is decided on load; the check below only follows a later resize.
+    const pinNow = () => shouldPin({ reducedMotion: reduced, width: window.innerWidth });
+    if (!pinNow()) return () => cleanups.forEach((f) => f());
     root.classList.add("lp-motion");
     cleanups.push(() => root.classList.remove("lp-motion"));
+
+    // A resize across the breakpoint (a rotated tablet, a resized window) switches the page to
+    // or from the still layout. Debounced, so a drag does not toggle on every frame.
+    let modeTimer = 0;
+    const onModeResize = () => {
+      window.clearTimeout(modeTimer);
+      modeTimer = window.setTimeout(() => {
+        root.classList.toggle("lp-motion", pinNow());
+        measure();
+        schedule();
+      }, 150);
+    };
+    window.addEventListener("resize", onModeResize);
+    cleanups.push(() => {
+      window.clearTimeout(modeTimer);
+      window.removeEventListener("resize", onModeResize);
+    });
 
     // Reveal: one observer, unobserve on entry.
     const io = new IntersectionObserver(

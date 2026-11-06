@@ -59,10 +59,18 @@ Five pinned stages (a tall section with a `position: sticky` inner at `top: 0`, 
 `:root`, written by **one** rAF-coalesced, passive scroll handler. The CSS never knows
 about JavaScript beyond those values.
 
+**Pinning is desktop only: 768 px and wider.** `shouldPin` in `lib/landing/stage.ts` is true only
+when motion is allowed and the viewport is at least `PIN_MIN_WIDTH` (768) wide. Below that, and
+under reduced motion, `landing-motion.tsx` never sets `html.lp-motion`, so a phone gets the complete
+still page: every stage is as tall as its content and nothing is hidden or mid-fade. The stage
+height and sticky rules in `landing.css` sit in `@media (min-width: 768px)` so CSS and script
+agree. A resize across 768 px switches the page after a 150 ms pause. The stage heights below are
+the desktop ones.
+
 Every claim is a row in `docs/FEATURES.md`. No customer names, ratings, prices or numbers
 until the pilot produces real ones.
 
-### Stage 1 · Poster hero (280svh, loam)
+### Stage 1 · Poster hero (200svh, loam)
 
 A full-bleed canvas of short red strokes angled on sines of index, 5–19 % alpha, drawn once (still):
 a site grid seen from above. A two-line lockup: "SITE RECORDS WITH NO SIGNAL" above,
@@ -71,7 +79,7 @@ a site grid seen from above. A two-line lockup: "SITE RECORDS WITH NO SIGNAL" ab
 bottom (Offline first · 2 to 20 sites · Android and web · For Indian contractors), fading
 on page progress. Check each poster line's `scrollWidth` against its `clientWidth`.
 
-### Stage 2 · Clip-wipe manifesto (260svh, cream)
+### Stage 2 · Clip-wipe manifesto (160svh, cream)
 
 One sentence, clamp(34px, 5.6vw, 78px) over 16ch: "Every attendance, report and bag of
 cement, captured with no signal and trusted at wage time." The base is 34 % ink; an exact
