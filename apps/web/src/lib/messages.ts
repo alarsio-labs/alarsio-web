@@ -11,6 +11,7 @@ const MESSAGES = {
   missing_fields: "Fill in every field.",
   sign_up_failed: "Could not create the account. Try again, or sign in if you already have one.",
   link_invalid: "That link is invalid or has expired. Request a new one.",
+  resend_rate: "We sent an email very recently. Wait a minute, then ask again.",
   org_name: "Enter an organisation name of 1 to 120 characters.",
   org_failed: "Could not create the organisation. Try again.",
   review_forbidden: "You cannot review this report.",

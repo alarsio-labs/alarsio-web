@@ -64,7 +64,7 @@ describe("messageFor", () => {
   });
 
   it("has its own message for each sign-in and password reset code", () => {
-    const codes = ["weak_password", "password_mismatch", "update_password_failed", "terms_required", "link_invalid"];
+    const codes = ["weak_password", "password_mismatch", "update_password_failed", "terms_required", "link_invalid", "resend_rate"];
     const texts = new Set<string | null>();
     for (const code of codes) {
       expect(messageFor(code)).not.toBeNull();

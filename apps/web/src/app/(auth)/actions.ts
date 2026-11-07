@@ -56,7 +56,32 @@ export async function signUp(form: FormData) {
   // Same outcome whether or not the email is already registered, so the form
   // does not reveal who has an account.
   if (error && error.code !== "user_already_exists") back("/sign-up", "sign_up_failed", next);
-  redirect("/check-email");
+  // Keep `next` (an invite, for example) so a "send again" from the next page lands there too.
+  redirect(next === "/dashboard" ? "/check-email" : `/check-email?next=${encodeURIComponent(next)}`);
+}
+
+/**
+ * Sends the sign-up confirmation email again, from "Check your email" or "Link expired".
+ * It answers the same whether or not the address has an account (the rule signUp follows),
+ * except when Supabase refuses because the last email went out too recently.
+ */
+export async function resendConfirmation(form: FormData) {
+  const next = safeNextPath(form.get("next"));
+  const from = form.get("from") === "expired" ? "/link-expired" : "/check-email";
+  const email = text(form, "email").toLowerCase();
+  if (!/^\S+@\S+\.\S+$/.test(email)) back(from, "missing_fields", next);
+
+  const { siteUrl } = publicEnv();
+  const supabase = await supabaseServer();
+  const { error } = await supabase.auth.resend({
+    type: "signup",
+    email,
+    options: { emailRedirectTo: `${siteUrl}/auth/confirm?next=${encodeURIComponent(next)}` }
+  });
+  if (error?.code === "over_email_send_rate_limit") back(from, "resend_rate", next);
+  const q = new URLSearchParams({ sent: "1" });
+  if (next !== "/dashboard") q.set("next", next);
+  redirect(`/check-email?${q.toString()}`);
 }
 
 export async function requestPasswordReset(form: FormData) {
@@ -81,7 +106,7 @@ export async function updatePassword(form: FormData) {
 
   const supabase = await supabaseServer();
   const { data } = await supabase.auth.getUser();
-  if (!data.user) back("/forgot-password", "link_invalid", "/dashboard");
+  if (!data.user) redirect("/link-expired?for=reset");
 
   const { error } = await supabase.auth.updateUser({ password });
   if (error) back("/update-password", "update_password_failed", "/dashboard");

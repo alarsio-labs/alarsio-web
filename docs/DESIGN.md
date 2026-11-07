@@ -99,19 +99,40 @@ smooth-scroll or 3D library. The heatmap is the only script.
 Every claim is a row in `docs/FEATURES.md`. No customer names, ratings, prices or real-looking customer
 numbers until the pilot produces real ones; sample figures are always labelled as samples.
 
-## 2b · Sign in, sign up, check email
+## 2b · Sign-in pages, v3 (warm glass)
 
-Same tokens and fonts (`app/fonts.ts`, `landing.css`), laid out in `app/(auth)/layout.tsx`: a loam
-panel with the still site-grid canvas, the wordmark, "Site records with no signal" and the hero's
-mono metadata, beside the form on cream. On phones the panel is a band above the form, without the
-metadata. The form pieces are in `components/v2-form.tsx` (styles `app/v2-form.css`): a mono eyebrow and an Anton title, mono labels,
-48 px paper inputs with a 1.5 px ink border and zero radius, a full-width ink button, an error notice
-with a red left rule (`role="alert"`), and a hairline-ruled foot for the other link. These pages and
-the dashboard use them; the other app pages keep `components/form.tsx` for now.
+Sign in, Create account, Check email, Link expired, Forgot password, Set a new password and the invite
+page (`app/(auth)`). Chosen by Manish on 7 Nov 2026 from five mocks: the glass card and type of option A,
+the phone of option D and the wordmark of option C. It replaces the loam panel with the site-grid canvas.
 
-The auth pages also carry the password pieces: `components/password-input.tsx` (a field with a
-Show/Hide button, 48 px) and the "Forgot password?" link, and the sign-up page has the required
-terms checkbox in a 48 px row.
+- **Fonts** (`app/fonts.ts`, self-hosted): Bricolage Grotesque 700 for titles (30 px on phones, 34 px from
+  480 px), Instrument Sans for text (16 px body and inputs, 14 px labels, 13 px hints), Archivo 800 at
+  125% width, upper case, for the wordmark (22 px), with "SIO" in red. Labels are sentence case, not mono.
+- **Ground.** Warm cream `#F7EFE6` under three soft peach glows. Each page tints the glow a little through
+  its tone: warm (sign in), fresh (create account), mail (check email), alert (link expired, bad invite),
+  key (passwords), invite.
+- **Layout** (`components/auth/scene.tsx`). From 960 px: a picture on the left and the card on the right.
+  Below that the picture goes and a small header sits above the card, different on each page: a "Works with
+  no signal" chip (sign in), a three-step strip with step 1 lit (create account), a floating envelope
+  (check email), an amber clock (link expired), a key or a lock (passwords), an envelope-house (invite).
+- **Pictures** (`components/auth/visuals.tsx`, all sample data, hidden from screen readers): the phone's
+  Today screen (sign in), the three steps to a pilot (create account), an inbox with the email arriving
+  (check email), a torn old link beside a new one (link expired), a key or lock (passwords), the invitation
+  with the roles (invite).
+- **Card.** White at 72% with a 20 px blur, 28 px corners (24 px on phones), 40 px padding (28 × 22 on
+  phones). Inputs 52 px, 14 px corners, red focus ring. The main button is a red pill, 52 px.
+- **Feedback.** `SubmitButton` (`components/auth/submit-button.tsx`) swaps to a spinner and a "…ing" label
+  while the form sends, ignores a second tap, dims the fields, and after 6 s adds "Still working. A slow
+  connection can take a little longer." Links between these pages (`PendingLink`) show a small spinner while
+  the next page loads. Notices (`AuthNotice`) drop in with an icon: error (red, a small shake, `role="alert"`),
+  success, warning and info (`role="status"`). New passwords get a four-step strength bar
+  (`lib/auth/strength.ts`; a guide only, the rule is `lib/auth/password.ts`).
+- **Motion.** The card and its rows rise in over 0.5 s, one after another; the phone and the floating cards
+  drift slowly. With reduced motion, all of it stops except the spinner.
+- **Link expired** (`/link-expired`). `/auth/confirm` sends a link it cannot use here (`lib/auth/expired.ts`),
+  keeping `next`, or with `for=reset` for a password link. The page asks for the email and sends a new link
+  of the same kind; "Check your email" can send it again too. Both answer the same whether or not the address
+  has an account; only Supabase's own rate limit shows a "wait a minute" message.
 
 ## 2b-i · Info pages
 
@@ -224,8 +245,8 @@ It brings the phone app in line with the public site (section 2). Tokens are in 
 after 15 Nov.** It replaces v3 (the grey console with a sidebar, #176, 6 Nov), which replaced "Warm print,
 calm" (30 Oct); both are in git history. Why: Ishant chose a warmer, more polished dashboard look from a
 reference shot. We took its patterns (warm ground, frosted cards, pill navigation, light display numbers,
-stat cards with bars, tinted alert rows), not its brand or content. The landing page and the sign-in pages
-keep the print look (sections 1 to 2b); every signed-in page uses this console.
+stat cards with bars, tinted alert rows), not its brand or content. The landing page keeps its own look (sections 1 to 2a)
+and the sign-in pages use warm glass too (section 2b); every signed-in page uses this console.
 
 ### Tokens (scoped to `.app`, in `app/(app)/console.css`)
 
