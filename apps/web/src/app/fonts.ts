@@ -7,6 +7,8 @@ export const mono = Martian_Mono({ weight: "400", subsets: ["latin"], variable: 
 
 // The sign-in pages (docs/DESIGN.md section 2b, v3): Bricolage Grotesque titles, Instrument Sans
 // text, and the wordmark in Archivo at its widest (125%).
-export const bricolage = Bricolage_Grotesque({ subsets: ["latin"], weight: ["500", "700"], variable: "--font-auth-display", display: "swap" });
-export const instrument = Instrument_Sans({ subsets: ["latin"], weight: ["400", "500", "600"], variable: "--font-auth-body", display: "swap" });
+// All three are variable fonts, loaded whole: a list of weights for a variable font breaks the
+// Turbopack production build ("next/font/google queries have exactly one entry").
+export const bricolage = Bricolage_Grotesque({ subsets: ["latin"], variable: "--font-auth-display", display: "swap" });
+export const instrument = Instrument_Sans({ subsets: ["latin"], variable: "--font-auth-body", display: "swap" });
 export const archivo = Archivo({ subsets: ["latin"], axes: ["wdth"], variable: "--font-auth-brand", display: "swap" });
