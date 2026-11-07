@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 // Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 before relying on it.
 // Entity, address and Grievance Officer come from lib/site/legal.ts.
-const UPDATED = "6 November 2026";
+const UPDATED = "7 November 2026";
 
 const sections: DocSection[] = [
   {
@@ -76,10 +76,23 @@ const sections: DocSection[] = [
     id: "cookies",
     title: "Cookies",
     body: (
-      <p>
-        We use only the cookies needed to keep you signed in and to keep your session secure. We do not use advertising
-        or third-party tracking cookies on our website.
-      </p>
+      <>
+        <p>
+          <strong>Always on.</strong> Cookies that keep you signed in and keep your session secure, and{" "}
+          <code>alarsio_consent</code>, which remembers your cookie choice for six months. The Service cannot work
+          without them, so they do not need your consent.
+        </p>
+        <p>
+          <strong>Analytics, only if you accept.</strong> On our public pages (not inside the app) we use Google
+          Analytics to count visits and see which pages are useful. Its cookies, <code>_ga</code> and{" "}
+          <code>_ga_*</code>, are set only after you click Accept on the cookie banner, and last up to two years. We
+          turn off Google signals and advertising features, so this data is not used for ads.
+        </p>
+        <p>
+          You can change your choice at any time with &quot;Cookie settings&quot; at the bottom of any public page. If
+          you reject, we stop Google Analytics and delete its cookies. We do not use advertising cookies.
+        </p>
+      </>
     )
   },
   {
@@ -94,7 +107,8 @@ const sections: DocSection[] = [
         </p>
         <p>
           <strong>Service providers.</strong> We use trusted providers to host the Service and to store data (Vercel and
-          Supabase), to send emails, and to receive app crash reports. They process data only on our instructions and
+          Supabase), to send emails, to receive app crash reports, and, if you accept analytics cookies, to measure visits to our
+          public pages (Google Analytics). They process data only on our instructions and
           only to provide their service to us.
         </p>
         <p>
