@@ -1,8 +1,10 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { signIn } from "../actions";
-import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
-import { PasswordInput } from "@/components/password-input";
+import { AuthField, AuthFoot, AuthNotice, AuthScene, AuthTitle } from "@/components/auth/scene";
+import { PasswordField } from "@/components/auth/password-field";
+import { SubmitButton } from "@/components/auth/submit-button";
+import { PendingLink } from "@/components/auth/pending-link";
+import { StatusChip, TodayVisual } from "@/components/auth/visuals";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
 
@@ -17,23 +19,29 @@ export default async function SignInPage({
   const next = safeNextPath(params.next);
   const error = messageFor(params.error);
   const signUpHref = next === "/dashboard" ? "/sign-up" : `/sign-up?next=${encodeURIComponent(next)}`;
+  const invited = next.startsWith("/invite/");
 
   return (
-    <>
-      <AuthHeading eyebrow="Welcome back" title="Sign in" />
+    <AuthScene tone="warm" visual={<TodayVisual />} mobileTop={<StatusChip />}>
+      <AuthTitle
+        title={invited ? "Sign in to join" : "Sign in"}
+        sub={invited ? "Sign in, and you come straight back to your invite." : "Welcome back. Use the email your invite came to."}
+      />
+      {error && <AuthNotice kind="error">{error}</AuthNotice>}
       <form action={signIn}>
-        {error && <AuthNotice kind="error">{error}</AuthNotice>}
         <input type="hidden" name="next" value={next} />
-        <AuthField label="Email">
-          <input name="email" type="email" autoComplete="email" required className={authInput} />
-        </AuthField>
-        <PasswordInput label="Password" name="password" autoComplete="current-password" />
-        <Link href="/forgot-password" className="au-forgot lp-mono">Forgot password?</Link>
-        <button type="submit" className={authButton}>Sign in</button>
+        <AuthField label="Email" name="email" type="email" autoComplete="email" inputMode="email" placeholder="you@company.in" required />
+        <PasswordField label="Password" name="password" autoComplete="current-password" />
+        <div className="sx-row">
+          <PendingLink href="/forgot-password" className="sx-link-red">Forgot password?</PendingLink>
+        </div>
+        <SubmitButton label="Sign in" pendingLabel="Signing in…" />
       </form>
       <AuthFoot>
-        New here? <Link href={signUpHref}>Create an account</Link>
+        <p>
+          New to Alarsio? <PendingLink href={signUpHref}>Create an account</PendingLink>
+        </p>
       </AuthFoot>
-    </>
+    </AuthScene>
   );
 }

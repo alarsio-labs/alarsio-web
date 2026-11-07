@@ -1,7 +1,9 @@
 import type { Metadata } from "next";
-import Link from "next/link";
 import { requestPasswordReset } from "../actions";
-import { AuthField, AuthFoot, AuthHeading, AuthNotice, authButton, authInput } from "@/components/v2-form";
+import { AuthField, AuthFoot, AuthNotice, AuthScene, AuthTitle } from "@/components/auth/scene";
+import { SubmitButton } from "@/components/auth/submit-button";
+import { PendingLink } from "@/components/auth/pending-link";
+import { IconBadge, KeyVisual } from "@/components/auth/visuals";
 import { messageFor } from "@/lib/messages";
 
 export const metadata: Metadata = { title: "Reset password" };
@@ -15,18 +17,18 @@ export default async function ForgotPasswordPage({
   const error = messageFor(params.error);
 
   return (
-    <>
-      <AuthHeading eyebrow="Forgot your password?" title="Reset password" />
+    <AuthScene tone="key" visual={<KeyVisual />} mobileTop={<IconBadge kind="key" />}>
+      <AuthTitle title="Forgot your password?" sub="Enter your email and we send you a link to set a new one." />
+      {error && <AuthNotice kind="error">{error}</AuthNotice>}
       <form action={requestPasswordReset}>
-        {error && <AuthNotice kind="error">{error}</AuthNotice>}
-        <AuthField label="Email" hint="We will email you a link to set a new password.">
-          <input name="email" type="email" autoComplete="email" required className={authInput} />
-        </AuthField>
-        <button type="submit" className={authButton}>Send reset link</button>
+        <AuthField label="Email" name="email" type="email" autoComplete="email" inputMode="email" required placeholder="you@company.in" />
+        <SubmitButton label="Send reset link" pendingLabel="Sending link…" />
       </form>
       <AuthFoot>
-        <Link href="/sign-in">Back to sign in</Link>
+        <p>
+          Remembered it? <PendingLink href="/sign-in">Back to sign in</PendingLink>
+        </p>
       </AuthFoot>
-    </>
+    </AuthScene>
   );
 }

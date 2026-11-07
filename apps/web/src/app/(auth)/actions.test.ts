@@ -11,6 +11,7 @@ const sb = vi.hoisted(() => ({
   signUp: { error: null as AuthError },
   getUser: { data: { user: null as { id: string } | null } },
   updateUser: { error: null as AuthError },
+  resend: { error: null as AuthError },
   profiles: [] as string[]
 }));
 
@@ -32,6 +33,7 @@ vi.mock("@/lib/supabase/server", () => ({
       signInWithPassword: async (...args: unknown[]) => (sb.calls.push({ fn: "signInWithPassword", args }), sb.signIn),
       signUp: async (...args: unknown[]) => (sb.calls.push({ fn: "signUp", args }), sb.signUp),
       resetPasswordForEmail: async (...args: unknown[]) => (sb.calls.push({ fn: "resetPasswordForEmail", args }), { error: { code: "over_email_send_rate_limit" } }),
+      resend: async (...args: unknown[]) => (sb.calls.push({ fn: "resend", args }), sb.resend),
       getUser: async () => sb.getUser,
       updateUser: async (...args: unknown[]) => (sb.calls.push({ fn: "updateUser", args }), sb.updateUser),
       signOut: async () => (sb.calls.push({ fn: "signOut", args: [] }), { error: null })
@@ -39,7 +41,7 @@ vi.mock("@/lib/supabase/server", () => ({
   })
 }));
 
-const { requestPasswordReset, signIn, signOut, signUp, updatePassword } = await import("./actions");
+const { requestPasswordReset, resendConfirmation, signIn, signOut, signUp, updatePassword } = await import("./actions");
 
 const form = (fields: Record<string, string>) => {
   const f = new FormData();
@@ -67,6 +69,7 @@ beforeEach(() => {
   sb.signUp = { error: null };
   sb.getUser = { data: { user: { id: "u1" } } };
   sb.updateUser = { error: null };
+  sb.resend = { error: null };
 });
 
 describe("signIn", () => {
@@ -131,11 +134,47 @@ describe("signUp", () => {
   });
 
   it("signs up with the name and a verification link that keeps a safe next", async () => {
-    expect(await target(() => signUp(form({ ...good, next: "/team?org=o1" })))).toBe("/check-email");
+    expect(await target(() => signUp(form({ ...good, next: "/team?org=o1" })))).toBe("/check-email?next=%2Fteam%3Forg%3Do1");
     const args = called("signUp")[0]?.args[0] as { email: string; options: { data: { full_name: string } } };
     expect(args.email).toBe("asha@example.com");
     expect(args.options.data.full_name).toBe("Asha Patil");
     expect(redirectTo()).toBe("https://app.test/auth/confirm?next=%2Fteam%3Forg%3Do1");
+  });
+});
+
+describe("resendConfirmation", () => {
+  const sentTo = () => called("resend")[0]?.args[0] as { type: string; email: string; options: { emailRedirectTo: string } };
+
+  it("refuses an address that is not an email, back on the page it came from", async () => {
+    expect(await target(() => resendConfirmation(form({ email: "nope" })))).toBe("/check-email?error=missing_fields");
+    expect(await target(() => resendConfirmation(form({ email: "nope", from: "expired", next: "/team" })))).toBe(
+      "/link-expired?error=missing_fields&next=%2Fteam"
+    );
+    expect(called("resend")).toHaveLength(0);
+  });
+
+  it("sends the sign-up email again with a link that keeps a safe next", async () => {
+    expect(await target(() => resendConfirmation(form({ email: " Asha@Example.com ", next: "/invite/abc" })))).toBe(
+      "/check-email?sent=1&next=%2Finvite%2Fabc"
+    );
+    expect(sentTo().type).toBe("signup");
+    expect(sentTo().email).toBe("asha@example.com");
+    expect(sentTo().options.emailRedirectTo).toBe("https://app.test/auth/confirm?next=%2Finvite%2Fabc");
+  });
+
+  it("drops a next that leaves the site", async () => {
+    expect(await target(() => resendConfirmation(form({ email: "a@b.co", next: "https://evil.test" })))).toBe("/check-email?sent=1");
+    expect(sentTo().options.emailRedirectTo).toBe("https://app.test/auth/confirm?next=%2Fdashboard");
+  });
+
+  it("says the same for an unknown address or any other failure", async () => {
+    sb.resend = { error: { code: "user_not_found" } };
+    expect(await target(() => resendConfirmation(form({ email: "a@b.co" })))).toBe("/check-email?sent=1");
+  });
+
+  it("asks to wait when Supabase limits how often it sends", async () => {
+    sb.resend = { error: { code: "over_email_send_rate_limit" } };
+    expect(await target(() => resendConfirmation(form({ email: "a@b.co", from: "expired" })))).toBe("/link-expired?error=resend_rate");
   });
 });
 
@@ -165,7 +204,7 @@ describe("updatePassword", () => {
   it("sends a visitor with no recovery session back to request a new link", async () => {
     sb.getUser = { data: { user: null } };
     expect(await target(() => updatePassword(form({ password: "longenough", confirm: "longenough" })))).toBe(
-      "/forgot-password?error=link_invalid"
+      "/link-expired?for=reset"
     );
     expect(called("updateUser")).toHaveLength(0);
   });

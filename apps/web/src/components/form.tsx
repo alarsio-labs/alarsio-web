@@ -1,5 +1,4 @@
 import type { ReactNode } from "react";
-import { AuthHeading } from "./v2-form";
 
 // The app's shared form pieces, now in the v2 look (docs/DESIGN.md). The classes come
 // from app/v2-form.css and app/landing.css, which the (app) and (auth) layouts load.
@@ -27,15 +26,5 @@ export function Notice({ kind, children }: { kind: "error" | "info"; children: R
     <p role={kind === "error" ? "alert" : "status"} className={`au-notice ${kind === "error" ? "au-notice-error" : ""}`}>
       {children}
     </p>
-  );
-}
-
-/** A titled block on the sign-in pages' layout (used by the invite page). */
-export function AuthCard({ title, children }: { title: string; children: ReactNode }) {
-  return (
-    <>
-      <AuthHeading eyebrow="Invitation" title={title} />
-      <div className="au-body-block">{children}</div>
-    </>
   );
 }
