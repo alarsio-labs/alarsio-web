@@ -13,6 +13,16 @@ export const HERO = {
   meta: ["Offline first", "2 to 20 sites", "Android and web", "For Indian contractors"]
 };
 
+// The product video under the hero. Silent, so everything it says is on screen.
+export const VIDEO = {
+  eyebrow: "See it in 30 seconds",
+  title: "One site day, from check-in to wages.",
+  src: "/video/alarsio-ad.mp4",
+  poster: "/video/alarsio-ad-poster.jpg",
+  label: "A 30-second silent video: a supervisor's check-in, the owner's overview, offline daily reports and wage summaries in Alarsio.",
+  caption: "Silent · 30 seconds · Screens from the live app"
+} as const;
+
 export const MARQUEE = [
   "Works with no signal",
   "Wages from approved days only",

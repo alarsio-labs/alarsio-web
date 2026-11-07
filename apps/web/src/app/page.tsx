@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CTA, DAY_RECORD, FAQ, FEATURES, HEATMAP, HERO, MARQUEE, PROBLEMS, ROLES, STEPS, TRUST } from "@/lib/landing/content";
+import { CTA, DAY_RECORD, FAQ, FEATURES, HEATMAP, HERO, MARQUEE, PROBLEMS, ROLES, STEPS, TRUST, VIDEO } from "@/lib/landing/content";
+import { AdVideo } from "@/components/landing/ad-video";
 import { SeasonHeatmap } from "@/components/landing/season-heatmap";
 import { DashboardMock, PhoneMock } from "@/components/landing/screen-mocks";
 import { StructuredData } from "@/components/landing/structured-data";
@@ -62,6 +63,18 @@ export default function Home() {
             {MARQUEE.map((m) => <li key={m}>{m}</li>)}
           </ul>
         </div>
+
+        {/* 2b · Product video */}
+        <section className="hm-band hm-video-band" aria-labelledby="video-title">
+          <div className="hm-wrap">
+            <Eyebrow>{VIDEO.eyebrow}</Eyebrow>
+            <h2 id="video-title" className="lp-display hm-h2">{VIDEO.title}</h2>
+            <div className="hm-video-frame">
+              <AdVideo src={VIDEO.src} poster={VIDEO.poster} label={VIDEO.label} />
+            </div>
+            <p className="hm-caption">{VIDEO.caption}</p>
+          </div>
+        </section>
 
         {/* 3 · Problem */}
         <section className="hm-band hm-dark" aria-labelledby="problem-title">
