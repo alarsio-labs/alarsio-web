@@ -47,6 +47,15 @@
 .hm-marquee:hover .hm-marquee-track { animation-play-state: paused; }
 @keyframes hm-marquee { to { transform: translateX(-100%); } }
 
+/* 2b · Product video: framed like the hero mocks, 16:9 so nothing jumps while it loads. */
+.hm-video-frame {
+  margin-top: clamp(28px, 4vw, 48px); border: 1.5px solid var(--ink); border-radius: 20px; overflow: hidden;
+  background: #1e130b; box-shadow: 10px 10px 0 var(--ink);
+}
+.hm-video { display: block; width: 100%; height: auto; aspect-ratio: 16 / 9; background: #1e130b; }
+.hm-video-band .hm-caption { margin-top: 22px; }
+@media (max-width: 640px) { .hm-video-frame { border-radius: 14px; box-shadow: 6px 6px 0 var(--ink); } }
+
 /* Cards */
 .hm-grid { display: grid; gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; }
 @media (min-width: 700px) { .hm-grid-3, .hm-grid-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
