@@ -20,3 +20,9 @@ export function parseOverviewParams(
 ): OverviewParams {
   return { date: isCalendarDate(params.date) ? params.date : istToday(now) };
 }
+
+/** The calendar day before a YYYY-MM-DD date, for the "Yesterday" switch. */
+export function previousDay(date: string): string {
+  const ms = Date.parse(`${date}T00:00:00Z`);
+  return new Date(ms - 86_400_000).toISOString().slice(0, 10);
+}

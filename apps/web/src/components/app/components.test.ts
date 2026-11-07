@@ -13,7 +13,7 @@ const { Button, ButtonLink } = await import("./button");
 const { DataTable } = await import("./data-table");
 const { SidebarNav } = await import("./sidebar-nav");
 const { AppTopBar } = await import("./app-top-bar");
-const { StatCard } = await import("./stat-card");
+const { StatCard, progressPercent } = await import("./stat-card");
 const { StatusTag } = await import("./status-tag");
 
 describe("StatCard", () => {
@@ -84,20 +84,48 @@ describe("AppTopBar", () => {
   const links = orgLinks("owner", "org-1");
   const current = links.find((l) => l.label === "Sites")?.path ?? null;
 
-  it("folds the modules into a native menu, with the current one marked", () => {
-    const out = html(h(AppTopBar, { orgName: "Shree Builders", roleLabel: "Owner", pageLabel: "Sites", links, current, signOut }));
-    expect(out).toContain("<details");
+  it("draws the modules as pills and again in the Menu, with the current one marked in each", () => {
+    const out = html(h(AppTopBar, { orgName: "Shree Builders", roleLabel: "Owner", links, current, signOut }));
+    expect(out).toContain('class="cx-pills"');
     expect(out).toContain('aria-label="Menu"');
-    // The breadcrumb's current page and the menu's current link.
     expect(out.match(/aria-current="page"/g)).toHaveLength(2);
     expect(out).toContain(">Shree Builders<");
   });
 
-  it("has no menu and keeps Sign out in the bar without an organisation", () => {
+  it("keeps Sign out in the account menu, with or without an organisation", () => {
     const out = html(h(AppTopBar, { email: "owner@example.com", signOut }));
-    expect(out).not.toContain("<details");
+    expect(out).not.toContain('aria-label="Menu"');
+    expect(out).toContain('aria-label="Account"');
     expect(out).toContain("Sign out");
     expect(out).toContain("owner@example.com");
+  });
+});
+
+describe("SidebarNav pills", () => {
+  it("marks only the current module and draws no icons", () => {
+    const links = orgLinks("owner", "org-1");
+    const out = html(h(SidebarNav, { links, current: links[0]?.path ?? null, variant: "pills" }));
+    expect(out.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(out).not.toContain("<svg");
+  });
+});
+
+describe("StatCard details", () => {
+  it("draws the open link only with an href, and a bar only with something to measure", () => {
+    const plain = html(h(StatCard, { label: "Active sites", value: 2 }));
+    expect(plain).not.toContain("ax-stat-link");
+    expect(plain).not.toContain("ax-meter");
+    const full = html(h(StatCard, { label: "Active sites", value: 2, href: "/sites?org=o1", foot: "of 3 sites", progress: { value: 2, max: 3 } }));
+    expect(full).toContain('href="/sites?org=o1"');
+    expect(full).toContain("of 3 sites");
+    expect(full).toContain("width:67%");
+    expect(html(h(StatCard, { label: "x", value: 0, progress: { value: 0, max: 0 } }))).not.toContain("ax-meter");
+  });
+
+  it("keeps the bar inside 0 to 100 percent", () => {
+    expect(progressPercent({ value: 5, max: 2 })).toBe(100);
+    expect(progressPercent({ value: -1, max: 2 })).toBe(0);
+    expect(progressPercent(undefined)).toBeNull();
   });
 });
 

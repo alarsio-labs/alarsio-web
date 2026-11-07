@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BoardRow } from "./board";
-import { needsYou, overviewStats, reportWord } from "./screen";
+import { needsYou, overviewStatDetails, overviewStats, reportWord } from "./screen";
 
 const row = (over: Partial<BoardRow> = {}): BoardRow => ({
   siteId: "s1",
@@ -73,5 +73,40 @@ describe("reportWord", () => {
     expect(reportWord(row({ report: report("submitted") }))).toBe("Filed");
     expect(reportWord(row({ report: report("rejected") }))).toBe("Sent back");
     expect(reportWord(row({ report: report("reviewed") }))).toBe("Reviewed");
+  });
+});
+
+describe("overviewStatDetails", () => {
+  it("has nothing to measure with no sites, so every bar is 0 of 0", () => {
+    expect(overviewStatDetails([])).toEqual({
+      allSites: 0,
+      activeSites: { value: 0, max: 0 },
+      reportsFiled: { value: 0, max: 0 },
+      daysApproved: { value: 0, max: 0 },
+      lowStockSites: 0
+    });
+  });
+
+  it("counts none filed and none approved when no site has reported", () => {
+    const d = overviewStatDetails([row(), row({ siteId: "s2" })]);
+    expect(d.reportsFiled).toEqual({ value: 0, max: 2 });
+    expect(d.daysApproved).toEqual({ value: 0, max: 2 });
+  });
+
+  it("counts filed and approved over active sites only", () => {
+    const d = overviewStatDetails([
+      row({ report: report("submitted"), attendance: "approved" }),
+      row({ siteId: "s2", report: report("rejected"), attendance: "awaiting_review" }),
+      row({ siteId: "s3", siteStatus: "paused", report: report("reviewed"), attendance: "approved" })
+    ]);
+    expect(d.allSites).toBe(3);
+    expect(d.activeSites).toEqual({ value: 2, max: 3 });
+    expect(d.reportsFiled).toEqual({ value: 2, max: 2 });
+    expect(d.daysApproved).toEqual({ value: 1, max: 2 });
+  });
+
+  it("counts sites with any low stock, not materials", () => {
+    const d = overviewStatDetails([row({ lowStock: 3 }), row({ siteId: "s2", lowStock: 1 }), row({ siteId: "s3" })]);
+    expect(d.lowStockSites).toBe(2);
   });
 });

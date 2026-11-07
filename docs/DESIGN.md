@@ -142,7 +142,7 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
 ## 2c · Dashboard
 
 `app/(app)/dashboard`, in the app console (section 4): the top bar alone (no organisation is chosen yet, so
-no sidebar), a PageHead "Your organisations", then one white card per organisation: a lettered avatar, its
+no module pills), a PageHead "Your organisations", then one white card per organisation: a lettered avatar, its
 name, the member's role as a muted pill, and a grid of link tiles (icon, label, one-line note, →), one
 column on phones and up to four on desktop. Which links a role sees comes from `lib/dashboard/links.ts`
 (`links.test.ts`). With no organisation, the head reads "Create your organisation" and the stepper (2d)
@@ -173,10 +173,10 @@ in `components/form.tsx` is still full width as a Tailwind class so `sm:w-auto` 
 beside a field uses `buttonBase`.
 
 **Responsive and touch.** No page scrolls sideways at 375 px (checked 6 Nov with the console); wide tables
-scroll inside their own card with the first column pinned. Controls are 36–38 px with a mouse and at least
+scroll inside their own card with the first column pinned. Controls are 40 px with a mouse and at least
 44 px on a touch screen (`@media (pointer: coarse)`).
 
-**Width.** List and table pages (`max-w-6xl`) use up to 1240 px; forms and detail pages keep 576 to 768 px,
+**Width.** List and table pages (`max-w-6xl`) use up to 1280 px; forms and detail pages keep 576 to 768 px,
 because long input lines are harder to read. In the console every page sits at the left of the content
 area, not centred in it.
 
@@ -218,51 +218,52 @@ It brings the phone app in line with the public site (section 2). Tokens are in 
 - **Today.** A sync chip under the date that is always shown (`syncChip` in `sync/status-text.ts`: All sent
   / N waiting to send / N need attention), an icon beside each row label, pill buttons below the cards.
 
-## 4 · App screens: the app console (v3)
+## 4 · App screens: the app console, v4 "warm glass"
 
-**Status: Accepted by Ishant, 6 Nov 2026, under the deadline override in CLAUDE.md. Manish to confirm
-after 15 Nov.** It replaces "Warm print, calm" (proposed by Manish 29 Oct, accepted 30 Oct), which is in
-git history. Why: the working screens are used for hours, by owners comparing us with the SaaS tools they
-already use. The print look (Anton titles, uppercase mono, 1.5 px black borders, zero radius) read as the
-landing page, not as a product. The landing page and the sign-in pages keep the print look (sections 1 to
-2b); every signed-in page uses this console.
+**Status: Accepted by Ishant, 7 Nov 2026, under the deadline override in CLAUDE.md. Manish to confirm
+after 15 Nov.** It replaces v3 (the grey console with a sidebar, #176, 6 Nov), which replaced "Warm print,
+calm" (30 Oct); both are in git history. Why: Ishant chose a warmer, more polished dashboard look from a
+reference shot. We took its patterns (warm ground, frosted cards, pill navigation, light display numbers,
+stat cards with bars, tinted alert rows), not its brand or content. The landing page and the sign-in pages
+keep the print look (sections 1 to 2b); every signed-in page uses this console.
 
 ### Tokens (scoped to `.app`, in `app/(app)/console.css`)
 
 | Token | Value | Use | Contrast |
 | :-- | :-- | :-- | :-- |
-| `--cream` (page) | `#F7F8FA` | Page ground | — |
-| `--paper` | `#FFFFFF` | Cards, tables, sidebar, top bar, inputs | — |
-| `--ink` | `#18181B` | Text, primary buttons, focus ring | 17.7:1 on white |
-| `--muted` | `#52525B` | Secondary text | 7.7:1 on white |
-| `--faint` | `#71717A` | Labels, eyebrows, table headers | 4.8:1 on white, 4.5:1 on the page |
-| `--hair` / `--hair-faint` | `#E4E4E7` / `#F0F0F2` | Borders / row lines | — |
-| `--line-strong` | `#D4D4D8` | Input and secondary-button borders | — |
-| `--red` | `#EF493C` | Marks only: the wordmark and the current module's bar | never text |
-| `--red-deep` | `#B42318` | Error text and the error notice's rule | 6.5:1 on white |
+| `--cream` (page) | `#F6F3EF` plus a fixed peach glow (`rgb(239 73 60 / .10)`) bottom right | Page ground | — |
+| `--glass` | `rgb(255 255 255 / .72)`, 14 px backdrop blur, 1 px white border | Cards, stat cards, the pill track, the bar | — |
+| `--ink` | `#1C1917` | Text, primary buttons, the current segment | 17.2:1 on white |
+| `--muted` | `#57534E` | Secondary text, inactive pills | 7.6:1 on white |
+| `--faint` | `#78716C` | Labels, footnotes, breadcrumb | 4.8:1 on white, 4.5:1 on the page |
+| `--hair` / `--line-strong` | `#E7E1DA` / `#D6CFC7` | Borders on solid surfaces / inputs | — |
+| `--accent` | `#EF493C` (Alarsio red-orange) | The logo tile, progress bars, alert squares, the focus ring on inputs | never body text |
+| `--red-deep` | `#B42318` | Error text | 6.5:1 on white |
 
-- **Type:** Inter only, 14 px body, `tabular-nums` for numbers. Page title 22 px (26 px from 768 px),
-  semibold; card title 15 px; stat value 28 px. No Anton and no uppercase mono inside the app.
-- **Shape:** radius 8 px on cards, 6 px on controls; borders 1 px; shadow `0 1px 2px rgb(16 24 40 / .05)`.
-- **Motion:** none beyond a 150 ms colour change on hover; none at all under reduced motion.
-- **Focus:** 2 px ink outline at 2 px offset; inputs show an ink border and a 3 px soft ring.
+- **Type:** Inter only. Page title **light 300**, 40 px (30 px on a phone), tracking −0.025em. Stat values
+  light 300, 38 px, with a 13 px unit. Card titles 15 px medium. No Anton and no uppercase mono in the app.
+- **Shape:** cards 16 px radius, menus and alert rows 12 px, inputs 10 px; buttons, pills, tags and the
+  segmented control are fully round. Shadow `0 1px 2px` plus a soft `0 8px 24px -12px`.
+- **Motion:** none beyond a 150 ms colour change; none under reduced motion.
+- Without `backdrop-filter`, glass falls back to near-solid white. Menus are always solid white.
 
 ### The frame
 
 `components/app/app-frame.tsx` in the `(app)` layout. The layout reads the memberships once; the frame
 takes the organisation from the page's `?org=` (a layout cannot read the query string).
 
-- **Sidebar (1024 px and wider), 248 px, fixed:** the wordmark (red mark), the organisation switcher
-  (lettered avatar, name, role, chevrons; links to `/dashboard`), the module list (`SidebarNav`: an inline
-  SVG icon from `nav-icon.tsx` and the label; the current one has a grey ground and a 3 px red bar), and at
-  the bottom the signed-in email and Sign out.
-- **Top bar, sticky, 56 px:** the breadcrumb (organisation / current module, from `activeLink()` in
-  `lib/app/nav.ts`). Under 1024 px it also carries the wordmark and a **Menu** button: a native `<details>`
-  that opens the switcher, the modules and Sign out, so it works without JavaScript.
-- **No `?org=`** (the dashboard hub): no sidebar; the bar carries the wordmark, the email and Sign out.
-- No bottom bar, and no sideways page scroll at 375 px.
+- **Top bar, sticky, 64 px:** the logo tile and "Alarsio" on the left; the modules as **pills** in one
+  glass capsule in the centre (`SidebarNav variant="pills"`; the current one is a white pill with a
+  shadow); on the right the organisation switcher (avatar, name, role, chevrons → `/dashboard`) and a
+  round **account** button (the email's initial) whose menu shows who is signed in and Sign out.
+- **Under 1200 px** the nine pills do not fit, so they fold into a **Menu** button (the same links,
+  stacked, with icons). Under 768 px the switcher moves into the Menu and the Menu spans the screen.
+  Both menus are native `<details>`, so they work without JavaScript.
+- **Breadcrumb** under the bar, above the title: a folder icon, the organisation, then the module.
+- **No `?org=`** (the dashboard hub): no pills, no breadcrumb; the logo and the account button only.
+- No sidebar, no bottom bar, and no sideways page scroll at 375 px.
 
-**Which links a role sees:** the sidebar, the menu and the dashboard read one list, `lib/dashboard/links.ts`
+**Which links a role sees:** the pills, the Menu and the dashboard read one list, `lib/dashboard/links.ts`
 (tested by `links.test.ts`). RLS stays the boundary; a hidden link is only a convenience.
 
 | Link | owner | project_manager | accountant | supervisor |
@@ -289,27 +290,37 @@ takes the organisation from the page's `?org=` (a layout cannot read the query s
 
 ### Components
 
-In `components/app/`: `AppFrame`, `AppTopBar` (with `Brand`, `OrgSwitch`, `SignOutButton`), `SidebarNav`,
-`Icon`, `PageHead`, `StatCard`, `Card`, `DataTable`, `StatusTag`, `Button` / `ButtonLink` and `Notice`.
-Fields stay in `v2-form.tsx`. A screen uses these pieces and does not restyle them.
+In `components/app/`: `AppFrame`, `AppTopBar` (with `Brand`, `OrgSwitch`, `AccountMenu`, `Crumbs`),
+`SidebarNav`, `Icon`, `PageHead`, `StatCard`, `Card`, `DataTable`, `StatusTag`, `Button` / `ButtonLink`
+and `Notice`. Fields stay in `v2-form.tsx`. A screen uses these pieces and does not restyle them.
 
-- **Button.** Primary: ink ground, white text. Secondary: white with a grey border. 38 px (44 px on touch),
-  6 px radius, 14 px medium. There is no red button; a destructive action (archive, lock, reopen, send
-  back) keeps its existing confirm step.
-- **Field.** A 13 px medium label above a 38 px white input with a grey border and 6 px radius. Help text
-  12 px under it; an error makes the border `red-deep`.
-- **Notice.** A soft ground with a 3 px left rule: error is red (`role="alert"`), information blue
+- **Page head.** Light title, the note under it, and on the right an optional `aside` (a segmented control)
+  and one action.
+- **Segmented control** (`.ax-seg`): a glass capsule; the current item is ink with white text. The Overview
+  uses it for Yesterday · Today (links to `?date=`).
+- **Button.** Fully round, 40 px (44 px on touch). Primary: ink with white text. Secondary: white glass.
+  There is no red button; a destructive action keeps its existing confirm step.
+- **Field.** A 13 px label above a 40 px input on near-white, 10 px radius; focus is an ink border and a
+  soft accent ring.
+- **Notice.** A tinted glass strip with a small square: error is red (`role="alert"`), information blue
   (`role="status"`).
-- **Status tag.** A soft pill with a dot, in the app's own words. Three tones (`lib/app/status.ts`): a state
-  that asks someone to act (needs approval, sent back, rejected, flagged, no rate, low stock) is **amber**;
-  a settled state (approved, filed) is **green**; nothing yet (draft, none, not started, not filed) is
-  **grey**. The word still carries the meaning.
-- **Stat card.** A 13 px label and a 28 px number. "To approve" and "Low stock" turn amber, with a dot
-  before the label, only when the number is above 0.
-- **Card.** White, 1 px border, 8 px radius, the faint shadow; a title row with a divider. A table that is
-  the card's only child runs edge to edge.
-- **Table.** A `#FAFAFA` header row in 12 px medium grey, hairline row lines, row hover, numbers right-aligned.
-  On a narrow screen it scrolls inside its card with the first column pinned. No card layouts on phones.
+- **Status tag.** A round soft pill with a small square, three tones (`lib/app/status.ts`): **amber** asks
+  someone to act, **green** is settled, **grey** is nothing yet.
+- **Stat card.** The label and a round ↗ link to the page behind the number (`href`); a light number with
+  its unit; a footnote line (`foot`, `footEnd`); and a bar (`progress`) with an accent fill, a hatched
+  remainder and an ink marker. With nothing to measure (max 0) there is no bar. "To approve" and "Low
+  stock" turn amber with a square when above 0.
+- **Footnotes and bars show only counts the page loaded.** Never a trend, a target or a comparison we do not
+  store. The Overview's come from `overviewStatDetails()` in `lib/overview/screen.ts` (tested): active of
+  all sites, reports filed of active sites, days approved of active sites, and the number of sites with
+  low stock.
+- **Alert rows** (Overview "Alerts & tasks"): one tinted row per `needsYou()` item, the thing on top and
+  the site under it, its action on the right. Peach with a red square for an item that needs a decision,
+  amber for a flag, stock or visit, and one green "All clear" row when there is nothing.
+- **Card.** Glass, 16 px radius, a title row without a divider. A table that is the card's only child runs
+  nearly edge to edge.
+- **Table.** A quiet header row in 12 px grey, faint row lines, row hover, numbers right-aligned. Under
+  900 px it scrolls inside its card with the first column pinned on its own ground.
 - **Empty state.** One sentence saying what is missing and the one action that fills it.
 
 ### Rules

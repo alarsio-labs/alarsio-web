@@ -26,6 +26,34 @@ export function overviewStats(rows: readonly BoardRow[]): OverviewStats {
   };
 }
 
+/** A progress bar's numbers; `max` 0 means there is nothing to measure, so no bar. */
+export type Ratio = { value: number; max: number };
+
+export type OverviewStatDetails = {
+  allSites: number;
+  activeSites: Ratio;
+  reportsFiled: Ratio;
+  daysApproved: Ratio;
+  lowStockSites: number;
+};
+
+/**
+ * The footnotes and bars under the four stat cards, from the same board as the
+ * numbers: nothing here is a trend or a target, only counts of what was loaded.
+ * Filed and approved are counted over active sites, which is what a manager expects
+ * each day; a paused or archived site has no report or attendance to wait for.
+ */
+export function overviewStatDetails(rows: readonly BoardRow[]): OverviewStatDetails {
+  const active = rows.filter((r) => r.siteStatus === "active");
+  return {
+    allSites: rows.length,
+    activeSites: { value: active.length, max: rows.length },
+    reportsFiled: { value: active.filter((r) => r.report !== null).length, max: active.length },
+    daysApproved: { value: active.filter((r) => r.attendance === "approved").length, max: active.length },
+    lowStockSites: rows.filter((r) => r.lowStock > 0).length
+  };
+}
+
 export const DAY_WORD: Record<AttendanceState, string> = {
   approved: "Approved",
   awaiting_review: "Needs approval",
