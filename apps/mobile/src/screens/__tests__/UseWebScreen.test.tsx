@@ -20,7 +20,7 @@ describe('UseWebScreen', () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await render(<UseWebScreen kind="web" user={USER} unsentCounts={counts} signOut={jest.fn()} />);
 
-    expect(screen.getByText('Approvals, wages and the overview are on the web at alarsio.com.')).toBeTruthy();
+    expect(screen.getByText('Reviews, wages and the overview are on the web at alarsio.com.')).toBeTruthy();
     await fireEvent.press(screen.getByRole('link', { name: 'Open alarsio.com' }));
     expect(open).toHaveBeenCalledWith('https://alarsio.com');
     expect(screen.getByRole('button', { name: /Sign out/ })).toBeTruthy();

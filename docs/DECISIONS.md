@@ -2147,7 +2147,7 @@ or against the team project (#58).
 ---
 
 ## ADR-050 · The phone's role gate: supervisors and project managers capture, owners and accountants go to the web
-**Date:** 2026-11-06 · **Status:** Proposed · **By:** Manish (pilot polish, branch `feat/mobile-pilot-polish`). Identity owns the rule: Ishant to confirm. Nikhil and Anuradha review it too.
+**Date:** 2026-11-06 · **Status:** Accepted (Ishant, 7 Nov 2026) · **By:** Manish (pilot polish, branch `feat/mobile-pilot-polish`). Identity owns the rule; Ishant confirmed it on 7 Nov. Nikhil and Anuradha review it too.
 
 **Context.** The phone is the capture app. An owner or accountant has no site capture job, so the phone sent them into
 screens they could not use. The role already sits in the user's own `memberships` rows, which RLS lets them read.

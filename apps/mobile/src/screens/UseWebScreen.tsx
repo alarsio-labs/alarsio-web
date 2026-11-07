@@ -24,7 +24,7 @@ export function UseWebScreen({ kind, user, unsentCounts, signOut }: UseWebScreen
       </Text>
       {kind === 'web' ? (
         <>
-          <Text style={styles.text}>Approvals, wages and the overview are on the web at alarsio.com.</Text>
+          <Text style={styles.text}>Reviews, wages and the overview are on the web at alarsio.com.</Text>
           <Pressable
             accessibilityRole="link"
             accessibilityLabel="Open alarsio.com"
