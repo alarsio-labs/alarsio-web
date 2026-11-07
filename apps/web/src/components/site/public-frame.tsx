@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { CONTACT_EMAIL, CONTACT_WHATSAPP, whatsAppHref } from "@/lib/site/contact";
 import { FOOTER_COLUMNS } from "@/lib/site/nav";
+import { CookieConsent, CookieSettingsLink } from "./cookie-consent";
 import { SiteHeader } from "./site-header";
 import { Wordmark } from "./wordmark";
 
@@ -42,9 +43,13 @@ export function SiteFooter() {
         </div>
         <div className="lp-sitefoot-base">
           <span>© {new Date().getFullYear()} Alarsio. All rights reserved.</span>
-          {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>}
+          <span className="lp-sitefoot-end">
+            {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>}
+            <CookieSettingsLink />
+          </span>
         </div>
       </div>
+      <CookieConsent />
     </footer>
   );
 }
