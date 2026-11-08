@@ -8,6 +8,14 @@
 .dl-hero .hm-h1 { max-width: 14ch; }
 .dl-hero .hm-lede { max-width: 48ch; }
 
+/* One quiet line under the buttons, and the at-a-glance facts as pills (the About page's pattern). */
+.dl-hint { margin: 16px 0 0; max-width: 48ch; font-size: 15px; line-height: 1.6; color: var(--muted); }
+.dl-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; padding: 0; list-style: none; }
+.dl-facts li {
+  padding: 8px 16px; border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
+  font-size: 14px; line-height: 1.4; color: var(--muted);
+}
+
 .dl-grid { display: grid; gap: 56px; align-items: center; }
 @media (min-width: 1000px) { .dl-grid { grid-template-columns: 1.1fr 0.9fr; gap: 72px; } }
 
@@ -18,6 +26,8 @@
 
 /* The three steps: the home page's ruled list, kept to a readable width. */
 .dl-steps { max-width: 760px; }
+.dl-help { margin: 28px 0 0; max-width: 760px; font-size: 16px; line-height: 1.6; color: var(--muted); }
+.dl-help a { color: var(--red-deep); font-weight: 600; text-underline-offset: 3px; }
 
 /* Phone or web: two cards side by side from 700 px. */
 .dl-two { display: grid; gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; }
