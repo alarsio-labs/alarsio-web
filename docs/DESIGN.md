@@ -148,9 +148,16 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
 `components/site/public-frame.tsx`:
 
 - **Header** (v2.1, `components/site/site-header.tsx` via `PublicHeader`): the wordmark; from 1000 px the
-  page links Features, How it works, Download app, About (`HEADER_LINKS` in `lib/site/nav.ts`); "Sign in"
+  page links Features, How it works, **Who we serve** (a dropdown), Download app, About (`HEADER_ITEMS` in
+  `lib/site/nav.ts`); "Sign in"
   as a line pill from 640 px; "Start free pilot" (`CTA.primary`) as a red pill at every width; below
   1000 px a **Menu** button. Tap targets 44 px. The same header on the home page, info pages, 404 and error.
+- **Who we serve** (`HeaderGroup` in `components/site/site-header.tsx`): a button with a caret that opens a
+  short list of the four roles (Owners, Project managers, Supervisors, Accountants; `WHO_WE_SERVE`), each
+  jumping to its card in the home page's "Four roles" section (`#role-owner` and so on, from `roleId()`).
+  A plain disclosure, not an ARIA menu: `aria-expanded`, ordinary links, and it closes on Escape (focus
+  returns to the button), a click outside, focus moving away, or choosing a link. Only the four roles in
+  CLAUDE.md are listed. Below 1000 px the full-screen menu's "Who does what" goes to the same section.
 - **Menu.** A native modal `<dialog>`, full screen on loam: numbered Anton links (`MENU_LINKS`), then Start
   free pilot, Sign in and WhatsApp (when configured). Focus starts on Close and stays inside; Esc closes it
   and returns focus to the Menu button; the page behind does not scroll.
