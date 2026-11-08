@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { CONTACT_EMAIL, CONTACT_WHATSAPP, whatsAppHref } from "@/lib/site/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
 import { FOOTER_COLUMNS } from "@/lib/site/nav";
 import { CookieConsent, CookieSettingsLink } from "./cookie-consent";
 import { SiteHeader } from "./site-header";
@@ -17,6 +17,7 @@ export function PublicHeader() {
 
 export function SiteFooter() {
   const whatsApp = whatsAppHref(CONTACT_WHATSAPP);
+  const call = telHref(CONTACT_PHONE);
   return (
     <footer className="lp-sitefoot">
       <div className="lp-sitefoot-in">
@@ -44,6 +45,7 @@ export function SiteFooter() {
         <div className="lp-sitefoot-base">
           <span>© {new Date().getFullYear()} Alarsio. All rights reserved.</span>
           <span className="lp-sitefoot-end">
+            {call && CONTACT_PHONE && <a href={call}>{displayPhone(CONTACT_PHONE)}</a>}
             {CONTACT_EMAIL && <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a>}
             <CookieSettingsLink />
           </span>

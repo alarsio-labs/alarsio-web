@@ -52,6 +52,7 @@ export function SiteHeader({ whatsApp }: { whatsApp?: string | null }) {
           </nav>
           <div className="lp-menu-foot">
             <Link href={CTA.primary.href} className="lp-pill lp-pill-red" onClick={close}>{CTA.primary.label}</Link>
+            <Link href={CTA.pilot.href} className="lp-pill lp-pill-ghost" onClick={close}>{CTA.pilot.label}</Link>
             <Link href={CTA.secondary.href} className="lp-pill lp-pill-ghost" onClick={close}>{CTA.secondary.label}</Link>
             {whatsApp && (
               <a href={whatsApp} className="lp-pill lp-pill-ghost" target="_blank" rel="noopener noreferrer">WhatsApp us</a>

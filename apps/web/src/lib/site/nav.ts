@@ -19,6 +19,7 @@ export const MENU_LINKS: NavLink[] = [
   { href: "/download", label: "Download app" },
   { href: "/#faq", label: "Questions" },
   { href: "/about", label: "About" },
+  { href: "/demo", label: "Book a demo" },
   { href: "/contact", label: "Contact" }
 ];
 
@@ -35,6 +36,7 @@ export const FOOTER_COLUMNS: { title: string; links: NavLink[] }[] = [
   {
     title: "Get started",
     links: [
+      { href: "/demo", label: "Book a demo" },
       { href: "/sign-up", label: "Start free pilot" },
       { href: "/download", label: "Download app" },
       { href: "/sign-in", label: "Sign in" }

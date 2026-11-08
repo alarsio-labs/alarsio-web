@@ -141,11 +141,13 @@ eas build --profile pilot --platform android
 | `NEXT_PUBLIC_SITE_URL` | Vercel | yes | web: invite and verification links |
 | `NEXT_PUBLIC_CONTACT_EMAIL` | Vercel | yes | web: support email on the Contact page (redeploy after a change) |
 | `NEXT_PUBLIC_CONTACT_WHATSAPP` | Vercel | yes | web: WhatsApp number, digits with country code (redeploy after a change) |
+| `NEXT_PUBLIC_CONTACT_PHONE` | Vercel | yes | web: phone number for "Call us" links, digits with country code; unset hides them (redeploy after a change) |
 | `NEXT_PUBLIC_APK_URL` | Vercel | yes | web: optional https link to the pilot APK on `/download`; unset uses `PILOT_APK_URL` in `apps/web/src/lib/site/download.ts` (redeploy after a change) |
 | `NEXT_PUBLIC_GA_ID` | Vercel | yes | web: optional Google Analytics 4 ID (`G-…`). Loads on public pages only, after the visitor accepts the cookie banner; unset means no analytics and no banner (redeploy after a change) |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` | Vercel | **no** (server only) | web: invite emails |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER` | Vercel | **no** (server only) | web: invite and enquiry emails |
 | `SMTP_PASSWORD` | Vercel (sensitive) | **no** | web: invite emails |
 | `EMAIL_FROM` | Vercel | **no** | web: invite emails |
+| `ENQUIRY_TO_EMAIL` | Vercel | **no** (server only) | web: inbox that receives `/demo` enquiries, sent through the SMTP settings above (Resend: `smtp.resend.com`, port 465, user `resend`, password = API key, `EMAIL_FROM` on a verified domain). Unset: the form offers WhatsApp and Call instead |
 | `EXPO_PUBLIC_SUPABASE_URL` | EAS environment | yes (inside the APK) | mobile |
 | `EXPO_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | EAS environment | yes (inside the APK) | mobile |
 | SMTP settings for Auth emails | Supabase dashboard | no | Supabase Auth, not the app |
