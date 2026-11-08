@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import Link from "next/link";
 import { Eyebrow } from "@/components/site/eyebrow";
 import { PhoneMock } from "@/components/landing/screen-mocks";
-import { CTA, HERO } from "@/lib/landing/content";
+import { CTA } from "@/lib/landing/content";
 import { CONTACT_WHATSAPP, whatsAppHref } from "@/lib/site/contact";
 import { APK_URL } from "@/lib/site/download";
 import "@/app/home.css";
@@ -14,8 +14,14 @@ export const metadata: Metadata = {
   alternates: { canonical: "/download" }
 };
 
+// The file size is stated once, so the facts row and step 1 cannot disagree.
+// A non-breaking space keeps the number and its unit on one line.
+const APP_SIZE = "about 100\u00a0MB";
+
+const FACTS = [`Download ${APP_SIZE}`, "Works with no signal", "Free during the pilot"];
+
 const STEPS = [
-  { title: "Download the app", body: "Tap the button on your Android phone. The file is about 100 MB, so use Wi-Fi if you can." },
+  { title: "Download the app", body: `Open this page on your Android phone and tap Download for Android. The file is ${APP_SIZE}, so use Wi-Fi if you can.` },
   { title: "Allow the install", body: "Android asks whether to allow apps from this source. Allow it once for your browser, then tap Install." },
   { title: "Sign in", body: "Open Alarsio and sign in with the email and password from the invite your owner sent you. Your sites download while you have signal." }
 ];
@@ -27,28 +33,33 @@ const n = (i: number) => String(i + 1).padStart(2, "0");
 // page points to WhatsApp or Contact instead of a dead button.
 export default function DownloadPage() {
   const whatsApp = whatsAppHref(CONTACT_WHATSAPP);
+  const help = whatsApp ? (
+    <a href={whatsApp} target="_blank" rel="noopener noreferrer">message us on WhatsApp</a>
+  ) : (
+    <Link href="/contact">contact us</Link>
+  );
   return (
     <div className="hm">
       <section className="hm-band dl-hero" aria-labelledby="download-title">
         <div className="hm-wrap dl-grid">
           <div>
             <Eyebrow>Pilot version</Eyebrow>
-            <h1 id="download-title" className="lp-display hm-h1">Get the Android app.</h1>
+            <h1 id="download-title" className="lp-display hm-h1">Alarsio for Android.</h1>
             <p className="hm-lede">
-              For supervisors and project managers. Check in, mark the register, file the daily report and log
-              materials, even with no signal.
+              Built for supervisors and project managers. Check in, mark the register, file the daily report and log
+              materials on site, even with no signal.
             </p>
             {APK_URL ? (
               <>
-                <p className="hm-lede">Open this page on the Android phone you use on site, then tap the button.</p>
                 <div className="hm-actions">
                   <a href={APK_URL} className="lp-pill lp-pill-red">Download for Android</a>
                   <Link href="/sign-in" className="lp-pill lp-pill-line">Use the web app instead</Link>
                 </div>
+                <p className="dl-hint">Open this page on the Android phone you use on site, then tap Download.</p>
               </>
             ) : (
               <>
-                <p className="hm-lede">
+                <p className="dl-hint">
                   The pilot app is shared directly while we finish the Play Store listing. Ask us and we will send the link.
                 </p>
                 <div className="hm-actions">
@@ -60,7 +71,9 @@ export default function DownloadPage() {
                 </div>
               </>
             )}
-            <p className="hm-note">{HERO.note}</p>
+            <ul className="dl-facts" aria-label="At a glance">
+              {FACTS.map((f) => <li key={f}>{f}</li>)}
+            </ul>
           </div>
           <div className="dl-visual">
             <PhoneMock />
@@ -71,8 +84,8 @@ export default function DownloadPage() {
 
       <section className="hm-band hm-paper" aria-labelledby="install-title">
         <div className="hm-wrap">
-          <Eyebrow>Three steps</Eyebrow>
-          <h2 id="install-title" className="lp-display hm-h2">Install it.</h2>
+          <Eyebrow>How to install</Eyebrow>
+          <h2 id="install-title" className="lp-display hm-h2">Three steps to get started.</h2>
           <ol className="hm-steps dl-steps">
             {STEPS.map((s, i) => (
               <li key={s.title} className="hm-rev">
@@ -84,24 +97,25 @@ export default function DownloadPage() {
               </li>
             ))}
           </ol>
+          <p className="dl-help">Stuck on a step? Please {help} and we will help you get installed.</p>
         </div>
       </section>
 
       <section className="hm-band" aria-labelledby="who-title">
         <div className="hm-wrap">
-          <Eyebrow>Who needs it</Eyebrow>
+          <Eyebrow>Which app</Eyebrow>
           <h2 id="who-title" className="lp-display hm-h2">Phone or web?</h2>
           <ul className="dl-two">
             <li className="hm-card hm-rev">
-              <p className="hm-num">01</p>
+              <p className="hm-num">01 · Android</p>
               <h3>Phone app</h3>
-              <p>Supervisors and project managers. Everything is saved on the phone first and sent when a connection comes back.</p>
+              <p>For supervisors and project managers. Everything is saved on the phone first and sent when a connection comes back.</p>
             </li>
             <li className="hm-card hm-rev">
-              <p className="hm-num">02</p>
+              <p className="hm-num">02 · Any browser</p>
               <h3>Web app</h3>
               <p>
-                Owners and accountants work in the browser: sites, team, approvals, wages and exports.{" "}
+                For owners and accountants: sites, team, approvals, wages and exports. Project managers can use it too.{" "}
                 <Link href="/sign-in">Sign in</Link>
               </p>
             </li>
