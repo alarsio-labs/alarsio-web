@@ -2,14 +2,27 @@
 
 import { useActionState, useEffect, useRef, useState } from "react";
 import { sendEnquiry, type EnquiryState } from "@/app/(site)/demo/actions";
-import { CONTACT_WAYS, REPLY_PROMISE, SITE_COUNTS, type EnquiryField } from "@/lib/site/enquiry";
+import { CONTACT_WAYS, REPLY_PROMISE, SITE_COUNTS, valuesOf, type EnquiryField } from "@/lib/site/enquiry";
+
+type FormState = EnquiryState | { status: "stale"; values: ReturnType<typeof valuesOf> };
+
+// Calls the server action, and turns a thrown error into a state the form can show. The usual
+// cause is a page opened before a new deploy: its action ID no longer exists on the server, and
+// without this the whole page would be replaced by the error screen.
+async function submit(prev: FormState, form: FormData): Promise<FormState> {
+  try {
+    return await sendEnquiry(prev.status === "stale" ? { status: "idle" } : prev, form);
+  } catch {
+    return { status: "stale", values: valuesOf(form) };
+  }
+}
 
 const ORDER: EnquiryField[] = ["name", "mobile", "city", "sites", "company"];
 
 // The demo enquiry form (/demo). Four questions are required, two are not. It works without
 // JavaScript (a plain form post to the server action); with it, the page does not reload.
 export function EnquiryForm({ whatsApp, call }: { whatsApp: string | null; call: string | null }) {
-  const [state, action, pending] = useActionState<EnquiryState, FormData>(sendEnquiry, { status: "idle" });
+  const [state, action, pending] = useActionState<FormState, FormData>(submit, { status: "idle" });
   const [started, setStarted] = useState("");
   const form = useRef<HTMLFormElement>(null);
   const done = useRef<HTMLHeadingElement>(null);
@@ -40,7 +53,7 @@ export function EnquiryForm({ whatsApp, call }: { whatsApp: string | null; call:
     );
   }
 
-  const values = state.status === "invalid" || state.status === "failed" ? state.values : undefined;
+  const values = state.status === "invalid" || state.status === "failed" || state.status === "stale" ? state.values : undefined;
   const errors = state.status === "invalid" ? state.errors : {};
   const err = (f: EnquiryField) =>
     errors[f] ? { "aria-invalid": true as const, "aria-describedby": `ef-${f}-err` } : {};
@@ -49,6 +62,15 @@ export function EnquiryForm({ whatsApp, call }: { whatsApp: string | null; call:
 
   return (
     <form ref={form} action={action} className="ef" noValidate>
+      {state.status === "stale" ? (
+        <div className="ef-alert" role="alert">
+          <p>This page was updated while it was open, so your details were not sent. Reload the page and send them again.</p>
+          <p className="ef-alert-links">
+            <button type="button" className="ef-reload" onClick={() => window.location.reload()}>Reload the page</button>
+            {whatsApp ? <a href={whatsApp} target="_blank" rel="noopener noreferrer">WhatsApp us</a> : null}
+          </p>
+        </div>
+      ) : null}
       {state.status === "failed" ? (
         <div className="ef-alert" role="alert">
           <p>We couldn&apos;t send this just now. Please try again, or reach us directly:</p>

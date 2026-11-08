@@ -118,3 +118,4 @@
 .ef-signup { margin: 20px 0 0; font-size: 15px; color: var(--muted); }
 .ef-signup a { color: var(--red-deep); font-weight: 600; }
 .ef-hours { margin: 10px 0 0; font-size: 14px; color: var(--muted); }
+.ef-reload { font: inherit; font-weight: 600; color: var(--red-deep); background: none; border: 0; padding: 0; text-decoration: underline; cursor: pointer; min-height: 32px; }
