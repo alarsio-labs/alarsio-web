@@ -8,10 +8,14 @@ export type SiteCount = (typeof SITE_COUNTS)[number];
 export const CONTACT_WAYS = ["whatsapp", "call"] as const;
 export type ContactWay = (typeof CONTACT_WAYS)[number];
 
-/** The promise shown after sending. Change the hours here; every page reads this one line. */
+/**
+ * The promise shown on /demo. Change it here; every page reads these lines.
+ * `within` runs around the clock (every day, not office hours only). `callHours` is when a
+ * person answers the phone.
+ */
 export const REPLY_PROMISE = {
-  within: "5 hours",
-  hours: "9am to 8pm IST"
+  within: "8 hours",
+  callHours: "11am to 6pm IST"
 };
 
 /** A form opened less than this long ago is a bot: people cannot fill four fields that fast. */

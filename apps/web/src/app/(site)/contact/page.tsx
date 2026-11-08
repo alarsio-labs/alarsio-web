@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHead } from "@/components/site/doc";
+import { REPLY_PROMISE } from "@/lib/site/enquiry";
 import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
 
 export const metadata: Metadata = {
@@ -98,7 +99,7 @@ export default function ContactPage() {
                 <div className="ds-card">
                   <h3>Phone</h3>
                   <p>
-                    Call us on <strong>{displayPhone(CONTACT_PHONE)}</strong>
+                    Call us on <strong>{displayPhone(CONTACT_PHONE)}</strong>, {REPLY_PROMISE.callHours}
                   </p>
                   <a className="ds-card-link" href={call}>
                     Call now →

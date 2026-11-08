@@ -29,7 +29,7 @@ export function EnquiryForm({ whatsApp, call }: { whatsApp: string | null; call:
       <div className="ef-done" role="status">
         <h2 ref={done} tabIndex={-1}>Got it. We&apos;ll be in touch soon.</h2>
         <p>
-          We reply within {REPLY_PROMISE.within}, {REPLY_PROMISE.hours}, on WhatsApp or by phone, the way you chose.
+          We reply within {REPLY_PROMISE.within}, on WhatsApp or by phone, the way you chose.
         </p>
         {whatsApp ? (
           <a className="lp-pill lp-pill-ink" href={whatsApp} target="_blank" rel="noopener noreferrer">

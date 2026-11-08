@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 const NEXT_STEPS = [
-  { title: `We reply within ${REPLY_PROMISE.within}`, body: `On WhatsApp or by phone, ${REPLY_PROMISE.hours}.` },
+  { title: `We reply within ${REPLY_PROMISE.within}`, body: "On WhatsApp or by phone, any day of the week." },
   { title: "A short demo on your phone", body: "We show you a site day: check-in, the register, the daily report and the wage sheet." },
   { title: "We set up your first site with you", body: "Your sites, your team and your wage rates, so your supervisor can start the next morning." },
   { title: "Free during the pilot", body: "No card needed. Your data is yours to download at any time." }
@@ -58,6 +58,7 @@ export default function DemoPage() {
                   <a className="lp-pill lp-pill-line" href={call}>Call {displayPhone(CONTACT_PHONE)}</a>
                 ) : null}
               </div>
+              {call ? <p className="ef-hours">Calls answered {REPLY_PROMISE.callHours}.</p> : null}
             </div>
           ) : null}
 

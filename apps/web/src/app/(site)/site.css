@@ -117,3 +117,4 @@
 .ef-direct-links { display: flex; flex-wrap: wrap; gap: 8px; }
 .ef-signup { margin: 20px 0 0; font-size: 15px; color: var(--muted); }
 .ef-signup a { color: var(--red-deep); font-weight: 600; }
+.ef-hours { margin: 10px 0 0; font-size: 14px; color: var(--muted); }

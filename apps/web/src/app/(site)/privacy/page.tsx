@@ -11,7 +11,7 @@ export const metadata: Metadata = {
 
 // Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 before relying on it.
 // Entity, address and Grievance Officer come from lib/site/legal.ts.
-const UPDATED = "7 November 2026";
+const UPDATED = "8 November 2026";
 
 const sections: DocSection[] = [
   {
@@ -44,6 +44,7 @@ const sections: DocSection[] = [
           <li><strong>Worker records:</strong> names, phone numbers, wage rates, attendance, and corrections entered by the Customer.</li>
           <li><strong>Site records:</strong> daily reports, notes, materials received and used, and photos attached to reports.</li>
           <li><strong>Messages</strong> you send us, for example a support request.</li>
+          <li><strong>Demo enquiries:</strong> when you ask for a demo on our website, your name, mobile number, city and number of active sites, and, if you choose to give them, your company name and whether you prefer WhatsApp or a phone call. See <a href="#enquiries">Demo enquiries</a>.</li>
         </ul>
         <h3>Information collected when you use the Service</h3>
         <ul>
@@ -56,6 +57,36 @@ const sections: DocSection[] = [
     )
   },
   {
+    id: "enquiries",
+    title: "Demo enquiries",
+    body: (
+      <>
+        <p>
+          The &quot;Book a demo&quot; form asks for your name, mobile number, city and how many active sites you run.
+          Your company name and how you prefer to be contacted are optional. We do not ask for your email.
+        </p>
+        <p>
+          <strong>Why we use it.</strong> Only to contact you about your enquiry, by WhatsApp or phone, and to show
+          you Alarsio. We do not add you to a marketing list, and we never sell or share your enquiry for anyone
+          else&apos;s marketing.
+        </p>
+        <p>
+          <strong>Where it goes.</strong> Your enquiry is sent as an email to the Alarsio team through our email
+          provider (Resend). It is not saved in the Alarsio app or its database, and it does not create an account.
+        </p>
+        <p>
+          <strong>How long we keep it.</strong> In the team inbox and our WhatsApp or call history until the
+          conversation ends, and no longer than 12 months after your last message to us. If you become a Customer,
+          your account details are then covered by the rest of this policy.
+        </p>
+        <p>
+          <strong>Your choice.</strong> You can ask us at any time to stop contacting you or to delete your enquiry.
+          Use the details in <a href="#contact">Contact and grievances</a>, or reply &quot;stop&quot; on WhatsApp.
+        </p>
+      </>
+    )
+  },
+  {
     id: "use",
     title: "How we use information",
     body: (
@@ -64,7 +95,7 @@ const sections: DocSection[] = [
         <ul>
           <li>provide the Service: record attendance, reports and materials, and calculate wages from approved attendance;</li>
           <li>create and secure accounts, sign users in, and send verification and invitation emails;</li>
-          <li>respond to support requests and tell you about changes to the Service;</li>
+          <li>respond to support requests and demo enquiries, and tell you about changes to the Service;</li>
           <li>detect, investigate and prevent errors, misuse and security incidents;</li>
           <li>comply with legal obligations.</li>
         </ul>
@@ -107,7 +138,7 @@ const sections: DocSection[] = [
         </p>
         <p>
           <strong>Service providers.</strong> We use trusted providers to host the Service and to store data (Vercel and
-          Supabase), to send emails, to receive app crash reports, and, if you accept analytics cookies, to measure visits to our
+          Supabase), to send emails (including demo enquiries, through Resend), to receive app crash reports, and, if you accept analytics cookies, to measure visits to our
           public pages (Google Analytics). They process data only on our instructions and
           only to provide their service to us.
         </p>
@@ -125,7 +156,8 @@ const sections: DocSection[] = [
       <p>
         We keep Customer records for as long as the Customer&apos;s account is active. When a Customer closes its
         account, we delete its records within a reasonable period, except where we must keep information to meet a
-        legal obligation or resolve a dispute. Technical logs are kept for a limited time.
+        legal obligation or resolve a dispute. Demo enquiries are kept for no longer than 12 months after your last
+        message to us. Technical logs are kept for a limited time.
       </p>
     )
   },
