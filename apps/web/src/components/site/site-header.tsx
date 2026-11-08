@@ -1,10 +1,56 @@
 "use client";
 
-import { useRef } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import Link from "next/link";
 import { CTA } from "@/lib/landing/content";
-import { HEADER_LINKS, MENU_LINKS } from "@/lib/site/nav";
+import { HEADER_ITEMS, MENU_LINKS, isNavGroup, type NavGroup } from "@/lib/site/nav";
 import { Wordmark } from "./wordmark";
+
+// A header entry that opens a short list of links ("Who we serve"). A plain disclosure: a button
+// that shows and hides a list of ordinary links, so Tab walks the links in order, with no menu
+// roles to get wrong. Escape, a click outside, focus moving away and choosing a link all close it.
+function HeaderGroup({ group }: { group: NavGroup }) {
+  const [open, setOpen] = useState(false);
+  const root = useRef<HTMLDivElement>(null);
+  const button = useRef<HTMLButtonElement>(null);
+  const panel = useId();
+
+  useEffect(() => {
+    if (!open) return;
+    const away = (e: Event) => {
+      if (!root.current?.contains(e.target as Node)) setOpen(false);
+    };
+    const key = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      setOpen(false);
+      button.current?.focus();
+    };
+    document.addEventListener("pointerdown", away);
+    document.addEventListener("focusin", away);
+    document.addEventListener("keydown", key);
+    return () => {
+      document.removeEventListener("pointerdown", away);
+      document.removeEventListener("focusin", away);
+      document.removeEventListener("keydown", key);
+    };
+  }, [open]);
+
+  return (
+    <div className="lp-drop" ref={root}>
+      <button ref={button} type="button" className="lp-drop-btn" aria-expanded={open} aria-controls={panel} onClick={() => setOpen((o) => !o)}>
+        {group.label}
+        <i aria-hidden="true" />
+      </button>
+      <ul id={panel} className="lp-drop-panel" hidden={!open}>
+        {group.links.map((l) => (
+          <li key={l.href}>
+            <Link href={l.href} onClick={() => setOpen(false)}>{l.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
+}
 
 // The public header (docs/DESIGN.md v2.1): page links on wide screens, and a Menu button that
 // opens a full-screen menu on every width below that. The menu is a native modal <dialog>, so
@@ -18,9 +64,13 @@ export function SiteHeader({ whatsApp }: { whatsApp?: string | null }) {
     <header className="lp-head">
       <Wordmark />
       <nav aria-label="Main" className="lp-head-links">
-        {HEADER_LINKS.map((l) => (
-          <Link key={l.href} href={l.href}>{l.label}</Link>
-        ))}
+        {HEADER_ITEMS.map((item) =>
+          isNavGroup(item) ? (
+            <HeaderGroup key={item.label} group={item} />
+          ) : (
+            <Link key={item.href} href={item.href}>{item.label}</Link>
+          )
+        )}
       </nav>
       <div className="lp-head-right">
         <Link href={CTA.secondary.href} className="lp-pill lp-pill-line lp-head-signin">{CTA.secondary.label}</Link>
