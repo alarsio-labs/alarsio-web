@@ -338,6 +338,9 @@ above, and it quotes no prices; mock and heatmap figures are labelled sample dat
 without JavaScript it is a still, complete page. `lib/landing/content.test.ts` proves the copy rules and
 `lib/landing/sample-site.test.ts` the heatmap data. It adds no row and ticks none.*
 
+*Post-MVP (after 15 Nov 2026): raise the website to Powerplay-level polish (demo-first, enquiry form, proof).
+See `docs/research/powerplay-2026-11.md`.*
+
 ---
 
 ## Explicitly NOT in the MVP
