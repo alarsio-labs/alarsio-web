@@ -159,6 +159,10 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
 - **Download** (`app/(site)/download`): the APK link from `NEXT_PUBLIC_APK_URL`, else the pilot build's
   link `PILOT_APK_URL` (https only, `lib/site/download.ts`), three install steps, and who needs the phone or
   the web app. With no valid link the button becomes "Ask on WhatsApp" (or Contact), never a dead link.
+  Drawn in the home page's look, like About: a cream hero with the Anton headline beside the phone's
+  Today mock (`PhoneMock`, in the page's flow here), a white band of the three steps as the home page's
+  ruled list, two cards (phone or web) and the red closing call to action. Extra rules are in
+  `download/download.css`.
 - **About** (`app/(site)/about`): built from the home page's own pieces (`app/home.css`, the shared
   `Eyebrow` in `components/site/eyebrow.tsx`) so it reads as the same site: a cream hero with the Anton
   headline, the lede and the five at-a-glance facts as pills; a loam mission band; four numbered cards for
