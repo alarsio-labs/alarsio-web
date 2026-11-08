@@ -159,6 +159,12 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
 - **Download** (`app/(site)/download`): the APK link from `NEXT_PUBLIC_APK_URL`, else the pilot build's
   link `PILOT_APK_URL` (https only, `lib/site/download.ts`), three install steps, and who needs the phone or
   the web app. With no valid link the button becomes "Ask on WhatsApp" (or Contact), never a dead link.
+- **About** (`app/(site)/about`): built from the home page's own pieces (`app/home.css`, the shared
+  `Eyebrow` in `components/site/eyebrow.tsx`) so it reads as the same site: a cream hero with the Anton
+  headline, the lede and the five at-a-glance facts as pills; a loam mission band; four numbered cards for
+  what the app covers; a loam band of three principles; and the home page's red closing call to action
+  (`CTA`). Its few extra rules (room under the fixed header, the facts row, the two-column mission) are in
+  `about/about.css`. Contact, Privacy and Terms are still the plainer document style (`site.css`).
 - **Skip link.** "Skip to content" is the first thing Tab reaches on every page (`app/layout.tsx`,
   styles in `globals.css`). It jumps to `#main`, which is the `<main>` of the page, or the wrapper around
   the page in the signed-in app.
