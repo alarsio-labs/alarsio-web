@@ -20,3 +20,19 @@ export function displayPhone(raw: string): string {
   if (digits.length === 12 && digits.startsWith("91")) return `+91 ${digits.slice(2, 7)} ${digits.slice(7)}`;
   return raw.trim();
 }
+
+/** The number visitors can call. Public, from deploy settings, like the two above. */
+export const CONTACT_PHONE = process.env.NEXT_PUBLIC_CONTACT_PHONE || undefined;
+
+/** A tel: link for a phone number, or null when it does not have 10 to 15 digits. */
+export function telHref(raw: string | undefined): string | null {
+  if (!raw) return null;
+  const digits = digitsOf(raw);
+  return digits.length >= 10 && digits.length <= 15 ? `tel:+${digits}` : null;
+}
+
+/** A wa.me link that opens with a message already typed, or null for a bad number. */
+export function whatsAppMessageHref(raw: string | undefined, message: string): string | null {
+  const base = whatsAppHref(raw);
+  return base ? `${base}?text=${encodeURIComponent(message)}` : null;
+}

@@ -42,7 +42,7 @@ export default function Home() {
               <p className="hm-lede">{HERO.lede}</p>
               <div className="hm-actions">
                 <Link href={CTA.primary.href} className="lp-pill lp-pill-red">{CTA.primary.label} →</Link>
-                <Link href={CTA.download.href} className="lp-pill lp-pill-line">{CTA.download.label}</Link>
+                <Link href={CTA.pilot.href} className="lp-pill lp-pill-line">{CTA.pilot.label}</Link>
               </div>
               <p className="hm-note">{HERO.note}</p>
             </div>
@@ -235,7 +235,7 @@ export default function Home() {
             <p className="hm-cta-body">{CTA.body}</p>
             <div className="hm-actions">
               <Link href={CTA.primary.href} className="lp-pill lp-pill-ink">{CTA.primary.label} →</Link>
-              <Link href={CTA.download.href} className="lp-pill lp-pill-line">{CTA.download.label}</Link>
+              <Link href={CTA.pilot.href} className="lp-pill lp-pill-line">{CTA.pilot.label}</Link>
             </div>
             <p className="hm-note">{CTA.note}</p>
           </div>

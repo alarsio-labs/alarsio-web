@@ -60,7 +60,7 @@ export const ROLES = {
   eyebrow: "Four roles",
   title: "Each person sees only their part.",
   cards: [
-    { role: "Owner", where: "Web", does: "Creates the company, its sites and its team.", sees: "Every site, every day, and wages. Downloads all the company's data.", cta: { label: "Start free pilot", href: "/sign-up" } },
+    { role: "Owner", where: "Web", does: "Creates the company, its sites and its team.", sees: "Every site, every day, and wages. Downloads all the company's data.", cta: { label: "Book a demo", href: "/demo" } },
     { role: "Project manager", where: "Phone and web", does: "Approves or sends back each attendance day and report.", sees: "Every site's reports and attendance.", cta: { label: "Get the app", href: "/download" } },
     { role: "Supervisor", where: "Phone", does: "Checks in, marks the register, files the report, logs materials.", sees: "Only the sites assigned to them.", cta: { label: "Get the app", href: "/download" } },
     { role: "Accountant", where: "Web", does: "Runs wage periods, locks them and exports CSV or Excel.", sees: "Approved attendance and wages.", cta: { label: "Sign in", href: "/sign-in" } }
@@ -127,10 +127,11 @@ export const FAQ: { q: string; a: string }[] = [
 ];
 
 export const CTA = {
-  title: "Run 2 to 20 sites? Start your free pilot.",
-  body: "Create your company account, add your sites and team, and start with one site this week.",
+  title: "Run 2 to 20 sites? Book a demo.",
+  body: "Tell us about your sites. We'll call or WhatsApp you, show you Alarsio and set up your first site with you.",
   note: "Free during the pilot. No card needed.",
-  primary: { label: "Start free pilot", href: "/sign-up" },
+  primary: { label: "Book a demo", href: "/demo" },
+  pilot: { label: "Start free pilot", href: "/sign-up" },
   secondary: { label: "Sign in", href: "/sign-in" },
   download: { label: "Download Android app", href: "/download" }
 };

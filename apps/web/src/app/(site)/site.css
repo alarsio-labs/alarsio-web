@@ -65,3 +65,55 @@
 .ds-cta h2 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
 .ds-cta p { margin: 0; color: var(--cream-muted); font-size: 15px; }
 .ds-cta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+
+/* Book a demo (/demo): the enquiry form beside "What happens next". Inputs are 16px so phones
+   do not zoom in on focus, and every control is at least 48px tall (DESIGN.md §3). */
+.ef-layout { display: grid; gap: 24px; align-items: start; }
+@media (min-width: 960px) { .ef-layout { grid-template-columns: minmax(0, 1.15fr) minmax(0, 1fr); gap: 48px; } }
+.ef-card { background: var(--paper); border: 1px solid var(--hair); border-radius: 20px; padding: clamp(20px, 4vw, 32px); }
+.ef-title { font-size: 20px; font-weight: 650; margin: 0 0 16px; }
+.ef { display: grid; gap: 18px; }
+.ef-field { display: grid; gap: 6px; border: 0; margin: 0; padding: 0; min-width: 0; }
+.ef-field > label, .ef-field > legend { font-size: 15px; font-weight: 600; color: var(--ink); padding: 0; margin: 0 0 6px; }
+.ef-opt { font-weight: 400; color: var(--muted); }
+.ef input:not([type="radio"]) {
+  width: 100%; min-height: 48px; padding: 0 14px; font: inherit; font-size: 16px; color: var(--ink);
+  background: #fff; border: 1.5px solid rgb(23 23 23 / .28); border-radius: 12px;
+}
+.ef input:not([type="radio"]):focus-visible { outline: 3px solid var(--red); outline-offset: 1px; border-color: var(--ink); }
+.ef input[aria-invalid="true"] { border-color: var(--red-deep); }
+.ef-tel { display: flex; align-items: stretch; }
+.ef-tel span { display: inline-flex; align-items: center; padding: 0 12px; font-size: 16px; color: var(--muted);
+  border: 1.5px solid rgb(23 23 23 / .28); border-right: 0; border-radius: 12px 0 0 12px; background: var(--cream); }
+.ef-tel input:not([type="radio"]) { border-radius: 0 12px 12px 0; }
+.ef-chips { display: flex; flex-wrap: wrap; gap: 8px; }
+.ef-chip { position: relative; }
+.ef-chip input { position: absolute; opacity: 0; inset: 0; margin: 0; cursor: pointer; }
+.ef-chip span { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; min-width: 64px; padding: 0 16px;
+  border: 1.5px solid rgb(23 23 23 / .28); border-radius: 999px; font-size: 15px; font-weight: 600; background: #fff; cursor: pointer; }
+.ef-chip input:checked + span { background: var(--ink); border-color: var(--ink); color: var(--cream); }
+.ef-chip input:focus-visible + span { outline: 3px solid var(--red); outline-offset: 2px; }
+.ef-err { margin: 0; font-size: 14px; font-weight: 600; color: var(--red-deep); }
+.ef-alert { border: 1.5px solid var(--red-deep); border-radius: 12px; padding: 12px 14px; background: #fff; font-size: 15px; }
+.ef-alert p { margin: 0; }
+.ef-alert-links { display: flex; gap: 16px; margin-top: 8px !important; }
+.ef-alert a { color: var(--red-deep); font-weight: 600; }
+.ef-trap { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+.ef-submit { width: 100%; font-size: 16px; }
+.ef-submit:disabled { opacity: .6; cursor: progress; }
+.ef-fine { margin: 0; font-size: 13px; color: var(--muted); }
+.ef-done { display: grid; gap: 12px; justify-items: start; }
+.ef-done h2 { font-size: 22px; font-weight: 700; margin: 0; outline: none; }
+.ef-done p { margin: 0; font-size: 16px; line-height: 1.6; color: var(--muted); }
+
+.ef-side h2 { font-size: 20px; font-weight: 650; margin: 0 0 14px; }
+.ef-steps { list-style: none; counter-reset: ef; margin: 0; padding: 0; display: grid; gap: 14px; }
+.ef-steps li { counter-increment: ef; display: grid; grid-template-columns: 32px 1fr; column-gap: 12px; font-size: 15px; line-height: 1.5; }
+.ef-steps li::before { content: counter(ef); grid-row: span 2; display: inline-grid; place-items: center; width: 32px; height: 32px;
+  border-radius: 50%; background: var(--ink); color: var(--cream); font-weight: 700; font-size: 14px; }
+.ef-steps span { color: var(--muted); }
+.ef-direct { margin-top: 28px; padding-top: 20px; border-top: 1px solid var(--hair); }
+.ef-direct h3 { font-size: 16px; font-weight: 600; margin: 0 0 10px; }
+.ef-direct-links { display: flex; flex-wrap: wrap; gap: 8px; }
+.ef-signup { margin: 20px 0 0; font-size: 15px; color: var(--muted); }
+.ef-signup a { color: var(--red-deep); font-weight: 600; }

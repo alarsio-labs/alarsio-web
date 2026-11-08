@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
 import { PageHead } from "@/components/site/doc";
-import { CONTACT_EMAIL, CONTACT_WHATSAPP, displayPhone, whatsAppHref } from "@/lib/site/contact";
+import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -18,12 +18,13 @@ function Mail({ subject, label }: { subject: string; label: string }) {
   );
 }
 
-const TOPICS = [
+const TOPICS: { title: string; body: string; subject: string; label: string; href?: string }[] = [
   {
     title: "Sales and pilots",
-    body: "Want to try Alarsio on your sites? Tell us how many sites and workers you manage, and we'll help you get started.",
+    body: "Want to try Alarsio on your sites? Book a demo and we'll call or WhatsApp you, then set up your first site with you.",
     subject: "Pilot enquiry",
-    label: "Talk to us"
+    label: "Book a demo",
+    href: "/demo"
   },
   {
     title: "Customer support",
@@ -41,6 +42,7 @@ const TOPICS = [
 
 export default function ContactPage() {
   const whatsApp = whatsAppHref(CONTACT_WHATSAPP);
+  const call = telHref(CONTACT_PHONE);
   return (
     <>
       <PageHead
@@ -56,13 +58,17 @@ export default function ContactPage() {
               <div key={t.title} className="ds-card">
                 <h3>{t.title}</h3>
                 <p>{t.body}</p>
-                <Mail subject={t.subject} label={t.label} />
+                {t.href ? (
+                  <Link className="ds-card-link" href={t.href}>{t.label} →</Link>
+                ) : (
+                  <Mail subject={t.subject} label={t.label} />
+                )}
               </div>
             ))}
           </div>
         </section>
 
-        {CONTACT_EMAIL || whatsApp ? (
+        {CONTACT_EMAIL || whatsApp || call ? (
           <section className="ds-section" aria-labelledby="reach">
             <h2 id="reach">Reach us</h2>
             <div className="ds-grid ds-grid-3">
@@ -85,6 +91,17 @@ export default function ContactPage() {
                   </p>
                   <a className="ds-card-link" href={whatsApp} target="_blank" rel="noopener noreferrer">
                     Chat on WhatsApp →
+                  </a>
+                </div>
+              ) : null}
+              {call && CONTACT_PHONE ? (
+                <div className="ds-card">
+                  <h3>Phone</h3>
+                  <p>
+                    Call us on <strong>{displayPhone(CONTACT_PHONE)}</strong>
+                  </p>
+                  <a className="ds-card-link" href={call}>
+                    Call now →
                   </a>
                 </div>
               ) : null}

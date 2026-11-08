@@ -33,10 +33,11 @@ describe("home page content", () => {
   });
 
   it("sends every button to a page on this site", () => {
-    expect(CTA.primary.href).toBe("/sign-up");
+    expect(CTA.primary.href).toBe("/demo");
+    expect(CTA.pilot.href).toBe("/sign-up");
     expect(CTA.secondary.href).toBe("/sign-in");
     expect(CTA.download.href).toBe("/download");
-    for (const r of ROLES.cards) expect(r.cta.href).toMatch(/^\/(sign-up|sign-in|download)$/);
+    for (const r of ROLES.cards) expect(r.cta.href).toMatch(/^\/(demo|sign-up|sign-in|download)$/);
   });
 
   it("says the pilot is free, and labels the sample data", () => {
