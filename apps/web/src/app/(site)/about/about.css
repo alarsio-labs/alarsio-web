@@ -1,0 +1,22 @@
+/* About, in the home page's look (docs/DESIGN.md section 2): bands, Anton headlines, rounded
+   cards and a red closing band all come from app/home.css. This file only adds what About
+   alone needs: the room under the fixed header, the facts row and the two-column mission. */
+
+/* The header is fixed (56 px), and the home page clears it with `.hm main`. About sits in the
+   site layout's own <main>, so its first band clears the header itself. */
+.hm-band.ab-hero { padding-top: calc(56px + clamp(40px, 6vw, 88px)); padding-bottom: clamp(56px, 8vw, 104px); }
+.ab-hero .hm-h1 { max-width: 18ch; }
+.ab-hero .hm-lede { max-width: 56ch; }
+
+/* At-a-glance facts: the same five lines as the home page's marquee, as quiet pills. */
+.ab-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 36px 0 0; padding: 0; list-style: none; }
+.ab-facts li {
+  padding: 8px 16px; border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
+  font-size: 14px; line-height: 1.4; color: var(--muted);
+}
+
+/* Mission: the headline on the left, the paragraph on the right from 1000 px. */
+.ab-split { display: grid; gap: 28px; }
+@media (min-width: 1000px) { .ab-split { grid-template-columns: 1fr 1fr; gap: 72px; align-items: start; } }
+.ab-body { margin: 0; max-width: 52ch; font-size: clamp(17px, 1.4vw, 19px); line-height: 1.7; color: var(--cream-muted); }
+.ab-split .hm-h2 { max-width: 14ch; }
