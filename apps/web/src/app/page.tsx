@@ -5,6 +5,7 @@ import { AdVideo } from "@/components/landing/ad-video";
 import { SeasonHeatmap } from "@/components/landing/season-heatmap";
 import { DashboardMock, PhoneMock } from "@/components/landing/screen-mocks";
 import { StructuredData } from "@/components/landing/structured-data";
+import { Eyebrow } from "@/components/site/eyebrow";
 import { PublicHeader, SiteFooter } from "@/components/site/public-frame";
 import { anton, mono } from "./fonts";
 import "./landing.css";
@@ -19,10 +20,6 @@ export const metadata: Metadata = {
 
 const n = (i: number) => String(i + 1).padStart(2, "0");
 const LAST = DAY_RECORD.status.length - 1;
-
-function Eyebrow({ children }: { children: string }) {
-  return <p className="hm-eyebrow">( {children} )</p>;
-}
 
 // The public home page (docs/DESIGN.md v2.1, section 2). Static and server-rendered: proxy.ts
 // sends a signed-in visitor to their dashboard first. Light and dark bands alternate; the only
