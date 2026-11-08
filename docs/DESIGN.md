@@ -72,6 +72,14 @@ Sections, top to bottom (`app/page.tsx`, words in `lib/landing/content.ts`, styl
 
 1. **Hero** (cream): eyebrow, an Anton H1 that says what the product does, a lede, **Start free pilot** and
    **Download Android app**, "Free during the pilot · No card needed". Beside it the two screen mocks.
+   The H1 is 64 px at most with a line height of 1.02, balanced so it takes four or five lines, not seven.
+   The phone mock sits below the dashboard's four stat cards and its table title, so no figure or heading is
+   covered, and the dashboard's status column is wide enough for "Needs approval".
+   **Hero motion:** the eyebrow, lede, buttons and note fade up once in turn (0 to 0.3 s), then the
+   dashboard, the phone and the caption (0.15 to 0.6 s). From 1000 px, while scrolling the first 560 px, the
+   phone drifts up 34 px and the dashboard down 12 px (scroll-linked, so it moves only while you scroll).
+   The H1 is not animated because it is the largest paint on the page. None of it loops (TESTING.md), and
+   all of it is off under reduced motion.
 2. **Marquee** (red, ink type): five short facts sliding left; paused on hover, still under reduced motion.
 3. **Problem** (loam): three numbered cards, "Problem 01 ·". No figures.
 4. **Features** `#features` (cream): six numbered cards, each with its role and phone or web.
