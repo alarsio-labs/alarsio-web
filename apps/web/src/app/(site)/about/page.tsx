@@ -1,6 +1,9 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHead } from "@/components/site/doc";
+import { Eyebrow } from "@/components/site/eyebrow";
+import { CTA, MARQUEE } from "@/lib/landing/content";
+import "@/app/home.css";
+import "./about.css";
 
 export const metadata: Metadata = {
   title: "About Us",
@@ -22,63 +25,85 @@ const PRINCIPLES = [
   { title: "Right access for each role", body: "Owners, project managers, supervisors and accountants each see what their job needs, enforced in the database." }
 ];
 
+const n = (i: number) => String(i + 1).padStart(2, "0");
+
+// About, in the home page's look (docs/DESIGN.md section 2): the same bands, headlines, cards and
+// closing call to action, with the copy this page always had. Static; no script of its own.
 export default function AboutPage() {
   return (
-    <>
-      <PageHead
-        crumb="About Us"
-        title="About Alarsio"
-        sub="We build simple, reliable record-keeping for construction contractors in India, so the day on site turns into accurate attendance and fair, on-time wages."
-      />
-      <div className="ds-wrap">
-        <section className="ds-section" aria-labelledby="mission">
-          <span className="ds-kicker">Our mission</span>
-          <h2 id="mission">Replace notebooks and WhatsApp with one trusted record</h2>
-          <p>
+    <div className="hm">
+      <section className="hm-band ab-hero" aria-labelledby="about-title">
+        <div className="hm-wrap">
+          <Eyebrow>About Alarsio</Eyebrow>
+          <h1 id="about-title" className="lp-display hm-h1">Replace notebooks and WhatsApp with one trusted record.</h1>
+          <p className="hm-lede">
+            We build simple, reliable record-keeping for construction contractors in India, so the day on site
+            turns into accurate attendance and fair, on-time wages.
+          </p>
+          <ul className="ab-facts" aria-label="At a glance">
+            {MARQUEE.map((m) => <li key={m}>{m}</li>)}
+          </ul>
+        </div>
+      </section>
+
+      <section className="hm-band hm-dark" aria-labelledby="mission-title">
+        <div className="hm-wrap ab-split">
+          <div>
+            <Eyebrow>Our mission</Eyebrow>
+            <h2 id="mission-title" className="lp-display hm-h2">One record the whole company can trust.</h2>
+          </div>
+          <p className="ab-body">
             On most sites, the day lives in notebooks, photos and chat messages. At month end someone rebuilds
             attendance and materials from memory, and wage disputes follow. Alarsio gives supervisors a fast way to
             capture the day on site, even without internet, and gives the office one record it can trust.
           </p>
-        </section>
+        </div>
+      </section>
 
-        <section className="ds-section" aria-labelledby="what">
-          <span className="ds-kicker">What we do</span>
-          <h2 id="what">Everything a site needs, in one app</h2>
-          <p>Built for contractors running 2 to 20 sites, on Android phones and in any modern web browser.</p>
-          <div className="ds-grid ds-grid-4">
-            {FEATURES.map((f) => (
-              <div key={f.title} className="ds-card">
+      <section className="hm-band" aria-labelledby="what-title">
+        <div className="hm-wrap">
+          <Eyebrow>What we do</Eyebrow>
+          <h2 id="what-title" className="lp-display hm-h2">Everything a site needs, in one app.</h2>
+          <p className="hm-section-lede">Built for contractors running 2 to 20 sites, on Android phones and in any modern web browser.</p>
+          <ol className="hm-grid hm-grid-4">
+            {FEATURES.map((f, i) => (
+              <li key={f.title} className="hm-card hm-rev">
+                <p className="hm-num">{n(i)}</p>
                 <h3>{f.title}</h3>
                 <p>{f.body}</p>
-              </div>
+              </li>
             ))}
-          </div>
-        </section>
+          </ol>
+        </div>
+      </section>
 
-        <section className="ds-section" aria-labelledby="principles">
-          <span className="ds-kicker">What we stand for</span>
-          <h2 id="principles">Our principles</h2>
-          <div className="ds-grid ds-grid-3">
-            {PRINCIPLES.map((p) => (
-              <div key={p.title} className="ds-card">
+      <section className="hm-band hm-dark" aria-labelledby="principles-title">
+        <div className="hm-wrap">
+          <Eyebrow>What we stand for</Eyebrow>
+          <h2 id="principles-title" className="lp-display hm-h2">Our principles.</h2>
+          <ol className="hm-grid hm-grid-3">
+            {PRINCIPLES.map((p, i) => (
+              <li key={p.title} className="hm-card hm-card-dark hm-rev">
+                <p className="hm-num">{n(i)}</p>
                 <h3>{p.title}</h3>
                 <p>{p.body}</p>
-              </div>
+              </li>
             ))}
-          </div>
-        </section>
+          </ol>
+        </div>
+      </section>
 
-        <section className="ds-cta" aria-labelledby="cta">
-          <div>
-            <h2 id="cta">Run 2 to 20 sites? Join the pilot.</h2>
-            <p>Create your company account and start with one site this week.</p>
+      <section className="hm-cta" aria-labelledby="about-cta-title">
+        <div className="hm-wrap">
+          <h2 id="about-cta-title" className="lp-display hm-cta-title">{CTA.title}</h2>
+          <p className="hm-cta-body">{CTA.body}</p>
+          <div className="hm-actions">
+            <Link href={CTA.primary.href} className="lp-pill lp-pill-ink">{CTA.primary.label} →</Link>
+            <Link href={CTA.pilot.href} className="lp-pill lp-pill-line">{CTA.pilot.label}</Link>
           </div>
-          <div className="ds-cta-actions">
-            <Link href="/sign-up" className="lp-pill lp-pill-red">Start free pilot</Link>
-            <Link href="/contact" className="lp-pill lp-pill-ghost">Contact us</Link>
-          </div>
-        </section>
-      </div>
-    </>
+          <p className="hm-note">{CTA.note}</p>
+        </div>
+      </section>
+    </div>
   );
 }
