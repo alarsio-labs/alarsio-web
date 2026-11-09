@@ -133,6 +133,11 @@ pnpm test:db                   # SQL suites against throwaway Postgres (needs Do
 pnpm preflight                 # branch, forbidden files, migration and index rules, then only the gates the diff needs
 ```
 
+**Claude Code hooks** (`.claude/hooks/`, wired in `.claude/settings.json`) block an edit to a
+migration already on `origin/main` and any `service_role` under `apps/`, `packages/` or
+`supabase/`, and lint each file Claude edits. If a hook blocks you, fix the cause; never
+disable the hook.
+
 `--filter` is how you scope work to one app. Learn it early — it is the difference
 between a 4-second run and a 90-second one.
 

@@ -1,0 +1,45 @@
+# CodeQL static analysis for the TypeScript in apps/ and packages/.
+# Free on public repositories. Findings show under Security -> Code scanning, not as CI failures.
+
+name: CodeQL
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  schedule:
+    - cron: "30 3 * * 1" # Mondays 03:30 UTC, to catch new queries against unchanged code
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  analyze:
+    name: Analyze (javascript-typescript)
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      contents: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@v4
+
+      # github/codeql-action v3, pinned to a commit
+      - uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9
+        with:
+          languages: javascript-typescript
+          build-mode: none
+          config: |
+            paths:
+              - apps
+              - packages
+            paths-ignore:
+              - "**/node_modules"
+              - "**/*.test.ts"
+              - "**/*.test.tsx"
+
+      - uses: github/codeql-action/analyze@9418214df1f2c4b8128c770156c409013b07d6b9
+        with:
+          category: "/language:javascript-typescript"
