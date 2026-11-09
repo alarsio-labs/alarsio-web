@@ -1,0 +1,35 @@
+/* Download, in the home page's look (docs/DESIGN.md section 2): bands, Anton headlines, ruled steps,
+   rounded cards and the red closing band come from app/home.css. This file only adds what the
+   page alone needs: the room under the fixed header, the hero's two columns with the phone mock,
+   and a two-column version of the card grid. */
+
+/* The header is fixed (56 px); the site layout's <main> does not clear it, so the first band does. */
+.hm-band.dl-hero { padding-top: calc(56px + clamp(40px, 6vw, 88px)); padding-bottom: clamp(56px, 8vw, 104px); }
+.dl-hero .hm-h1 { max-width: 14ch; }
+.dl-hero .hm-lede { max-width: 48ch; }
+
+/* One quiet line under the buttons, and the at-a-glance facts as pills (the About page's pattern). */
+.dl-hint { margin: 16px 0 0; max-width: 48ch; font-size: 15px; line-height: 1.6; color: var(--muted); }
+.dl-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 28px 0 0; padding: 0; list-style: none; }
+.dl-facts li {
+  padding: 8px 16px; border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
+  font-size: 14px; line-height: 1.4; color: var(--muted);
+}
+
+.dl-grid { display: grid; gap: 56px; align-items: center; }
+@media (min-width: 1000px) { .dl-grid { grid-template-columns: 1.1fr 0.9fr; gap: 72px; } }
+
+/* The phone mock, drawn in the document flow here (on the home page it overlaps the dashboard). */
+.dl-visual { display: flex; flex-direction: column; align-items: center; gap: 14px; }
+@media (min-width: 1000px) { .dl-visual { align-items: flex-end; } }
+.dl-visual .mk-phone { position: relative; top: auto; left: auto; width: min(280px, 100%); margin: 0; }
+
+/* The three steps: the home page's ruled list, kept to a readable width. */
+.dl-steps { max-width: 760px; }
+.dl-help { margin: 28px 0 0; max-width: 760px; font-size: 16px; line-height: 1.6; color: var(--muted); }
+.dl-help a { color: var(--red-deep); font-weight: 600; text-underline-offset: 3px; }
+
+/* Phone or web: two cards side by side from 700 px. */
+.dl-two { display: grid; gap: 16px; margin: 40px 0 0; padding: 0; list-style: none; }
+@media (min-width: 700px) { .dl-two { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+.dl-two .hm-card a { color: var(--red-deep); font-weight: 600; text-underline-offset: 3px; }
