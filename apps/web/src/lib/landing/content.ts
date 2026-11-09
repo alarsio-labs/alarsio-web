@@ -56,6 +56,11 @@ export const FEATURES = {
 
 export type RoleCard = { role: string; where: string; does: string; sees: string; cta: { label: string; href: string } };
 
+/** The anchor id of a role's card on the home page ("Project manager" becomes "role-project-manager"). */
+export function roleId(role: string): string {
+  return `role-${role.trim().toLowerCase().replace(/\s+/g, "-")}`;
+}
+
 export const ROLES = {
   eyebrow: "Four roles",
   title: "Each person sees only their part.",

@@ -80,6 +80,8 @@
 .hm-card-dark .hm-num { color: var(--red) !important; }
 
 /* 5 · Roles */
+/* The header's "Who we serve" links jump to a card; keep it clear of the fixed header. */
+.hm-role { scroll-margin-top: 88px; }
 .hm-role h3 { font-family: var(--font-anton), Impact, sans-serif; font-weight: 400; text-transform: uppercase; font-size: 32px; line-height: 1; }
 .hm-role dl { margin: 6px 0 18px; display: grid; gap: 4px; }
 .hm-role dt { margin-top: 8px; font-family: var(--font-mono), monospace; font-size: 12px; letter-spacing: 0.14em; text-transform: uppercase; color: var(--cream-muted); }

@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CTA, DAY_RECORD, FAQ, FEATURES, HEATMAP, HERO, MARQUEE, PROBLEMS, ROLES, STEPS, TRUST, VIDEO } from "@/lib/landing/content";
+import { CTA, DAY_RECORD, FAQ, FEATURES, HEATMAP, HERO, MARQUEE, PROBLEMS, ROLES, STEPS, TRUST, VIDEO, roleId } from "@/lib/landing/content";
 import { AdVideo } from "@/components/landing/ad-video";
 import { SeasonHeatmap } from "@/components/landing/season-heatmap";
 import { DashboardMock, PhoneMock } from "@/components/landing/screen-mocks";
@@ -115,7 +115,7 @@ export default function Home() {
             <h2 id="roles-title" className="lp-display hm-h2">{ROLES.title}</h2>
             <ol className="hm-grid hm-grid-4">
               {ROLES.cards.map((r, i) => (
-                <li key={r.role} className="hm-card hm-card-dark hm-role hm-rev">
+                <li key={r.role} id={roleId(r.role)} className="hm-card hm-card-dark hm-role hm-rev">
                   <p className="hm-num">{n(i)} · {r.where}</p>
                   <h3>{r.role}</h3>
                   <dl>
