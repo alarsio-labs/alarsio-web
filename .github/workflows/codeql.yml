@@ -27,7 +27,7 @@ jobs:
       - uses: actions/checkout@v4
 
       # github/codeql-action v3, pinned to a commit
-      - uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9
+      - uses: github/codeql-action/init@33d7b85da1a04171e211befe2c739303b9a4c066
         with:
           languages: javascript-typescript
           build-mode: none
