@@ -23,7 +23,17 @@ export const HEADER_ITEMS: (NavLink | NavGroup)[] = [
   { href: "/#how", label: "How it works" },
   { label: "Who we serve", links: WHO_WE_SERVE },
   { href: "/download", label: "Download app" },
-  { href: "/about", label: "About" }
+  { href: "/about", label: "About" },
+  { href: "/contact", label: "Contact" }
+];
+
+/**
+ * The small links under the sign-in, sign-up and other account pages, which have no site header or
+ * footer: a visitor who lands there can still find the app and a way to reach us.
+ */
+export const AUTH_FOOTER_LINKS: NavLink[] = [
+  { href: "/download", label: "Download app" },
+  { href: "/contact", label: "Contact" }
 ];
 
 /** The full-screen menu: every public destination, numbered in the order shown. */

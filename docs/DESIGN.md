@@ -127,6 +127,9 @@ the phone of option D and the wordmark of option C. It replaces the loam panel w
   Today screen (sign in), the three steps to a pilot (create account), an inbox with the email arriving
   (check email), a torn old link beside a new one (link expired), a key or lock (passwords), the invitation
   with the roles (invite).
+- **Links under the scene** (`.sx-sitelinks` in `app/(auth)/layout.tsx`): "Download app" and "Contact"
+  (`AUTH_FOOTER_LINKS` in `lib/site/nav.ts`), 14 px, muted and underlined, centred, 44 px tap height. These
+  pages have no site header or footer, so this is how a visitor finds the app and a way to reach us.
 - **Card.** White at 72% with a 20 px blur, 28 px corners (24 px on phones), 40 px padding (28 × 22 on
   phones). Inputs 52 px, 14 px corners, red focus ring. The main button is a red pill, 52 px.
 - **Feedback.** `SubmitButton` (`components/auth/submit-button.tsx`) swaps to a spinner and a "…ing" label
@@ -148,7 +151,7 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
 `components/site/public-frame.tsx`:
 
 - **Header** (v2.1, `components/site/site-header.tsx` via `PublicHeader`): the wordmark; from 1000 px the
-  page links Features, How it works, **Who we serve** (a dropdown), Download app, About (`HEADER_ITEMS` in
+  page links Features, How it works, **Who we serve** (a dropdown), Download app, About, Contact (`HEADER_ITEMS` in
   `lib/site/nav.ts`); "Sign in"
   as a line pill from 640 px; "Start free pilot" (`CTA.primary`) as a red pill at every width; below
   1000 px a **Menu** button. Tap targets 44 px. The same header on the home page, info pages, 404 and error.

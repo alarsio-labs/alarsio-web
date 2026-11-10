@@ -1,5 +1,6 @@
 import type { ReactNode } from "react";
 import Link from "next/link";
+import { AUTH_FOOTER_LINKS } from "@/lib/site/nav";
 import { archivo, bricolage, instrument } from "../fonts";
 import "./auth.css";
 
@@ -15,6 +16,13 @@ export default function AuthLayout({ children }: { children: ReactNode }) {
       <main id="main" tabIndex={-1} className="sx-main">
         {children}
       </main>
+      <nav className="sx-sitelinks" aria-label="More from Alarsio">
+        {AUTH_FOOTER_LINKS.map((l) => (
+          <Link key={l.href} href={l.href}>
+            {l.label}
+          </Link>
+        ))}
+      </nav>
     </div>
   );
 }

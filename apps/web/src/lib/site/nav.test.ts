@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { ROLES, roleId } from "@/lib/landing/content";
-import { FOOTER_COLUMNS, HEADER_ITEMS, MENU_LINKS, WHO_WE_SERVE, isNavGroup } from "./nav";
+import { AUTH_FOOTER_LINKS, FOOTER_COLUMNS, HEADER_ITEMS, MENU_LINKS, WHO_WE_SERVE, isNavGroup } from "./nav";
 
 describe("roleId", () => {
   it("makes an anchor from the role's name", () => {
@@ -34,7 +34,7 @@ describe("Who we serve", () => {
 
 describe("the header's entries", () => {
   it("has the group between How it works and Download app", () => {
-    expect(HEADER_ITEMS.map((i) => i.label)).toEqual(["Features", "How it works", "Who we serve", "Download app", "About"]);
+    expect(HEADER_ITEMS.map((i) => i.label)).toEqual(["Features", "How it works", "Who we serve", "Download app", "About", "Contact"]);
   });
 
   it("makes only Who we serve a group, and every other entry a plain link", () => {
@@ -46,5 +46,16 @@ describe("the header's entries", () => {
   it("keeps the full-screen menu and the footer pointing at the roles section too", () => {
     expect(MENU_LINKS.some((l) => l.href === "/#roles")).toBe(true);
     expect(FOOTER_COLUMNS.flatMap((c) => c.links).some((l) => l.href === "/#roles")).toBe(true);
+  });
+});
+
+describe("the account pages' links", () => {
+  it("point at the app download and the contact page, which the header shows elsewhere", () => {
+    expect(AUTH_FOOTER_LINKS.map((l) => l.href)).toEqual(["/download", "/contact"]);
+  });
+
+  it("use the same labels as the header, so a link reads the same everywhere", () => {
+    const header = HEADER_ITEMS.filter((i) => !isNavGroup(i));
+    for (const link of AUTH_FOOTER_LINKS) expect(header).toContainEqual(link);
   });
 });
