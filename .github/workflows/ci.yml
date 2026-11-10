@@ -15,7 +15,7 @@ jobs:
     name: Typecheck · Lint · Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # No `version:` here on purpose. The action reads the version from the
       # "packageManager" field in package.json. Setting both makes it fail with
@@ -61,7 +61,7 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # Applies the auth shim and every migration to a throwaway postgres:15, then
       # runs every supabase/tests/*_test.sql. Without this job a broken migration
@@ -77,7 +77,7 @@ jobs:
     steps:
       # fetch-depth: 0 gives the full history. Without it the checkout is
       # shallow and a diff against the base fails with "no merge base".
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         with:
           fetch-depth: 0
 

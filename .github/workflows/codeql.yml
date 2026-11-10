@@ -24,7 +24,7 @@ jobs:
       contents: read
       security-events: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       # github/codeql-action v3, pinned to a commit
       - uses: github/codeql-action/init@9418214df1f2c4b8128c770156c409013b07d6b9
