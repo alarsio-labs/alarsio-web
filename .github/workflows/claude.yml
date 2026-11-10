@@ -17,8 +17,12 @@ on:
 
 jobs:
   claude:
-    # Only run when someone actually asks for it.
-    if: contains(github.event.comment.body, '@claude') || contains(github.event.issue.body, '@claude')
+    # Only run when a repo member or collaborator asks for it. This repo is public, so a
+    # mention from anyone else must not start a job that holds write permissions.
+    if: >-
+      (contains(github.event.comment.body, '@claude') || contains(github.event.issue.body, '@claude')) &&
+      contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'),
+        github.event.comment.author_association || github.event.issue.author_association)
     runs-on: ubuntu-latest
     permissions:
       contents: write
@@ -30,6 +34,7 @@ jobs:
         with:
           fetch-depth: 1
 
-      - uses: anthropics/claude-code-action@v1
+      # v1, pinned to a commit so a moved tag cannot change what runs with our secret.
+      - uses: anthropics/claude-code-action@61a9c274fa7110a66dfafc1bbbced03833eb25fe
         with:
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}

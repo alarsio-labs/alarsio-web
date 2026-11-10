@@ -1,0 +1,44 @@
+# Dependabot: weekly, grouped, few PRs.
+# Expo and React Native versions are fixed by the Expo SDK, so they are upgraded with
+# `npx expo install --check` in apps/mobile, never by Dependabot. Security updates
+# (Settings -> Code security -> Dependabot security updates) still apply to everything else.
+
+version: 2
+updates:
+  - package-ecosystem: npm # covers pnpm-lock.yaml
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    commit-message:
+      prefix: chore
+    ignore:
+      - dependency-name: "expo"
+      - dependency-name: "expo-*"
+      - dependency-name: "@expo/*"
+      - dependency-name: "jest-expo"
+      - dependency-name: "eslint-config-expo"
+      - dependency-name: "react-native"
+      - dependency-name: "react-native-*"
+      - dependency-name: "@react-native/*"
+      - dependency-name: "@react-native-community/*"
+      - dependency-name: "@react-native-async-storage/*"
+      - dependency-name: "react"
+      - dependency-name: "react-dom"
+      - dependency-name: "@types/react"
+      - dependency-name: "@types/react-dom"
+      # Major upgrades are planned work, not a weekly PR.
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major"]
+    groups:
+      minor-and-patch:
+        update-types: [minor, patch]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 3
+    commit-message:
+      prefix: chore

@@ -47,6 +47,15 @@ jobs:
       - name: Build
         run: pnpm build
 
+      # Catches a broken app.json, Expo config or native-module setup before an EAS build
+      # does. The SDK patch-version check is skipped: new Expo patches land weekly and would
+      # turn CI red with no change of ours. Run `npx expo install --check` for that by hand.
+      - name: Expo doctor (mobile)
+        working-directory: apps/mobile
+        env:
+          EXPO_DOCTOR_SKIP_DEPENDENCY_VERSION_CHECK: "1"
+        run: npx --yes expo-doctor@1.20.5
+
   test-db:
     name: SQL suites (pnpm test:db)
     runs-on: ubuntu-latest
