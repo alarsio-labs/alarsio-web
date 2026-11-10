@@ -1,0 +1,413 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Alarsio Guide Formats</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700&family=Martian+Mono:wght@400;500&display=swap">
+<style>
+/* Layout: a format switcher on top, then one full-width "specimen" per format, each on its own drawn surface (paper page, phone, docs shell, manual sheet). Brand tokens from docs/DESIGN.md. */
+:root{
+  --ground:#E7E2D8; --paper:#FFFDF8; --ink:#171717; --muted:#56524C; --hair:#D6CFC7;
+  --red:#EF493C; --red-deep:#B92725; --loam:#241A12; --ok:#1F6B3A; --ok-bg:#E3F0E6; --warn:#8A5A00; --warn-bg:#FBEFD5;
+  --chip:#F1ECE4; --shadow:0 18px 40px -22px rgb(36 26 18 / .45);
+  --display:"Anton","Impact","Arial Narrow",sans-serif;
+  --body:"Inter",system-ui,-apple-system,"Segoe UI",sans-serif;
+  --mono:"Martian Mono",ui-monospace,"Cascadia Mono",Consolas,monospace;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --ground:#1A130D; --paper:#241A12; --ink:#EFE9DF; --muted:#BDB3A6; --hair:#3E3125;
+  --red:#F2604F; --red-deep:#FF8A7A; --ok:#7FD39A; --ok-bg:#1E3324; --warn:#F2C46B; --warn-bg:#3A2D12;
+  --chip:#33261A; --shadow:0 18px 40px -22px rgb(0 0 0 / .8); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --ground:#1A130D; --paper:#241A12; --ink:#EFE9DF; --muted:#BDB3A6; --hair:#3E3125;
+  --red:#F2604F; --red-deep:#FF8A7A; --ok:#7FD39A; --ok-bg:#1E3324; --warn:#F2C46B; --warn-bg:#3A2D12;
+  --chip:#33261A; --shadow:0 18px 40px -22px rgb(0 0 0 / .8); color-scheme:dark}
+*{box-sizing:border-box}
+body{background:var(--ground);color:var(--ink);font:16px/1.55 var(--body);
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));padding-block:28px 64px}
+.wrap{max-width:1120px;margin:0 auto;display:flex;flex-direction:column;gap:28px}
+.label{font:500 11px/1.4 var(--mono);letter-spacing:.16em;text-transform:uppercase;color:var(--muted)}
+h1,h2,h3{text-wrap:balance;margin:0}
+.intro h1{font:400 clamp(40px,7vw,76px)/.9 var(--display);text-transform:uppercase;letter-spacing:-.02em}
+.intro h1 b{color:var(--red);font-weight:400}
+.intro p{max-width:66ch;margin:12px 0 0;color:var(--muted)}
+.intro{display:flex;flex-direction:column;gap:6px}
+
+/* switcher */
+.tabs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+.tab{all:unset;cursor:pointer;background:var(--paper);border:1px solid var(--hair);border-radius:10px;padding:14px 16px;display:flex;flex-direction:column;gap:4px;min-width:0}
+.tab:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.tab strong{font-size:15px}
+.tab span:last-child{font-size:13px;color:var(--muted)}
+.tab[aria-selected="true"]{border-color:var(--ink);box-shadow:inset 0 -3px 0 var(--red)}
+@media (max-width:760px){.tabs{grid-template-columns:repeat(2,minmax(0,1fr))}}
+
+.meta{display:grid;grid-template-columns:2fr 1fr 1fr;gap:16px;background:var(--paper);border:1px solid var(--hair);border-radius:10px;padding:18px 20px}
+.meta div{min-width:0;display:flex;flex-direction:column;gap:4px}
+.meta p{margin:0;font-size:14px}
+@media (max-width:760px){.meta{grid-template-columns:1fr}}
+.stage{min-width:0}
+
+/* ---------- A · PDF handbook ---------- */
+.spread{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+@media (max-width:860px){.spread{grid-template-columns:1fr}}
+.page{background:var(--paper);box-shadow:var(--shadow);aspect-ratio:1/1.414;max-width:100%;padding:7% 8%;display:flex;flex-direction:column;gap:14px;position:relative;overflow:hidden;min-width:0}
+.page .folio{position:absolute;bottom:4%;left:8%;right:8%;display:flex;justify-content:space-between}
+.chap{background:var(--loam);color:#EFE9DF;justify-content:flex-end}
+.chap .label{color:#BDB3A6}
+.chap .num{font:400 clamp(90px,16vw,170px)/.8 var(--display);color:var(--red)}
+.chap h2{font:400 clamp(30px,4.4vw,48px)/.92 var(--display);text-transform:uppercase}
+.chap p{color:#D8CFC2;font-size:14px;max-width:38ch;margin:0}
+.chap .folio .label{color:#9C9184}
+.page h3{font:700 19px/1.25 var(--body)}
+.page p{margin:0;font-size:13.5px}
+.steps{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:10px;counter-reset:s}
+.steps li{display:grid;grid-template-columns:28px 1fr;gap:10px;font-size:13.5px;counter-increment:s}
+.steps li::before{content:counter(s);font:400 22px/1 var(--display);color:var(--red)}
+.callout{border-left:3px solid var(--red);background:var(--chip);padding:10px 12px;font-size:13px}
+.callout b{display:block;font:500 10.5px/1.4 var(--mono);letter-spacing:.14em;text-transform:uppercase;color:var(--red-deep);margin-bottom:2px}
+.roles{display:flex;gap:6px;flex-wrap:wrap}
+.pill{font:500 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;border:1px solid var(--ink);border-radius:999px;padding:5px 8px}
+
+/* ---------- B · Visual tutorial ---------- */
+.tut{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:22px}
+@media (max-width:900px){.tut{grid-template-columns:1fr}}
+.shot{display:flex;flex-direction:column;gap:12px;min-width:0}
+.shot h3{font-size:17px;display:flex;gap:10px;align-items:baseline}
+.shot h3 span{font:400 26px/1 var(--display);color:var(--red)}
+.shot p{margin:0;font-size:14px;color:var(--muted)}
+.phone{position:relative;width:100%;max-width:270px;margin:0 auto;aspect-ratio:9/18;border:8px solid var(--ink);border-radius:30px;background:#F6F3EF;color:#1C1917;padding:14px 12px;display:flex;flex-direction:column;gap:8px;font-size:12px;overflow:visible}
+.phone .bar{display:flex;justify-content:space-between;font:500 9px/1 var(--mono);color:#57534E}
+.phone .ttl{font:400 22px/1 var(--display);text-transform:uppercase}
+.phone .card{background:#fff;border:1px solid #E7E1DA;border-radius:10px;padding:9px 10px;display:flex;justify-content:space-between;align-items:center;gap:6px}
+.phone .btn{background:#1C1917;color:#fff;text-align:center;border-radius:10px;padding:10px;font-weight:600}
+.phone .btn.ghost{background:#fff;color:#1C1917;border:1px solid #1C1917}
+.phone .st{font:500 8.5px/1 var(--mono);letter-spacing:.06em;text-transform:uppercase;padding:4px 6px;border-radius:999px;white-space:nowrap}
+.st.ok{background:#E3F0E6;color:#1F6B3A}.st.wait{background:#F1ECE4;color:#57534E}.st.att{background:#FBEFD5;color:#8A5A00}
+.st.off{background:#1C1917;color:#fff}
+.pin{position:absolute;width:24px;height:24px;border-radius:50%;background:var(--red);color:#fff;font:700 12px/24px var(--body);text-align:center;box-shadow:0 0 0 3px var(--paper)}
+.keys{list-style:none;margin:0;padding:0;display:flex;flex-direction:column;gap:6px;font-size:13.5px}
+.keys li{display:grid;grid-template-columns:22px 1fr;gap:8px}
+.keys li i{font-style:normal;width:20px;height:20px;border-radius:50%;background:var(--red);color:#fff;font:700 11px/20px var(--body);text-align:center}
+
+/* ---------- C · Docs site ---------- */
+.docs{background:var(--paper);border:1px solid var(--hair);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+.dtop{display:flex;align-items:center;gap:14px;padding:12px 16px;border-bottom:1px solid var(--hair);flex-wrap:wrap}
+.logo{font:400 20px/1 var(--display);text-transform:uppercase;letter-spacing:-.01em}
+.logo b{color:var(--red);font-weight:400}
+.search{flex:1;min-width:180px;border:1px solid var(--hair);border-radius:8px;padding:8px 12px;color:var(--muted);font-size:14px;background:var(--ground)}
+.rolebar{display:flex;gap:6px;flex-wrap:wrap}
+.rolebar button{all:unset;cursor:pointer;font:500 10.5px/1 var(--mono);letter-spacing:.08em;text-transform:uppercase;padding:7px 9px;border-radius:999px;border:1px solid var(--hair)}
+.rolebar button[aria-pressed="true"]{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.rolebar button:focus-visible{outline:2px solid var(--red);outline-offset:2px}
+.dbody{display:grid;grid-template-columns:210px minmax(0,1fr) 170px}
+@media (max-width:900px){.dbody{grid-template-columns:1fr}.dnav,.toc{display:none}}
+.dnav{border-right:1px solid var(--hair);padding:16px;display:flex;flex-direction:column;gap:14px;font-size:14px}
+.dnav ul{list-style:none;margin:6px 0 0;padding:0;display:flex;flex-direction:column;gap:2px}
+.dnav li{padding:5px 8px;border-radius:6px;color:var(--muted)}
+.dnav li.on{background:var(--chip);color:var(--ink);font-weight:600;box-shadow:inset 3px 0 0 var(--red)}
+.dmain{padding:22px 26px;display:flex;flex-direction:column;gap:14px;min-width:0}
+.dmain h2{font-size:28px;line-height:1.15}
+.dmain h3{font-size:18px;margin-top:6px}
+.dmain p{margin:0;max-width:68ch}
+.crumb{font:500 11px/1 var(--mono);color:var(--muted);letter-spacing:.06em}
+.who{display:flex;gap:8px;flex-wrap:wrap;align-items:center;font-size:13px;color:var(--muted)}
+.dsteps{margin:0;padding-left:22px;display:flex;flex-direction:column;gap:8px}
+.dsteps li::marker{font-weight:700;color:var(--red-deep)}
+kbd,.ui{font:600 13px/1 var(--body);background:var(--chip);border:1px solid var(--hair);border-radius:5px;padding:2px 6px;white-space:nowrap}
+.note{border:1px solid var(--hair);border-radius:8px;padding:12px 14px;display:flex;gap:10px;font-size:14px}
+.note b{font:500 10.5px/1.6 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--red-deep);white-space:nowrap}
+.rolepanel[hidden]{display:none!important}
+.toc{border-left:1px solid var(--hair);padding:16px;font-size:13px;display:flex;flex-direction:column;gap:6px;color:var(--muted)}
+.feedback{display:flex;gap:10px;align-items:center;font-size:13px;color:var(--muted);border-top:1px solid var(--hair);padding-top:12px;flex-wrap:wrap}
+.feedback button{all:unset;cursor:pointer;border:1px solid var(--hair);border-radius:6px;padding:4px 10px;color:var(--ink)}
+.feedback button:focus-visible{outline:2px solid var(--red)}
+
+/* ---------- D · Product manual ---------- */
+.manual{background:var(--paper);box-shadow:var(--shadow);padding:30px clamp(18px,4vw,44px);display:flex;flex-direction:column;gap:20px}
+.mhead{display:grid;grid-template-columns:auto 1fr auto;gap:18px;align-items:end;border-bottom:2px solid var(--ink);padding-bottom:12px}
+.mhead .sec{font:400 54px/.85 var(--display);color:var(--red)}
+.mhead h2{font:400 30px/.95 var(--display);text-transform:uppercase}
+@media (max-width:640px){.mhead{grid-template-columns:auto 1fr}.mhead .label:last-child{display:none}}
+.mgrid{display:grid;grid-template-columns:1.1fr 1fr;gap:26px}
+@media (max-width:860px){.mgrid{grid-template-columns:1fr}}
+.mgrid > div{min-width:0;display:flex;flex-direction:column;gap:10px}
+.manual h3{font-size:15px;text-transform:uppercase;letter-spacing:.04em}
+.manual p{margin:0;font-size:14px}
+.tbl{overflow-x:auto}
+table{border-collapse:collapse;width:100%;font-size:13.5px}
+th{font:500 10.5px/1.4 var(--mono);letter-spacing:.12em;text-transform:uppercase;color:var(--muted);text-align:left;padding:6px 8px;border-bottom:1px solid var(--ink)}
+td{padding:8px;border-bottom:1px solid var(--hair);vertical-align:top}
+td code{font:500 11px var(--mono)}
+.flow{display:flex;flex-wrap:wrap;gap:6px;align-items:center;font-size:13px}
+.flow span{border:1px solid var(--ink);padding:6px 9px;border-radius:6px;background:var(--paper)}
+.flow i{font-style:normal;color:var(--red)}
+
+/* ---------- verdict ---------- */
+.verdict{background:var(--loam);color:#EFE9DF;border-radius:12px;padding:24px clamp(18px,3vw,32px);display:grid;grid-template-columns:1fr 1.4fr;gap:26px}
+.verdict .label{color:#BDB3A6}
+.verdict h2{font:400 clamp(30px,4vw,44px)/.95 var(--display);text-transform:uppercase;margin-top:6px}
+.verdict h2 b{color:#F2604F;font-weight:400}
+.verdict ul{margin:0;padding-left:18px;display:flex;flex-direction:column;gap:8px;font-size:15px}
+.verdict p{margin:8px 0 0;color:#D8CFC2;font-size:14px}
+@media (max-width:760px){.verdict{grid-template-columns:1fr}}
+.score{width:100%;border-collapse:collapse;margin-top:4px}
+.score th,.score td{border-color:#3E3125;color:#EFE9DF;font-size:13px;padding:6px}
+.score th{color:#BDB3A6;border-bottom-color:#BDB3A6}
+.dots{letter-spacing:2px;color:#F2604F;white-space:nowrap}
+.fine{font-size:12.5px;color:var(--muted)}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="intro">
+    <span class="label">Alarsio User Guide · format review · 10 Nov 2026</span>
+    <h1>Four ways to <b>teach</b> Alarsio</h1>
+    <p>Each sample covers the same real workflow, so you can compare like with like: a supervisor records the day's attendance on the phone with no signal, and a project manager approves that day on the web. Phone and web screens are drawn mock-ups. The final guide will use real screenshots from the pilot organisation.</p>
+  </header>
+
+  <nav class="tabs" role="tablist" aria-label="Guide format">
+    <button class="tab" role="tab" id="t-handbook" aria-controls="handbook" aria-selected="true"><span class="label">A</span><strong>PDF handbook</strong><span>Printed, chapter by chapter</span></button>
+    <button class="tab" role="tab" id="t-tutorial" aria-controls="tutorial" aria-selected="false"><span class="label">B</span><strong>Visual tutorial</strong><span>Annotated screens, step by step</span></button>
+    <button class="tab" role="tab" id="t-docs" aria-controls="docs" aria-selected="false"><span class="label">C</span><strong>Docs site</strong><span>Searchable, filtered by role</span></button>
+    <button class="tab" role="tab" id="t-manual" aria-controls="manual" aria-selected="false"><span class="label">D</span><strong>Product manual</strong><span>Reference, rules, troubleshooting</span></button>
+  </nav>
+
+  <!-- A -->
+  <section id="handbook" role="tabpanel" aria-labelledby="t-handbook" class="panel">
+    <div class="meta">
+      <div><span class="label">What it is</span><p>An A4 handbook, about 40 pages, one chapter per module. You email it as a PDF or print it for the site office. Every chapter opens with a dark title page and then gives numbered steps with callouts.</p></div>
+      <div><span class="label">Best for</span><p>Owners and accountants who read at a desk. Partners who want a file to keep.</p></div>
+      <div><span class="label">Weak spot</span><p>A supervisor on site will not open a PDF. It goes out of date with every release.</p></div>
+    </div>
+    <div class="stage spread" style="margin-top:18px">
+      <article class="page chap">
+        <span class="label">Chapter</span>
+        <div class="num">04</div>
+        <h2>Attendance &amp; site presence</h2>
+        <p>Check in at the site, mark the day's register in one tap, and send it for approval. All of it works with no signal.</p>
+        <div class="folio"><span class="label">Alarsio Handbook</span><span class="label">27</span></div>
+      </article>
+      <article class="page">
+        <span class="label">4.2 · Supervisor · Phone</span>
+        <h3>Mark today's register</h3>
+        <p>Open the site from <b>Today</b>. You must be checked in first. The register lists every worker assigned to this site.</p>
+        <ol class="steps">
+          <li><span>Tap <b>Mark everyone present</b>. Every worker on the list is set to present.</span></li>
+          <li><span>Change only the exceptions: half day, leave, absent, or overtime hours. Add a note for any worker if needed.</span></li>
+          <li><span>Leave the screen. The register is already saved on the phone. There is no Save button to forget.</span></li>
+          <li><span>When the phone finds a signal it sends the records. Each row then shows <b>On the server</b>.</span></li>
+        </ol>
+        <div class="callout"><b>No signal?</b>Keep working. Records wait on the phone and go out in order. Nothing is lost if you close the app.</div>
+        <div class="callout"><b>Needs attention</b>A manager approved this day before your change arrived. Your change was not applied. Ask the manager to add a correction.</div>
+        <div class="roles"><span class="pill">Supervisor</span><span class="pill">Project manager</span></div>
+        <div class="folio"><span class="label">Chapter 4 · Attendance</span><span class="label">29</span></div>
+      </article>
+    </div>
+  </section>
+
+  <!-- B -->
+  <section id="tutorial" role="tabpanel" aria-labelledby="t-tutorial" class="panel" hidden>
+    <div class="meta">
+      <div><span class="label">What it is</span><p>A short tutorial for each job: three to six screens, a numbered pin on each control, and one sentence under each screen. It can also go out as WhatsApp image cards or a 60-second screen recording.</p></div>
+      <div><span class="label">Best for</span><p>Supervisors and first-time users. Training a new site team in ten minutes.</p></div>
+      <div><span class="label">Weak spot</span><p>It explains the happy path well but the rules and edge cases poorly. Screenshots must be redone when a screen changes.</p></div>
+    </div>
+    <div class="stage tut" style="margin-top:18px">
+      <div class="shot">
+        <h3><span>1</span>Check in at the site</h3>
+        <div class="phone" aria-label="Phone mock-up: site screen with check-in button">
+          <div class="bar"><span>9:02</span><span>No signal</span></div>
+          <div class="ttl">Shanti Nagar · Block B</div>
+          <div class="card"><span>Inside the site area</span><span class="st ok">GPS ok</span></div>
+          <div class="btn">Check in</div>
+          <div class="card"><span>Last check-in</span><span>Yesterday 8:51</span></div>
+          <span class="pin" style="top:112px;right:-10px">1</span>
+          <span class="pin" style="top:64px;right:-10px">2</span>
+        </div>
+        <ul class="keys"><li><i>1</i>Tap once. The phone reads your location only on this tap.</li><li><i>2</i>Outside the site area? The app asks for a reason, then <span class="ui">Check in anyway</span>.</li></ul>
+      </div>
+      <div class="shot">
+        <h3><span>2</span>Mark the register</h3>
+        <div class="phone" aria-label="Phone mock-up: day register">
+          <div class="bar"><span>9:10</span><span>No signal</span></div>
+          <div class="ttl">Register · Tue 10 Nov</div>
+          <div class="btn">Mark everyone present</div>
+          <div class="card"><span>Ramesh K · Mason</span><span class="st ok">Present</span></div>
+          <div class="card"><span>Sunita D · Helper</span><span class="st att">Half day</span></div>
+          <div class="card"><span>Arif S · Bar bender</span><span class="st ok">Present +2h</span></div>
+          <span class="pin" style="top:62px;right:-10px">1</span>
+          <span class="pin" style="top:146px;right:-10px">2</span>
+        </div>
+        <ul class="keys"><li><i>1</i>One tap sets every worker to present.</li><li><i>2</i>Tap a worker to change only the exceptions: half day, leave, overtime, note.</li></ul>
+      </div>
+      <div class="shot">
+        <h3><span>3</span>Watch it reach the server</h3>
+        <div class="phone" aria-label="Phone mock-up: sync status">
+          <div class="bar"><span>11:40</span><span>Online</span></div>
+          <div class="ttl">Sync</div>
+          <div class="card"><span>Register · 14 workers</span><span class="st ok">On the server</span></div>
+          <div class="card"><span>Check-in 9:02</span><span class="st ok">On the server</span></div>
+          <div class="card"><span>Arif S · edit 11:20</span><span class="st att">Needs attention</span></div>
+          <div class="btn ghost">Sync now</div>
+          <span class="pin" style="top:62px;right:-10px">1</span>
+          <span class="pin" style="top:146px;right:-10px">2</span>
+        </div>
+        <ul class="keys"><li><i>1</i><span class="ui">On the server</span> appears only after the server has accepted the record.</li><li><i>2</i><span class="ui">Needs attention</span>: the day was approved before this edit arrived. Ask your manager for a correction.</li></ul>
+      </div>
+    </div>
+  </section>
+
+  <!-- C -->
+  <section id="docs" role="tabpanel" aria-labelledby="t-docs" class="panel" hidden>
+    <div class="meta">
+      <div><span class="label">What it is</span><p>A help site at a fixed address, for example alarsio.com/help, with search, a module sidebar and a <b>"I am a…"</b> role switch. Each page is short and links to the next task. The annotated screens from B go inside it. It opens well on a phone.</p></div>
+      <div><span class="label">Best for</span><p>Every role. It can be updated the same day a screen changes, and support can send a link to one answer.</p></div>
+      <div><span class="label">Weak spot</span><p>It needs a hosting decision and someone to keep it current. It is not something to print.</p></div>
+    </div>
+    <div class="stage docs" style="margin-top:18px">
+      <div class="dtop">
+        <span class="logo">Alarsio <b>Help</b></span>
+        <div class="search" role="img" aria-label="Search box">Search: "approve day", "overtime", "export"…</div>
+        <div class="rolebar" aria-label="Show steps for">
+          <button type="button" data-role="sup" aria-pressed="true">Supervisor</button>
+          <button type="button" data-role="pm" aria-pressed="false">Project manager</button>
+          <button type="button" data-role="acc" aria-pressed="false">Accountant</button>
+        </div>
+      </div>
+      <div class="dbody">
+        <nav class="dnav" aria-label="Help sections">
+          <div><span class="label">Get started</span><ul><li>Set up your organisation</li><li>Invite your team</li><li>Install the phone app</li></ul></div>
+          <div><span class="label">On site</span><ul><li>Check in and out</li><li class="on">Daily attendance</li><li>Daily report</li><li>Materials</li><li>Working with no signal</li></ul></div>
+          <div><span class="label">In the office</span><ul><li>Overview</li><li>Wage summaries</li><li>Export your data</li></ul></div>
+        </nav>
+        <article class="dmain">
+          <span class="crumb">On site / Daily attendance</span>
+          <h2>Record and approve a day's attendance</h2>
+          <div class="who"><span class="label">Works offline</span> · <span>3 min read</span> · <span>Updated 10 Nov 2026</span></div>
+
+          <div class="rolepanel" data-for="sup">
+            <h3>On the phone</h3>
+            <ol class="dsteps">
+              <li>Check in at the site. See <a href="#docs">Check in and out</a>.</li>
+              <li>Open <span class="ui">Register</span> and tap <span class="ui">Mark everyone present</span>.</li>
+              <li>Tap a worker to set half day, leave, absent or overtime hours.</li>
+              <li>Done. The register saves on the phone and sends when there is a signal.</li>
+            </ol>
+          </div>
+          <div class="rolepanel" data-for="pm" hidden>
+            <h3>On the web</h3>
+            <ol class="dsteps">
+              <li>Open <span class="ui">Attendance</span>. Days that need a look are listed first.</li>
+              <li>Open a day. Check the entries, any check-ins from outside the site area, and pending corrections.</li>
+              <li>Choose <span class="ui">Approve</span>, or <span class="ui">Reject</span> with a reason.</li>
+              <li>An approved day is locked. Later changes come in as corrections for you to review.</li>
+            </ol>
+            <div class="note"><b>Rule</b><span>You cannot approve a day you recorded yourself. Another manager or the owner must approve it.</span></div>
+          </div>
+          <div class="rolepanel" data-for="acc" hidden>
+            <h3>What you see</h3>
+            <p>You see approved days only. They feed the wage summary for the period. Open and rejected days are not shown to you and are never paid. See <a href="#docs">Wage summaries</a>.</p>
+          </div>
+
+          <div class="note"><b>No signal</b><span>Records wait on the phone and go out in order. A record shows <span class="ui">On the server</span> only once the server has accepted it.</span></div>
+          <div class="feedback"><span>Did this answer your question?</span><button type="button">Yes</button><button type="button">No</button><span id="fb" aria-live="polite"></span></div>
+        </article>
+        <aside class="toc" aria-label="On this page"><span class="label">On this page</span><span>On the phone</span><span>On the web</span><span>What the accountant sees</span><span>No signal</span><span>Related: corrections</span></aside>
+      </div>
+    </div>
+  </section>
+
+  <!-- D -->
+  <section id="manual" role="tabpanel" aria-labelledby="t-manual" class="panel" hidden>
+    <div class="meta">
+      <div><span class="label">What it is</span><p>A complete reference: what each module does, who may do what, every status word and what it means, the full workflow, and a troubleshooting table. It is the source the other formats are cut from.</p></div>
+      <div><span class="label">Best for</span><p>Owners checking the rules, your support team, and settling disputes ("why was this day not paid?").</p></div>
+      <div><span class="label">Weak spot</span><p>It is dense. Nobody learns the app from it. It is a lookup, not a lesson.</p></div>
+    </div>
+    <div class="stage manual" style="margin-top:18px">
+      <div class="mhead"><span class="sec">§4</span><h2>Attendance &amp; site presence</h2><span class="label">Manual v1.0</span></div>
+      <div class="mgrid">
+        <div>
+          <h3>Who may do what</h3>
+          <div class="tbl"><table>
+            <thead><tr><th>Action</th><th>Owner</th><th>PM</th><th>Supervisor</th><th>Accountant</th></tr></thead>
+            <tbody>
+              <tr><td>Check in / out</td><td>—</td><td>✓</td><td>✓ assigned sites</td><td>—</td></tr>
+              <tr><td>Mark register</td><td>—</td><td>✓</td><td>✓ assigned sites</td><td>—</td></tr>
+              <tr><td>Approve / reject day</td><td>✓</td><td>✓ not own day</td><td>—</td><td>—</td></tr>
+              <tr><td>See approved days</td><td>✓</td><td>✓</td><td>own sites</td><td>✓ read only</td></tr>
+            </tbody>
+          </table></div>
+          <h3>The day's lifecycle</h3>
+          <div class="flow"><span>Recorded on phone</span><i>→</i><span>On the server</span><i>→</i><span>Approved</span><i>→</i><span>Locked · feeds wages</span></div>
+          <p class="fine">A rejected day goes back to the supervisor. A change to an approved day becomes a correction, which keeps the old value, the new value and the reason.</p>
+        </div>
+        <div>
+          <h3>Troubleshooting</h3>
+          <div class="tbl"><table>
+            <thead><tr><th>You see</th><th>Why</th><th>Do this</th></tr></thead>
+            <tbody>
+              <tr><td>App asks for a reason at check-in</td><td>You are outside the site's set radius</td><td>Give the reason. The manager sees it flagged.</td></tr>
+              <tr><td><b>Needs attention</b> on a row</td><td>The day was approved before your edit arrived</td><td>Propose a correction. Do not re-enter the day.</td></tr>
+              <tr><td>Rows not sending</td><td>No signal, or you were signed out</td><td>Move to signal, open Sync, tap <b>Sync now</b>.</td></tr>
+              <tr><td>A worker is missing from the register</td><td>Not assigned to this site</td><td>Ask the manager to assign them under Workers.</td></tr>
+            </tbody>
+          </table></div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section class="verdict" aria-label="Recommendation">
+    <div>
+      <span class="label">My recommendation</span>
+      <h2>C as the home, <b>B inside it</b>, A as an export</h2>
+      <p>Your design partners are contractors and supervisors, mostly on phones and often on poor signal. A help site with a role switch keeps each person on their own four steps. Annotated screens carry the teaching. One PDF built from the same source covers the owner who wants a file. D stays internal as the support team's reference.</p>
+    </div>
+    <div class="tbl">
+      <table class="score">
+        <thead><tr><th>Need</th><th>A</th><th>B</th><th>C</th><th>D</th></tr></thead>
+        <tbody>
+          <tr><td>A supervisor on a phone can follow it</td><td class="dots">●○○</td><td class="dots">●●●</td><td class="dots">●●●</td><td class="dots">●○○</td></tr>
+          <tr><td>Finds one answer fast</td><td class="dots">●○○</td><td class="dots">●●○</td><td class="dots">●●●</td><td class="dots">●●○</td></tr>
+          <tr><td>Covers rules and edge cases</td><td class="dots">●●○</td><td class="dots">●○○</td><td class="dots">●●○</td><td class="dots">●●●</td></tr>
+          <tr><td>Easy to keep current</td><td class="dots">●○○</td><td class="dots">●○○</td><td class="dots">●●●</td><td class="dots">●●○</td></tr>
+          <tr><td>Can be printed or emailed</td><td class="dots">●●●</td><td class="dots">●●○</td><td class="dots">●○○</td><td class="dots">●●●</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+  <p class="fine">Sample content follows the shipped rules in docs/FEATURES.md. Button labels marked like <span class="ui">this</span> are checked against the app's code, except Approve and Reject, which are still to be checked against the web screen.</p>
+</div>
+
+<script>
+(function(){
+  const tabs=[...document.querySelectorAll('.tab')];
+  const ids=tabs.map(t=>t.getAttribute('aria-controls'));
+  function show(id){
+    if(!ids.includes(id)) id=ids[0];
+    tabs.forEach(t=>{const on=t.getAttribute('aria-controls')===id;t.setAttribute('aria-selected',on);t.tabIndex=on?0:-1;});
+    ids.forEach(i=>{document.getElementById(i).hidden=(i!==id);});
+  }
+  tabs.forEach(t=>t.addEventListener('click',()=>{const id=t.getAttribute('aria-controls');if(location.hash!=='#'+id)location.hash=id;else show(id);}));
+  window.addEventListener('hashchange',()=>show(location.hash.slice(1)));
+  show(location.hash.slice(1));
+  // role switch in sample C
+  const rb=[...document.querySelectorAll('.rolebar button')];
+  rb.forEach(b=>b.addEventListener('click',()=>{
+    rb.forEach(x=>x.setAttribute('aria-pressed',x===b));
+    document.querySelectorAll('.rolepanel').forEach(p=>{p.hidden=p.dataset.for!==b.dataset.role;});
+  }));
+  document.querySelectorAll('.feedback button').forEach(b=>b.addEventListener('click',()=>{document.getElementById('fb').textContent='Thanks. (Sample only: nothing is recorded.)';}));
+  // in-sample links shouldn't jump away
+  document.querySelectorAll('.dmain a').forEach(a=>a.addEventListener('click',e=>e.preventDefault()));
+})();
+</script>
+</body>
+</html>
