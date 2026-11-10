@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
+import { ContactLink, LegalDoc, type DocSection } from "@/components/site/doc";
+import { PageHero } from "@/components/site/page-hero";
 import { GRIEVANCE_TIME, LEGAL } from "@/lib/site/legal";
 
 export const metadata: Metadata = {
@@ -227,13 +228,15 @@ const sections: DocSection[] = [
 ];
 
 export default function PrivacyPage() {
+  // In the About look (docs/DESIGN.md 2b-i): the hero, then the contents list beside a reading column.
   return (
-    <>
-      <PageHead crumb="Privacy Policy" title="Privacy Policy" meta={`Last updated: ${UPDATED}`} />
-      <LegalDoc
-        intro={<p>Your records belong to you. This policy explains, in plain language, what we collect, why, and the control you have over it.</p>}
-        sections={sections}
-      />
-    </>
+    <div className="hm">
+      <PageHero crumb="Privacy Policy" eyebrow="Legal" title="Privacy Policy" lede="Your records belong to you. This policy explains, in plain language, what we collect, why, and the control you have over it." meta={`Last updated: ${UPDATED}`} />
+      <section className="hm-band hm-paper" aria-label="Privacy Policy">
+        <div className="hm-wrap">
+          <LegalDoc sections={sections} />
+        </div>
+      </section>
+    </div>
   );
 }

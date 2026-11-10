@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { ContactLink, LegalDoc, PageHead, type DocSection } from "@/components/site/doc";
+import { ContactLink, LegalDoc, type DocSection } from "@/components/site/doc";
+import { PageHero } from "@/components/site/page-hero";
 import { LEGAL } from "@/lib/site/legal";
 
 export const metadata: Metadata = {
@@ -185,13 +186,15 @@ const sections: DocSection[] = [
 ];
 
 export default function TermsPage() {
+  // In the About look (docs/DESIGN.md 2b-i): the hero, then the contents list beside a reading column.
   return (
-    <>
-      <PageHead crumb="Terms of Service" title="Terms of Service" meta={`Last updated: ${UPDATED}`} />
-      <LegalDoc
-        intro={<p>Please read these Terms carefully. They set out your rights and responsibilities when you use Alarsio.</p>}
-        sections={sections}
-      />
-    </>
+    <div className="hm">
+      <PageHero crumb="Terms of Service" eyebrow="Legal" title="Terms of Service" lede="Please read these Terms carefully. They set out your rights and responsibilities when you use Alarsio." meta={`Last updated: ${UPDATED}`} />
+      <section className="hm-band hm-paper" aria-label="Terms of Service">
+        <div className="hm-wrap">
+          <LegalDoc sections={sections} />
+        </div>
+      </section>
+    </div>
   );
 }

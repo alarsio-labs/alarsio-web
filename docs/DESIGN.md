@@ -147,8 +147,8 @@ the phone of option D and the wordmark of option C. It replaces the loam panel w
 
 ## 2b-i · Info pages
 
-The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one frame, in
-`components/site/public-frame.tsx`:
+The public pages (landing, About, Download, Contact, Book a demo, Privacy, Terms, 404, error) share one
+frame, in `components/site/public-frame.tsx`, and every page after the home page uses the About look:
 
 - **Header** (v2.1, `components/site/site-header.tsx` via `PublicHeader`): the wordmark; from 1000 px the
   page links Features, How it works, **Who we serve** (a dropdown), Download app, About, Contact (`HEADER_ITEMS` in
@@ -166,20 +166,35 @@ The public pages (landing, About, Contact, Privacy, Terms, 404, error) share one
   and returns focus to the Menu button; the page behind does not scroll.
 - **Footer.** `SiteFooter` on every public page: loam, wordmark and one line, four columns (Product, Get
   started, Company, Legal; `FOOTER_COLUMNS`), 44 px rows, then copyright and the contact email.
-- **Download** (`app/(site)/download`): the APK link from `NEXT_PUBLIC_APK_URL`, else the pilot build's
-  link `PILOT_APK_URL` (https only, `lib/site/download.ts`), three install steps, and who needs the phone or
-  the web app. With no valid link the button becomes "Ask on WhatsApp" (or Contact), never a dead link.
+- **Page hero** (`components/site/page-hero.tsx`, `PageHero`): the first band of every page after the home
+  page: a small breadcrumb, the red `( eyebrow )`, the Anton headline (`hm-h1`, at most 18ch), a lede (56ch),
+  an optional mono "Last updated" line and room for buttons or facts. It clears the fixed 56 px header itself
+  (`.pg-hero` in `app/(site)/site.css`). **Closing band** (`components/site/closing-cta.tsx`, `ClosingCta`):
+  the home page's red call to action from `CTA`, on About, Download and Contact. The site layout loads
+  `app/home.css` once; each page wraps its bands in `.hm`. Cards are `hm-card` (cream bands) or
+  `hm-card-dark` (loam bands) with a mono `hm-num` label; links inside them are `.pg-link`.
+- **Download** (`app/(site)/download`): hero with the APK button (from `NEXT_PUBLIC_APK_URL`, else the pilot
+  build's `PILOT_APK_URL`, https only, `lib/site/download.ts`) and "Use the web app instead"; three numbered
+  install steps; a loam "Phone or web?" band; the closing band. With no valid link the button becomes
+  "Ask on WhatsApp" (or Contact), never a dead link.
+- **Contact** (`app/(site)/contact`): hero, three numbered topic cards, a loam "Reach us" band showing only
+  the configured email, WhatsApp and phone, "Before you write", the closing band.
+- **Book a demo** (`app/(site)/demo`): hero, then the enquiry form beside "What happens next" on a paper band
+  (`.ef-*`, unchanged).
+- **Privacy, Terms** (`app/(site)/privacy`, `terms`): hero (eyebrow "Legal", the intro as the lede, the
+  last-updated line), then `LegalDoc` on a paper band: the contents list beside a 760 px reading column.
+  No cards: long legal text stays easy to read.
 - **About** (`app/(site)/about`): built from the home page's own pieces (`app/home.css`, the shared
   `Eyebrow` in `components/site/eyebrow.tsx`) so it reads as the same site: a cream hero with the Anton
   headline, the lede and the five at-a-glance facts as pills; a loam mission band; four numbered cards for
   what the app covers; a loam band of three principles; and the home page's red closing call to action
-  (`CTA`). Its few extra rules (room under the fixed header, the facts row, the two-column mission) are in
-  `about/about.css`. Contact, Privacy and Terms are still the plainer document style (`site.css`).
+  (`ClosingCta`). Its hero is `PageHero` with the facts row (`.pg-facts`); only the two-column mission is in
+  `about/about.css`. It is the reference for every other public page.
 - **Skip link.** "Skip to content" is the first thing Tab reaches on every page (`app/layout.tsx`,
   styles in `globals.css`). It jumps to `#main`, which is the `<main>` of the page, or the wrapper around
   the page in the signed-in app.
-- **Missing and broken pages.** `app/not-found.tsx` (status 404, with Home, Dashboard and a contact
-  link), `app/error.tsx` (Try again, Home, a contact link; it shows no error text) and
+- **Missing and broken pages.** `app/not-found.tsx` (status 404: `PageHero` with Home, Dashboard and a
+  contact line), `app/error.tsx` (`PageHero` with Try again, Home and a contact line; it shows no error text) and
   `app/global-error.tsx` (own `<html>`, inline styles in cream, ink and red).
 - **Titles.** Every page has a title through the `"%s | Alarsio"` template; the signed-in pages use a
   short static title.

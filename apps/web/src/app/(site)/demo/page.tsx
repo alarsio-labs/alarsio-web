@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHead } from "@/components/site/doc";
+import { PageHero } from "@/components/site/page-hero";
 import { EnquiryForm } from "@/components/site/enquiry-form";
 import { CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppMessageHref } from "@/lib/site/contact";
 import { REPLY_PROMISE, WHATSAPP_HELLO } from "@/lib/site/enquiry";
@@ -19,18 +19,22 @@ const NEXT_STEPS = [
   { title: "Free during the pilot", body: "No card needed. Your data is yours to download at any time." }
 ];
 
+// In the About look (docs/DESIGN.md 2b-i): the hero, then the form beside "What happens next".
+// The form itself (components/site/enquiry-form.tsx, .ef-* in site.css) is unchanged.
 export default function DemoPage() {
   const whatsApp = whatsAppMessageHref(CONTACT_WHATSAPP, WHATSAPP_HELLO);
   const call = telHref(CONTACT_PHONE);
 
   return (
-    <>
-      <PageHead
+    <div className="hm">
+      <PageHero
         crumb="Book a demo"
+        eyebrow="Free during the pilot"
         title="Book a demo"
-        sub="Tell us a little about your sites. We'll call or WhatsApp you, show you Alarsio and set up your first site with you."
+        lede="Tell us a little about your sites. We'll call or WhatsApp you, show you Alarsio and set up your first site with you."
       />
-      <div className="ds-wrap ef-layout">
+      <section className="hm-band hm-paper" aria-label="Book a demo">
+      <div className="hm-wrap ef-layout">
         <section className="ef-card" aria-labelledby="ef-title">
           <h2 id="ef-title" className="ef-title">Your details</h2>
           <EnquiryForm whatsApp={whatsApp} call={call} />
@@ -67,6 +71,7 @@ export default function DemoPage() {
           </p>
         </aside>
       </div>
-    </>
+      </section>
+    </div>
   );
 }
