@@ -1,7 +1,7 @@
 // Who is behind the service, for the Privacy Policy and Terms. A lawyer has not reviewed
 // these yet (see the comment in the Privacy and Terms pages). Change a value here, in one place.
 export const LEGAL = {
-  entity: "Alarsio, operated by Manish Tiwari and team",
+  entity: "Alarsio",
   address: "SRMCEM Campus, Tiwariganj, Lucknow 226028",
   officerName: "Anuradha Tiwari",
   officerEmail: "alarsio.team@gmail.com",

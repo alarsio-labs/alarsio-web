@@ -90,6 +90,10 @@
 }
 .lp-head-links a:hover { background: var(--hair-faint); }
 @media (min-width: 1000px) { .lp-head-links { display: flex; } }
+/* Six links plus the two buttons only just fit from 1000 px: keep each label on one line and
+   narrow the pills until there is room again. */
+.lp-head-links a, .lp-head-links .lp-drop-btn { white-space: nowrap; }
+@media (min-width: 1000px) and (max-width: 1119px) { .lp-head-links a, .lp-head-links .lp-drop-btn { padding: 0 8px; } }
 
 /* "Who we serve": a button that opens a short list of links under it (site-header.tsx). */
 .lp-drop { position: relative; }

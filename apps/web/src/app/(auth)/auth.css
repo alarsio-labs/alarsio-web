@@ -36,6 +36,11 @@
 .sx-logo span { color: var(--sx-red); }
 .sx-logo:focus-visible { outline: 3px solid var(--sx-red); outline-offset: 4px; border-radius: 4px; }
 .sx-main { outline: none; }
+/* Download app · Contact, under the scene: these pages have no site header or footer. */
+.sx-sitelinks { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 24px; padding: 0 16px 32px; font-family: var(--sx-body); font-size: 14px; }
+.sx-sitelinks a { display: inline-flex; align-items: center; min-height: 44px; color: var(--sx-mute); text-decoration: underline; text-underline-offset: 3px; }
+.sx-sitelinks a:hover { color: var(--sx-ink); }
+.sx-sitelinks a:focus-visible { outline: 3px solid var(--sx-red); outline-offset: 2px; border-radius: 4px; }
 
 /* Scene: picture | card on wide screens; card only on phones. */
 .sx-scene { display: grid; grid-template-columns: minmax(0, 1fr); min-height: 100svh; align-items: center; }
