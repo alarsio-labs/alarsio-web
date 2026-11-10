@@ -14,24 +14,24 @@
   "dependencies": {
     "@alarsio/types": "workspace:*",
     "@supabase/ssr": "^0.12.7",
-    "@supabase/supabase-js": "^2.118.0",
+    "@supabase/supabase-js": "^2.119.0",
     "fflate": "^0.8.2",
-    "next": "^16.4.2",
+    "next": "^16.4.5",
     "nodemailer": "^8",
     "react": "~19.2.0",
     "react-dom": "~19.2.0",
-    "read-excel-file": "^9.3.12",
+    "read-excel-file": "^9.3.14",
     "server-only": "^0.0.1"
   },
   "devDependencies": {
     "@alarsio/config": "workspace:*",
-    "@tailwindcss/postcss": "^4.3.3",
+    "@tailwindcss/postcss": "^4.3.5",
     "@types/node": "^22.10.0",
     "@types/nodemailer": "^8.0.2",
     "@types/react": "~19.2.0",
     "@types/react-dom": "~19.2.0",
     "eslint": "^9.39.0",
-    "tailwindcss": "^4.3.3",
+    "tailwindcss": "^4.3.5",
     "typescript": "^5.7.2",
     "vitest": "^3.2.0"
   }
