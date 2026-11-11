@@ -62,8 +62,11 @@ Take a backup before any push that changes a table with data in it.
       the Confirm signup and Reset Password bodies (subjects in `supabase/templates/README.md`). They
       already carry the links below.
 - [ ] **Confirm signup email.** Authentication, Email Templates, **Confirm signup**: set the link to
-      `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard">Confirm your email</a>`
-      and save. Do the same for the **Invite user** and **Magic link** templates if they are used. With the
+      `<a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email">Confirm your email</a>`
+      and save. `RedirectTo` is the app's `/auth/confirm?next=…`, so an invited person comes back to
+      `/invite/<token>` and joins; a fixed `next=/dashboard` sends them to Create organisation instead.
+      It needs the `https://<web-address>/auth/confirm**` Redirect URL (with `**`), or Supabase falls back
+      to the Site URL and the link breaks. Do the same for **Magic link** if it is used. With the
       default template every verification link ends on `/sign-in?error=link_invalid`, because
       `/auth/confirm` accepts only `token_hash` (same wording as `docs/ONBOARDING.md`). S1 is the check.
 - [ ] **Password reset email.** Authentication, Email Templates, **Reset Password**: set the link to

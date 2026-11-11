@@ -17,9 +17,9 @@
         <tr><td style="padding:8px 0 4px">
   <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
     <td bgcolor="#C8231F" style="border-radius:999px">
-      <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard" target="_blank" style="display:inline-block;padding:14px 28px;font:600 16px/1 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;border-radius:999px">Confirm my email</a>
+      <a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" target="_blank" style="display:inline-block;padding:14px 28px;font:600 16px/1 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;border-radius:999px">Confirm my email</a>
     </td></tr></table>
-</td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If the button does not work, copy this link into your browser:<br><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard" style="color:#67625C;word-break:break-all">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard</a></td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If you did not sign up for Alarsio, you can ignore this email. No account is made until the address is confirmed.</td></tr>
+</td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If the button does not work, copy this link into your browser:<br><a href="{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" style="color:#67625C;word-break:break-all">{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email</a></td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If you did not sign up for Alarsio, you can ignore this email. No account is made until the address is confirmed.</td></tr>
       </table>
     </td></tr>
     <tr><td align="center" style="padding:20px 8px 0;font:12px/1.6 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">

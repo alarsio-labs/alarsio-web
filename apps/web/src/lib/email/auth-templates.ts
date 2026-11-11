@@ -22,7 +22,10 @@ export const AUTH_TEMPLATES = {
       heading: "Confirm your email",
       bodyHtml:
         "Thanks for signing up for Alarsio. Confirm that <strong>{{ .Email }}</strong> is your email address, and you can set up your company and first site.",
-      button: { label: "Confirm my email", href: confirmUrl("email", "/dashboard") },
+      // RedirectTo is the app's emailRedirectTo: /auth/confirm?next=<where they were going>.
+      // It carries an invite (/invite/<token>) through sign-up; a fixed next would drop it,
+      // and the invited supervisor would land on "Create organisation" instead of "Join".
+      button: { label: "Confirm my email", href: "{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email" },
       footnote: "If you did not sign up for Alarsio, you can ignore this email. No account is made until the address is confirmed."
     })
   },
