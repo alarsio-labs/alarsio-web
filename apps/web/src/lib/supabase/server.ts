@@ -32,3 +32,19 @@ export async function supabaseServer() {
 // as supabase.auth.getUser(). Outside a render (route handlers, actions) cache() is a
 // pass-through, so it is no worse there.
 export const getAuthUser = cache(async () => (await supabaseServer()).auth.getUser());
+
+// The signed-in user's memberships with each organisation's name, read once per server
+// render: the (app) layout draws the frame from them and the dashboard picks the home page
+// from the same rows. null when nobody is signed in. Raw rows: callers pass them to
+// toMemberships() (lib/dashboard/memberships.ts).
+export const getMembershipRows = cache(async () => {
+  const {
+    data: { user }
+  } = await getAuthUser();
+  if (!user) return null;
+  const { data } = await (await supabaseServer())
+    .from("memberships")
+    .select("org_id, role, organizations(name)")
+    .eq("user_id", user.id);
+  return data;
+});

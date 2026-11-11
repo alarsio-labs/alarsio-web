@@ -8,6 +8,16 @@ export const SIGNED_IN_ONLY = ["/dashboard", "/team", "/reports", "/workers", "/
 // signed-out visitor on a signed-in-only page to sign in. This is a
 // convenience, not the boundary: RLS decides what any request can read.
 export async function proxy(request: NextRequest) {
+  const path = request.nextUrl.pathname;
+  // The export download is a POST whose form holds the organisation; the
+  // route sends a signed-out caller back to that organisation's export page.
+  const ownSignIn = path === "/export/download";
+  const signedInOnly = !ownSignIn && SIGNED_IN_ONLY.some((p) => path === p || path.startsWith(p + "/"));
+
+  // No Supabase session cookie: nobody is signed in and there is nothing to refresh,
+  // so skip the auth client entirely. Most visitors to the public pages take this path.
+  if (!hasSessionCookie(request)) return signedInOnly ? toSignIn(request, path) : NextResponse.next({ request });
+
   let response = NextResponse.next({ request });
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY;
@@ -31,7 +41,6 @@ export async function proxy(request: NextRequest) {
   const { data } = await supabase.auth.getClaims();
   const user = data?.claims?.sub ? data.claims : null;
 
-  const path = request.nextUrl.pathname;
   // A signed-in visitor on / goes to their dashboard. Done here, not in the page,
   // so the landing page itself reads no cookies and can be served static from the CDN.
   if (user && path === "/") {
@@ -43,17 +52,21 @@ export async function proxy(request: NextRequest) {
     for (const c of response.cookies.getAll()) to.cookies.set(c);
     return to;
   }
-  // The export download is a POST whose form holds the organisation; the
-  // route sends a signed-out caller back to that organisation's export page.
-  const ownSignIn = path === "/export/download";
-  if (!user && !ownSignIn && SIGNED_IN_ONLY.some((p) => path === p || path.startsWith(p + "/"))) {
-    const signIn = request.nextUrl.clone();
-    signIn.pathname = "/sign-in";
-    signIn.search = "";
-    signIn.searchParams.set("next", path + request.nextUrl.search);
-    return NextResponse.redirect(signIn);
-  }
+  if (!user && signedInOnly) return toSignIn(request, path);
   return response;
+}
+
+// Supabase keeps the session in sb-<project-ref>-auth-token, split into .0, .1 … when large.
+function hasSessionCookie(request: NextRequest): boolean {
+  return request.cookies.getAll().some((c) => c.name.startsWith("sb-") && c.name.includes("-auth-token"));
+}
+
+function toSignIn(request: NextRequest, path: string) {
+  const signIn = request.nextUrl.clone();
+  signIn.pathname = "/sign-in";
+  signIn.search = "";
+  signIn.searchParams.set("next", path + request.nextUrl.search);
+  return NextResponse.redirect(signIn);
 }
 
 export const config = {

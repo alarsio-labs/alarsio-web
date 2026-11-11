@@ -97,12 +97,17 @@ Take a backup before any push that changes a table with data in it.
    so the workspace packages (`@alarsio/types`, config) are available.
 3. Install command `pnpm install --frozen-lockfile`; build command `pnpm build` (Turborepo runs it);
    Node 20 or newer. The pnpm version comes from `packageManager` in the root `package.json`.
-4. Production branch `main`. Pull requests get preview deployments; give previews the same variables as
+4. **Function region: Mumbai (`bom1`)**, pinned in `apps/web/vercel.json`, because the Supabase project is in
+   `ap-south-1` (Mumbai). Every signed-in page makes several database calls in a row, so the server must sit
+   beside the database: with the default `iad1` (Washington) each call crossed the world. Check after a deploy:
+   `curl -sI https://www.alarsio.com/sign-in | grep -i x-vercel-id` shows `bom1::bom1::…`. If the Supabase
+   project ever moves, change the region in that file to match.
+5. Production branch `main`. Pull requests get preview deployments; give previews the same variables as
    production but still pointing at the one Supabase project, so do not run destructive tests on a preview.
-5. Set the variables in the env table below, then deploy.
-6. Put the deployed address into Supabase Auth's Site URL and Redirect URLs (section 1) **and** into
+6. Set the variables in the env table below, then deploy.
+7. Put the deployed address into Supabase Auth's Site URL and Redirect URLs (section 1) **and** into
    `NEXT_PUBLIC_SITE_URL`. They must agree or invite and verification links point at the wrong place.
-7. Check: `/sign-in` loads over HTTPS, and a verification email's link lands on `/auth/confirm`.
+8. Check: `/sign-in` loads over HTTPS, and a verification email's link lands on `/auth/confirm`.
 
 ## 3. Mobile: EAS internal Android build (`apps/mobile`)
 
