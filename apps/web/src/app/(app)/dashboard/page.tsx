@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
+import { getAuthUser, getMembershipRows } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { orgLinks } from "@/lib/dashboard/links";
 import { ROLE_LABEL, homeFor, toMemberships } from "@/lib/dashboard/memberships";
@@ -24,17 +24,13 @@ export default async function DashboardPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const supabase = await supabaseServer();
   const {
     data: { user }
   } = await getAuthUser();
   if (!user) redirect("/sign-in");
 
-  const { data } = await supabase
-    .from("memberships")
-    .select("org_id, role, organizations(name)")
-    .eq("user_id", user.id);
-  const memberships = toMemberships(data);
+  // The same rows the layout read for this request (cached), not a second query.
+  const memberships = toMemberships(await getMembershipRows());
   const error = messageFor((await searchParams).error);
   // With one organisation the dashboard is only a hop: go straight to the role's home.
   // An error from creating an organisation still shows here, since that user has none.
