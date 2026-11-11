@@ -32,6 +32,21 @@ describe("buildInviteEmail", () => {
     expect(e.html).toContain("&lt;script&gt;&quot;x&quot;&lt;/script&gt;");
   });
 
+  it("does not name a profile that still reads New user", () => {
+    for (const inviterName of ["New user", "  "]) {
+      const e = buildInviteEmail({ ...base, inviterName });
+      expect(e.subject).toBe("You're invited to join Sharma Builders on Alarsio");
+      expect(e.text).not.toContain("New user");
+      expect(e.html).not.toContain("New user");
+    }
+  });
+
+  it("puts the link in a button in the branded layout", () => {
+    const e = buildInviteEmail(base);
+    expect(e.html).toContain("ALAR<span");
+    expect(e.html).toContain(`href="${base.link}"`);
+  });
+
   it("keeps line breaks out of the subject", () => {
     const e = buildInviteEmail({ ...base, orgName: "A\r\nBcc: evil@x.in" });
     expect(e.subject).not.toMatch(/[\r\n]/);
