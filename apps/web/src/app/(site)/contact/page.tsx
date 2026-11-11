@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { PageHead } from "@/components/site/doc";
+import { ClosingCta } from "@/components/site/closing-cta";
+import { Eyebrow } from "@/components/site/eyebrow";
+import { PageHero } from "@/components/site/page-hero";
 import { REPLY_PROMISE } from "@/lib/site/enquiry";
 import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
 
@@ -13,7 +15,7 @@ export const metadata: Metadata = {
 function Mail({ subject, label }: { subject: string; label: string }) {
   if (!CONTACT_EMAIL) return null;
   return (
-    <a className="ds-card-link" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`}>
+    <a className="pg-link" href={`mailto:${CONTACT_EMAIL}?subject=${encodeURIComponent(subject)}`}>
       {label} →
     </a>
   );
@@ -41,84 +43,99 @@ const TOPICS: { title: string; body: string; subject: string; label: string; hre
   }
 ];
 
+const n = (i: number) => String(i + 1).padStart(2, "0");
+
+// In the About look (docs/DESIGN.md 2b-i): hero, the three topics, the ways to reach us on a dark band,
+// "Before you write", then the closing band. Email, WhatsApp and phone show only when configured.
 export default function ContactPage() {
   const whatsApp = whatsAppHref(CONTACT_WHATSAPP);
   const call = telHref(CONTACT_PHONE);
   return (
-    <>
-      <PageHead
+    <div className="hm">
+      <PageHero
         crumb="Contact Us"
+        eyebrow="Contact"
         title="Contact us"
-        sub="We're here to help. Choose the topic that fits best and a member of our team will get back to you."
+        lede="We're here to help. Choose the topic that fits best and a member of our team will get back to you."
       />
-      <div className="ds-wrap">
-        <section className="ds-section" aria-labelledby="topics">
-          <h2 id="topics" className="sr-only">How can we help?</h2>
-          <div className="ds-grid ds-grid-3">
-            {TOPICS.map((t) => (
-              <div key={t.title} className="ds-card">
+
+      <section className="hm-band hm-paper" aria-labelledby="topics">
+        <div className="hm-wrap">
+          <Eyebrow>How can we help?</Eyebrow>
+          <h2 id="topics" className="lp-display hm-h2">Pick a topic.</h2>
+          <ol className="hm-grid hm-grid-3">
+            {TOPICS.map((t, i) => (
+              <li key={t.title} className="hm-card hm-rev">
+                <p className="hm-num">{n(i)}</p>
                 <h3>{t.title}</h3>
                 <p>{t.body}</p>
                 {t.href ? (
-                  <Link className="ds-card-link" href={t.href}>{t.label} →</Link>
+                  <Link className="pg-link" href={t.href}>{t.label} →</Link>
                 ) : (
                   <Mail subject={t.subject} label={t.label} />
                 )}
-              </div>
+              </li>
             ))}
-          </div>
-        </section>
+          </ol>
+        </div>
+      </section>
 
-        {CONTACT_EMAIL || whatsApp || call ? (
-          <section className="ds-section" aria-labelledby="reach">
-            <h2 id="reach">Reach us</h2>
-            <div className="ds-grid ds-grid-3">
+      {CONTACT_EMAIL || whatsApp || call ? (
+        <section className="hm-band hm-dark" aria-labelledby="reach">
+          <div className="hm-wrap">
+            <Eyebrow>Talk to a person</Eyebrow>
+            <h2 id="reach" className="lp-display hm-h2">Reach us.</h2>
+            <div className="hm-grid hm-grid-3">
               {CONTACT_EMAIL ? (
-                <div className="ds-card">
-                  <h3>Email</h3>
+                <div className="hm-card hm-card-dark hm-rev">
+                  <p className="hm-num">Email</p>
                   <p>
                     Write to us any time at <strong>{CONTACT_EMAIL}</strong>
                   </p>
-                  <a className="ds-card-link" href={`mailto:${CONTACT_EMAIL}`}>
+                  <a className="pg-link" href={`mailto:${CONTACT_EMAIL}`}>
                     Open your email app →
                   </a>
                 </div>
               ) : null}
               {whatsApp && CONTACT_WHATSAPP ? (
-                <div className="ds-card">
-                  <h3>WhatsApp</h3>
+                <div className="hm-card hm-card-dark hm-rev">
+                  <p className="hm-num">WhatsApp</p>
                   <p>
                     Message us on <strong>{displayPhone(CONTACT_WHATSAPP)}</strong>
                   </p>
-                  <a className="ds-card-link" href={whatsApp} target="_blank" rel="noopener noreferrer">
+                  <a className="pg-link" href={whatsApp} target="_blank" rel="noopener noreferrer">
                     Chat on WhatsApp →
                   </a>
                 </div>
               ) : null}
               {call && CONTACT_PHONE ? (
-                <div className="ds-card">
-                  <h3>Phone</h3>
+                <div className="hm-card hm-card-dark hm-rev">
+                  <p className="hm-num">Phone</p>
                   <p>
                     Call us on <strong>{displayPhone(CONTACT_PHONE)}</strong>, {REPLY_PROMISE.callHours}
                   </p>
-                  <a className="ds-card-link" href={call}>
+                  <a className="pg-link" href={call}>
                     Call now →
                   </a>
                 </div>
               ) : null}
             </div>
-          </section>
-        ) : null}
-
-        <section className="ds-section" aria-labelledby="more">
-          <h2 id="more">Before you write</h2>
-          <p>
-            Many questions are answered on our <Link href="/#faq" style={{ color: "var(--red-deep)" }}>home page FAQ</Link>. For how we handle
-            your data, see our <Link href="/privacy" style={{ color: "var(--red-deep)" }}>Privacy Policy</Link> and{" "}
-            <Link href="/terms" style={{ color: "var(--red-deep)" }}>Terms of Service</Link>.
-          </p>
+          </div>
         </section>
-      </div>
-    </>
+      ) : null}
+
+      <section className="hm-band" aria-labelledby="more">
+        <div className="hm-wrap">
+          <Eyebrow>Before you write</Eyebrow>
+          <h2 id="more" className="lp-display hm-h2">You may already have the answer.</h2>
+          <p className="hm-section-lede">
+            Many questions are answered on our <Link href="/#faq">home page FAQ</Link>. For how we handle your data, see our{" "}
+            <Link href="/privacy">Privacy Policy</Link> and <Link href="/terms">Terms of Service</Link>.
+          </p>
+        </div>
+      </section>
+
+      <ClosingCta />
+    </div>
   );
 }

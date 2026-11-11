@@ -1,22 +1,39 @@
-/* Public information pages (About, Contact, Privacy, Terms). They reuse the .lp colour
-   tokens, header and buttons from landing.css, but read like a document: Inter in
-   sentence case, a modest title, a contents list beside long pages. No poster type. */
+/* Public information pages (About, Download, Contact, Book a demo, Privacy, Terms, 404, error).
+   They all use the home page's look (app/home.css: bands, Anton headlines, cards, the red closing
+   band) through PageHero and ClosingCta (docs/DESIGN.md 2b-i). This file adds what only these pages
+   need: the hero under the fixed header, the breadcrumb, the legal reading column and the demo form. */
 
 .lp-site { font-family: var(--font-inter), system-ui, sans-serif; }
 
-/* Page header band */
-/* Head, body and wrap share one box (1120px including side padding) so every left edge lines up. */
-.ds-head { border-bottom: 1px solid var(--hair); background: var(--paper); padding: 88px 0 28px; }
-.ds-head-in { max-width: 1120px; margin: 0 auto; padding: 0 var(--pad); }
-.ds-crumbs { display: flex; flex-wrap: wrap; gap: 6px; font-size: 13px; color: var(--muted); margin: 0 0 12px; }
-.ds-crumbs a { color: var(--muted); text-decoration: none; }
-.ds-crumbs a:hover { color: var(--ink); text-decoration: underline; }
-.ds-title { font-size: clamp(28px, 3.6vw, 40px); font-weight: 700; line-height: 1.15; letter-spacing: -0.02em; margin: 0; color: var(--ink); }
-.ds-sub { font-size: 16px; line-height: 1.6; color: var(--muted); max-width: 64ch; margin: 10px 0 0; }
-.ds-meta { font-size: 13px; color: var(--muted); margin: 12px 0 0; }
+/* Hero (components/site/page-hero.tsx). The header is fixed (56 px); these pages sit in the site
+   layout's own <main>, so the first band clears it itself. */
+.hm-band.pg-hero { padding-top: calc(56px + clamp(40px, 6vw, 88px)); padding-bottom: clamp(56px, 8vw, 104px); }
+.pg-hero .hm-h1 { max-width: 18ch; }
+.pg-hero .hm-lede { max-width: 56ch; }
+.pg-hero .hm-note { margin-top: 18px; }
+.pg-hero .hm-actions { margin-top: 32px; }
+.pg-crumbs { display: flex; flex-wrap: wrap; gap: 6px; margin: 0 0 22px; padding: 0; list-style: none; font-size: 14px; color: var(--muted); }
+.pg-crumbs a { color: var(--muted); text-decoration: none; }
+.pg-crumbs a:hover { color: var(--ink); text-decoration: underline; }
 
-/* Body: contents + article */
-.ds-body { max-width: 1120px; margin: 0 auto; padding: 40px var(--pad) 72px; display: grid; gap: 32px; }
+/* The help line under the 404 and error heroes. */
+.pg-help { margin-top: 28px; }
+
+/* At-a-glance facts under a hero (About): quiet pills. */
+.pg-facts { display: flex; flex-wrap: wrap; gap: 8px; margin: 36px 0 0; padding: 0; list-style: none; }
+.pg-facts li {
+  padding: 8px 16px; border: 1px solid var(--hair); border-radius: 999px; background: var(--paper);
+  font-size: 14px; line-height: 1.4; color: var(--muted);
+}
+
+/* A link inside a card or a section lede, in the page's red. On dark bands it stays readable. */
+.pg-link { display: inline-block; margin-top: auto; padding-top: 6px; color: var(--red-deep); font-weight: 600; text-underline-offset: 3px; word-break: break-word; }
+.hm-dark .pg-link { color: var(--red); }
+.hm-card strong { color: var(--ink); font-weight: 600; }
+.hm-card-dark strong { color: var(--cream); }
+
+/* Legal pages (Privacy, Terms): a contents list beside a reading column, inside an hm-band. */
+.ds-body { display: grid; gap: 32px; }
 @media (min-width: 960px) { .ds-body { grid-template-columns: 240px minmax(0, 1fr); gap: 56px; } }
 .ds-toc { font-size: 14px; }
 .ds-toc-title { font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--muted); margin: 0 0 10px; }
@@ -24,18 +41,12 @@
 .ds-toc a { display: block; padding: 6px 0 6px 14px; margin-left: -1px; border-left: 2px solid transparent; color: var(--muted); text-decoration: none; line-height: 1.35; }
 .ds-toc a:hover { color: var(--ink); border-left-color: var(--red); }
 @media (min-width: 960px) { .ds-toc nav { position: sticky; top: 80px; } }
-@media (max-width: 959px) { .ds-toc { border: 1px solid var(--hair); background: var(--paper); padding: 16px; } }
+@media (max-width: 959px) { .ds-toc { border: 1px solid var(--hair); border-radius: 16px; background: var(--cream); padding: 16px; } }
 
 .ds-article { max-width: 760px; color: var(--ink); font-size: 16px; line-height: 1.7; }
 .ds-article section { scroll-margin-top: 80px; padding: 24px 0; border-top: 1px solid var(--hair-faint); }
 .ds-article section:first-child { padding-top: 0; border-top: 0; }
 
-/* 404 and error pages (app/not-found.tsx, app/error.tsx): one centred column under the fixed header. */
-.nf-main { max-width: 640px; min-height: 70svh; margin: 0 auto; padding: 120px var(--pad) 72px; display: grid; align-content: center; justify-items: start; gap: 14px; }
-.nf-main .ds-title, .nf-main .ds-sub { margin: 0; }
-.nf-main .ds-sub a { color: var(--red-deep); font-weight: 600; }
-.nf-actions { display: flex; flex-wrap: wrap; gap: 8px; margin: 6px 0; }
-.nf-actions button { cursor: pointer; }
 .ds-article h2 { font-size: 20px; font-weight: 650; line-height: 1.3; letter-spacing: -0.01em; margin: 0 0 10px; }
 .ds-article h3 { font-size: 16px; font-weight: 600; margin: 16px 0 6px; }
 .ds-article p { margin: 0 0 12px; }
@@ -47,24 +58,6 @@
 .ds-article strong { font-weight: 600; }
 .ds-lead { font-size: 17px; color: var(--muted); }
 
-/* Cards (About, Contact) */
-.ds-wrap { max-width: 1120px; margin: 0 auto; padding: 40px var(--pad) 72px; }
-.ds-section { padding: 0 0 40px; }
-.ds-section h2 { font-size: 22px; font-weight: 700; letter-spacing: -0.01em; margin: 0 0 6px; }
-.ds-section > p { font-size: 16px; line-height: 1.7; color: var(--muted); max-width: 70ch; margin: 0 0 18px; }
-.ds-grid { display: grid; gap: 16px; }
-@media (min-width: 640px) { .ds-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (min-width: 960px) { .ds-grid-3 { grid-template-columns: repeat(3, 1fr); } .ds-grid-4 { grid-template-columns: repeat(4, 1fr); } }
-.ds-card { background: var(--paper); border: 1px solid var(--hair); padding: 20px; }
-.ds-card h3 { font-size: 16px; font-weight: 600; margin: 0 0 6px; }
-.ds-card p { font-size: 15px; line-height: 1.6; color: var(--muted); margin: 0; }
-.ds-card a { color: var(--red-deep); font-weight: 600; text-underline-offset: 2px; word-break: break-word; }
-.ds-card .ds-card-link { display: inline-block; margin-top: 12px; }
-.ds-kicker { display: inline-block; font-size: 12px; font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; color: var(--red-deep); margin-bottom: 8px; }
-.ds-cta { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 16px; background: var(--loam); color: var(--cream); padding: 28px; }
-.ds-cta h2 { font-size: 22px; font-weight: 700; margin: 0 0 4px; }
-.ds-cta p { margin: 0; color: var(--cream-muted); font-size: 15px; }
-.ds-cta-actions { display: flex; flex-wrap: wrap; gap: 8px; }
 
 /* Book a demo (/demo): the enquiry form beside "What happens next". Inputs are 16px so phones
    do not zoom in on focus, and every control is at least 48px tall (DESIGN.md §3). */

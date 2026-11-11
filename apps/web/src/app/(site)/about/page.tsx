@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
-import Link from "next/link";
+import { ClosingCta } from "@/components/site/closing-cta";
 import { Eyebrow } from "@/components/site/eyebrow";
-import { CTA, MARQUEE } from "@/lib/landing/content";
-import "@/app/home.css";
+import { PageHero } from "@/components/site/page-hero";
+import { MARQUEE } from "@/lib/landing/content";
 import "./about.css";
 
 export const metadata: Metadata = {
@@ -32,19 +32,16 @@ const n = (i: number) => String(i + 1).padStart(2, "0");
 export default function AboutPage() {
   return (
     <div className="hm">
-      <section className="hm-band ab-hero" aria-labelledby="about-title">
-        <div className="hm-wrap">
-          <Eyebrow>About Alarsio</Eyebrow>
-          <h1 id="about-title" className="lp-display hm-h1">Replace notebooks and WhatsApp with one trusted record.</h1>
-          <p className="hm-lede">
-            We build simple, reliable record-keeping for construction contractors in India, so the day on site
-            turns into accurate attendance and fair, on-time wages.
-          </p>
-          <ul className="ab-facts" aria-label="At a glance">
-            {MARQUEE.map((m) => <li key={m}>{m}</li>)}
-          </ul>
-        </div>
-      </section>
+      <PageHero
+        crumb="About"
+        eyebrow="About Alarsio"
+        title="Replace notebooks and WhatsApp with one trusted record."
+        lede="We build simple, reliable record-keeping for construction contractors in India, so the day on site turns into accurate attendance and fair, on-time wages."
+      >
+        <ul className="pg-facts" aria-label="At a glance">
+          {MARQUEE.map((m) => <li key={m}>{m}</li>)}
+        </ul>
+      </PageHero>
 
       <section className="hm-band hm-dark" aria-labelledby="mission-title">
         <div className="hm-wrap ab-split">
@@ -93,17 +90,7 @@ export default function AboutPage() {
         </div>
       </section>
 
-      <section className="hm-cta" aria-labelledby="about-cta-title">
-        <div className="hm-wrap">
-          <h2 id="about-cta-title" className="lp-display hm-cta-title">{CTA.title}</h2>
-          <p className="hm-cta-body">{CTA.body}</p>
-          <div className="hm-actions">
-            <Link href={CTA.primary.href} className="lp-pill lp-pill-ink">{CTA.primary.label} →</Link>
-            <Link href={CTA.pilot.href} className="lp-pill lp-pill-line">{CTA.pilot.label}</Link>
-          </div>
-          <p className="hm-note">{CTA.note}</p>
-        </div>
-      </section>
+      <ClosingCta />
     </div>
   );
 }

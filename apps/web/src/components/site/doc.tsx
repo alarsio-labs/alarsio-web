@@ -11,26 +11,6 @@ export function ContactLink() {
   return CONTACT_EMAIL ? <a href={`mailto:${CONTACT_EMAIL}`}>{CONTACT_EMAIL}</a> : <Link href="/contact">our Contact page</Link>;
 }
 
-/** Breadcrumbs, title and a line under it: the band at the top of every info page. */
-export function PageHead({ crumb, title, sub, meta }: { crumb: string; title: string; sub?: string; meta?: string }) {
-  return (
-    <header className="ds-head">
-      <div className="ds-head-in">
-        <nav aria-label="Breadcrumb">
-          <ol className="ds-crumbs">
-            <li><Link href="/">Home</Link></li>
-            <li aria-hidden="true">/</li>
-            <li aria-current="page">{crumb}</li>
-          </ol>
-        </nav>
-        <h1 className="ds-title">{title}</h1>
-        {sub ? <p className="ds-sub">{sub}</p> : null}
-        {meta ? <p className="ds-meta">{meta}</p> : null}
-      </div>
-    </header>
-  );
-}
-
 export type DocSection = { id: string; title: string; body: ReactNode };
 
 /** A long document (Privacy, Terms): numbered sections with a contents list beside them. */
