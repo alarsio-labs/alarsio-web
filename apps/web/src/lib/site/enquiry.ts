@@ -1,6 +1,7 @@
 // The demo enquiry form on /demo (docs/research/powerplay-2026-11.md §5). Pure rules only:
 // what the form asks, how a reply is checked, and the email that reaches the team. The landing
 // owns no table, so an enquiry is never stored: it is emailed and then forgotten.
+import { emailDetails, emailLayout } from "@/lib/email/layout";
 
 export const SITE_COUNTS = ["1", "2–5", "6–10", "11–20", "20+"] as const;
 export type SiteCount = (typeof SITE_COUNTS)[number];
@@ -137,9 +138,16 @@ export function enquiryEmail(e: Enquiry, receivedAt: Date) {
     "",
     `Reply within ${REPLY_PROMISE.within}. This enquiry is not stored anywhere else.`
   ].join("\n");
-  const html = `<table cellpadding="6" style="font:15px/1.5 system-ui,sans-serif;border-collapse:collapse">${rows
-    .map(([k, v]) => `<tr><td style="color:#56524c">${k}</td><td><strong>${escapeHtml(v)}</strong></td></tr>`)
-    .join("")}</table><p style="font:15px system-ui,sans-serif"><a href="${wa}">WhatsApp them</a> · <a href="${tel}">Call them</a></p><p style="font:13px system-ui,sans-serif;color:#56524c">Reply within ${REPLY_PROMISE.within}. This enquiry is not stored anywhere else.</p>`;
+  const first = way === "Call" ? { label: "Call them", href: tel } : { label: "WhatsApp them", href: wa };
+  const other = way === "Call" ? { label: "or WhatsApp them", href: wa } : { label: "or call them", href: tel };
+  const html = emailLayout({
+    preheader: `${escapeHtml(e.name)} from ${escapeHtml(e.city)} asked for a demo. Prefers ${way}.`,
+    heading: "New demo enquiry",
+    bodyHtml: emailDetails(rows.map(([k, v]) => [k, escapeHtml(v)])),
+    button: first,
+    secondary: [other],
+    footnote: `Reply within ${REPLY_PROMISE.within}. This enquiry is not stored anywhere else.`
+  });
 
   return { subject, text, html };
 }

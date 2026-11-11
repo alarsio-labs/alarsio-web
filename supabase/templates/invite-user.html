@@ -1,0 +1,31 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="color-scheme" content="light"><meta name="supported-color-schemes" content="light">
+<title>You're invited to Alarsio</title></head>
+<body style="margin:0;padding:0;background:#F7F2E6">
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;color:#F7F2E6">Your Alarsio account is ready. Set a password to start.</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" bgcolor="#F7F2E6" style="background:#F7F2E6">
+<tr><td align="center" style="padding:32px 16px">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" style="max-width:560px">
+    <tr><td bgcolor="#1E130B" style="background:#1E130B;border-radius:16px 16px 0 0;padding:22px 32px">
+      <span style="font:400 30px/1 Anton,Impact,'Arial Black','Arial Narrow Bold',sans-serif;letter-spacing:.5px;color:#E7E2D8;text-transform:uppercase">ALAR<span style="color:#EF493C">SIO</span></span>
+    </td></tr>
+    <tr><td bgcolor="#FFFFFF" style="background:#FFFFFF;border:1px solid #E4DFD3;border-top:0;border-radius:0 0 16px 16px;padding:32px">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+        <tr><td style="padding:0 0 16px;font:700 24px/1.25 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#171717">You're invited to Alarsio</td></tr>
+        <tr><td style="padding:0 0 20px;font:16px/1.6 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#171717">An account has been made for <strong>{{ .Email }}</strong> on Alarsio. Accept the invite and choose a password to sign in.</td></tr>
+        <tr><td style="padding:8px 0 4px">
+  <table role="presentation" cellpadding="0" cellspacing="0" border="0"><tr>
+    <td bgcolor="#C8231F" style="border-radius:999px">
+      <a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/update-password" target="_blank" style="display:inline-block;padding:14px 28px;font:600 16px/1 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#FFFFFF;text-decoration:none;border-radius:999px">Accept the invite</a>
+    </td></tr></table>
+</td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If the button does not work, copy this link into your browser:<br><a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/update-password" style="color:#67625C;word-break:break-all">{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=invite&next=/update-password</a></td></tr><tr><td style="padding:20px 0 0;font:13px/1.5 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">If you were not expecting this, you can ignore this email.</td></tr>
+      </table>
+    </td></tr>
+    <tr><td align="center" style="padding:20px 8px 0;font:12px/1.6 Inter,-apple-system,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;color:#67625C">
+      Alarsio · Site records that work with no signal<br>
+      <a href="https://www.alarsio.com" style="color:#67625C">www.alarsio.com</a>
+    </td></tr>
+  </table>
+</td></tr></table>
+</body></html>

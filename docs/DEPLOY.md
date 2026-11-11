@@ -58,6 +58,9 @@ Take a backup before any push that changes a table with data in it.
 - [ ] **Redirect URLs**: add `https://<web-address>/auth/confirm` and `https://<web-address>/invite/**`
       (the verification link lands on `/auth/confirm`, invites on `/invite/<token>`). Add the preview
       domain pattern only if previews must sign in; leave it out otherwise.
+- [ ] **Branded templates.** Paste `supabase/templates/confirm-signup.html` and `reset-password.html` as
+      the Confirm signup and Reset Password bodies (subjects in `supabase/templates/README.md`). They
+      already carry the links below.
 - [ ] **Confirm signup email.** Authentication, Email Templates, **Confirm signup**: set the link to
       `<a href="{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard">Confirm your email</a>`
       and save. Do the same for the **Invite user** and **Magic link** templates if they are used. With the
