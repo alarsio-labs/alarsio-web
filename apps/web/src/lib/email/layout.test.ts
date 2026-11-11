@@ -48,9 +48,9 @@ describe("Supabase auth templates", () => {
   const dir = resolve(__dirname, "../../../../../supabase/templates");
 
   it("link through /auth/confirm with token_hash, the only form the route accepts", () => {
-    expect(AUTH_TEMPLATES["confirm-signup"].html).toContain(
-      "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=email&next=/dashboard"
-    );
+    // Sign-up keeps the app's own next (an invite) through RedirectTo, never a fixed /dashboard.
+    expect(AUTH_TEMPLATES["confirm-signup"].html).toContain("{{ .RedirectTo }}&token_hash={{ .TokenHash }}&type=email");
+    expect(AUTH_TEMPLATES["confirm-signup"].html).not.toContain("next=/dashboard");
     expect(AUTH_TEMPLATES["reset-password"].html).toContain(
       "{{ .SiteURL }}/auth/confirm?token_hash={{ .TokenHash }}&type=recovery&next=/update-password"
     );
