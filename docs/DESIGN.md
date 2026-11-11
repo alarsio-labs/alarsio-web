@@ -218,7 +218,9 @@ slides 20 px in from the side it comes from; the container eases to each step's 
 only the current step's fields; an indicator jumps back to any step already reached. It sits inside
 one real `<form>`, every step stays in the DOM so its fields submit, and without JavaScript all steps
 show one under another with the submit button. Focus moves to the new step's heading and a polite live
-region names it. Used by Create organisation (name, where you work, check and create).
+region names it. While the form is being sent (`useFormStatus`), the submit button and Back are disabled
+and dimmed, the submit has `aria-busy` and shows `pendingLabel` ("Creating your organisation…"), so it
+cannot be sent twice. Used by Create organisation (name, where you work, check and create).
 
 Inside the app console the indicators are 32 px circles and the meter is ink (console.css); the sign-in
 pages are unchanged.

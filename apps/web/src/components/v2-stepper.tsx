@@ -1,6 +1,7 @@
 "use client";
 
 import { Children, isValidElement, useEffect, useLayoutEffect, useRef, useState, type ReactElement, type ReactNode } from "react";
+import { useFormStatus } from "react-dom";
 
 // A multi-step form in the v2 look (docs/DESIGN.md), after the AnimatedStepper
 // pattern: numbered indicators joined by a meter, a sliding step, a container that
@@ -24,12 +25,15 @@ type StepEl = ReactElement<StepProps>;
 export function V2Stepper({
   children,
   submitLabel,
+  pendingLabel,
   backLabel = "Back",
   nextLabel = "Continue",
   label
 }: {
   children: ReactNode;
   submitLabel: string;
+  /** Shown on the submit button while the form is being sent, e.g. "Creating…". */
+  pendingLabel?: string;
   backLabel?: string;
   nextLabel?: string;
   label: string;
@@ -168,11 +172,7 @@ export function V2Stepper({
       </div>
 
       <div className="st-foot">
-        {enhanced && current > 0 && (
-          <button type="button" className="lp-btn lp-btn-line lp-mono st-back" onClick={() => go(current - 1)}>
-            {backLabel}
-          </button>
-        )}
+        {enhanced && current > 0 && <StepperBack label={backLabel} onBack={() => go(current - 1)} />}
         {/* Separate keys: if React reused one <button> and flipped it to type="submit"
             inside the Continue click, the browser would submit the form on that click. */}
         {enhanced && !last ? (
@@ -180,11 +180,34 @@ export function V2Stepper({
             {nextLabel}
           </button>
         ) : (
-          <button key="submit" type="submit" className="lp-btn lp-btn-ink lp-mono st-next">
-            {submitLabel}
-          </button>
+          <StepperSubmit key="submit" label={submitLabel} pendingLabel={pendingLabel} />
         )}
       </div>
     </div>
+  );
+}
+
+// While the form is being sent, the submit button is disabled and says so: a second click
+// would send it twice (for Create organisation, a second organisation). Back is disabled too.
+function StepperSubmit({ label, pendingLabel }: { label: string; pendingLabel?: string }) {
+  const { pending } = useFormStatus();
+  return <StepperSubmitButton pending={pending} label={label} pendingLabel={pendingLabel} />;
+}
+
+function StepperBack({ label, onBack }: { label: string; onBack: () => void }) {
+  const { pending } = useFormStatus();
+  return (
+    <button type="button" className="lp-btn lp-btn-line lp-mono st-back" onClick={onBack} disabled={pending}>
+      {label}
+    </button>
+  );
+}
+
+/** The submit button itself, without the hook, so a test can draw both states. */
+export function StepperSubmitButton({ pending, label, pendingLabel }: { pending: boolean; label: string; pendingLabel?: string }) {
+  return (
+    <button type="submit" className="lp-btn lp-btn-ink lp-mono st-next" disabled={pending} aria-busy={pending || undefined}>
+      {pending ? (pendingLabel ?? label) : label}
+    </button>
   );
 }

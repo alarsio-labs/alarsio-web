@@ -69,6 +69,8 @@ textarea.au-input { padding: 12px 14px; min-height: 96px; line-height: 1.5; resi
 .st-body { display: grid; gap: 18px; margin-top: 22px; }
 .st-foot { display: flex; gap: 10px; justify-content: flex-end; }
 .st-foot .st-next { flex: 1; cursor: pointer; }
+/* While the form is being sent (useFormStatus): dimmed and not clickable, so it cannot be sent twice. */
+.st-foot button:disabled { opacity: 0.6; cursor: progress; }
 .st-foot .st-back { cursor: pointer; background: transparent; }
 .st-foot button:focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
 
