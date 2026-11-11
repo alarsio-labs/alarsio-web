@@ -1,9 +1,9 @@
 "use client";
 
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { Notice, buttonClass } from "@/components/form";
 import { CsvError, parseCsv } from "@/lib/workers/csv";
-import { IMPORT_RULES, reasonText } from "@/lib/workers/import-result";
+import { reasonText } from "@/lib/workers/import-result";
 import { checkFile, looksMisencoded, readRosterTable, type ImportRow } from "@/lib/workers/roster-file";
 import { importWorkers, type ImportResultRow } from "./actions";
 
@@ -32,6 +32,10 @@ export function ImportPanel({ orgId }: { orgId: string }) {
   const [pending, startTransition] = useTransition();
   // A slower read of an earlier file must not replace a newer one.
   const readId = useRef(0);
+  // The file is read in the browser, so the input works only once this script runs. Until
+  // then it is disabled: a file picked earlier was silently ignored on a slow connection.
+  const [ready, setReady] = useState(false);
+  useEffect(() => setReady(true), []);
 
   const onFile = async (input: HTMLInputElement) => {
     const file = input.files?.[0];
@@ -92,9 +96,16 @@ export function ImportPanel({ orgId }: { orgId: string }) {
         type="file"
         accept=".csv,.xlsx,text/csv,application/vnd.openxmlformats-officedocument.spreadsheetml.sheet"
         onChange={(e) => void onFile(e.currentTarget)}
-        className="block w-full text-sm"
+        className="block w-full text-sm disabled:cursor-wait disabled:opacity-60"
         aria-label="Worker file"
+        disabled={!ready}
+        aria-describedby={ready ? undefined : "import-loading"}
       />
+      {!ready && (
+        <p id="import-loading" className="text-xs text-neutral-500">
+          Getting ready… you can choose a file in a moment.
+        </p>
+      )}
 
       {problems.length > 0 && (
         <Notice kind="error">
@@ -133,7 +144,6 @@ export function ImportPanel({ orgId }: { orgId: string }) {
                   </li>
                 ))}
               </ul>
-              <p className="text-xs text-neutral-500">{IMPORT_RULES}</p>
             </>
           )}
         </div>
