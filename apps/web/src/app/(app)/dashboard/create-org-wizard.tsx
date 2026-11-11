@@ -13,7 +13,7 @@ export function CreateOrgWizard({ action, timezones }: { action: (form: FormData
 
   return (
     <form action={action} className="db-create-form">
-      <V2Stepper label="Create your organisation" submitLabel="Create organisation">
+      <V2Stepper label="Create your organisation" submitLabel="Create organisation" pendingLabel="Creating your organisation…">
         <Step title="Name it">
           <AuthField label="Organisation name" hint="1 to 120 characters. Your team sees this name.">
             <input
