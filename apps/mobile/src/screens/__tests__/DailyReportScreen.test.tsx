@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { AppState, type AppStateStatus } from 'react-native';
 
 import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
@@ -367,5 +368,60 @@ describe('DailyReportScreen (#81)', () => {
     await screen.unmount();
     await show(USER_A, '2026-10-25');
     await screen.findByText('Report for today, 20 Oct');
+  });
+
+  // Phone review, 12 Nov 2026: typing was lost on back, or when Android closed the app.
+  describe('keeps unsaved typing', () => {
+    it('saves nothing when nothing was typed', async () => {
+      await seedSite(db, USER_A);
+      await show();
+      await screen.findByText('Report for today, 20 Oct');
+      await screen.unmount();
+      await new Promise((r) => setTimeout(r, 50));
+      expect(await outboxRows(db)).toHaveLength(0);
+    });
+
+    it('keeps what was typed as a draft when the screen is left', async () => {
+      await seedSite(db, USER_A);
+      await show();
+      await type('Work done', 'Shuttering for columns');
+      expect(await screen.findByText('What you type is kept as a draft if you leave this screen.')).toBeTruthy();
+      await screen.unmount();
+
+      await waitFor(async () => expect(await outboxRows(db)).toHaveLength(1));
+      const [row] = await outboxRows(db);
+      expect(JSON.parse(row!.payload)).toMatchObject({ status: 'draft', work_done: 'Shuttering for columns' });
+    });
+
+    it('keeps it as a draft when the app goes to the background', async () => {
+      let onChange: ((s: AppStateStatus) => void) | undefined;
+      const spy = jest.spyOn(AppState, 'addEventListener').mockImplementation((_type, handler) => {
+        onChange = handler as (s: AppStateStatus) => void;
+        return { remove: jest.fn() } as unknown as ReturnType<typeof AppState.addEventListener>;
+      });
+      await seedSite(db, USER_A);
+      await show();
+      await type('Blockers', 'Sand arrived late');
+      onChange?.('background');
+
+      await waitFor(async () => expect(await outboxRows(db)).toHaveLength(1));
+      expect(JSON.parse((await outboxRows(db))[0]!.payload)).toMatchObject({ status: 'draft', blockers: 'Sand arrived late' });
+      spy.mockRestore();
+    });
+
+    it('never saves a change to a submitted report without Send changes', async () => {
+      await seedSite(db, USER_A);
+      await saveReport(db, USER_A, { id: SITE, orgId: ORG }, TODAY, FULL, 'submitted', {}, NOW);
+      await show();
+      // Wait until the stored report has loaded, so the screen knows it is a submitted one.
+      expect(await screen.findByText('Changes to a submitted report are kept only when you tap Send changes.')).toBeTruthy();
+      await type('Work done', 'Changed after submitting');
+      await screen.unmount();
+      await new Promise((r) => setTimeout(r, 50));
+
+      const rows = await outboxRows(db);
+      expect(rows).toHaveLength(1);
+      expect(JSON.parse(rows[0]!.payload)).toMatchObject({ status: 'submitted', work_done: FULL.workDone });
+    });
   });
 });
