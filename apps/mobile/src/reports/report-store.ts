@@ -16,13 +16,20 @@ import {
   type ReportFields,
   type ReportSite,
   type ReportStatus,
+  type ReportServerView,
+  sentBackNote,
 } from './report';
+import { readReportStatuses } from '../sync/pull';
 
 export interface StoredReport {
   recordId: string;
   report: Report;
   status: OutboxStatus;
   reason: string | null;
+  /** When the outbox last changed this record, e.g. when the server accepted it. */
+  updatedAt: string;
+  /** The server's status from the last pull (ADR-051), or null when the phone holds none. */
+  server: ReportServerView | null;
 }
 
 // listRecords reads newest first and stops at a limit. One report per site and day
@@ -38,10 +45,24 @@ async function readReports(db: DeviceDb, userId: string, siteId?: string): Promi
     siteId: siteId?.toLowerCase(),
     limit: siteId ? SITE_LIMIT : UNFINISHED_SCAN,
   });
+  // One read of the mirror for all of them (#137): site and day name a report.
+  const server = new Map<string, ReportServerView>();
+  for (const s of await readReportStatuses(db, userId)) {
+    server.set(`${s.siteId}|${s.reportDate}`, { status: s.status, reviewNote: s.reviewNote, reviewedAt: s.reviewedAt });
+  }
   const reports: StoredReport[] = [];
   for (const r of records) {
     const report = parsePayload(r.payload);
-    if (report) reports.push({ recordId: r.recordId, report, status: r.status, reason: r.reason });
+    if (report) {
+      reports.push({
+        recordId: r.recordId,
+        report,
+        status: r.status,
+        reason: r.reason,
+        updatedAt: r.updatedAt,
+        server: server.get(`${report.siteId}|${report.reportDate}`) ?? null,
+      });
+    }
   }
   return reports;
 }
@@ -79,7 +100,7 @@ export async function listUnfinished(db: DeviceDb, userId: string, today: string
       (r) =>
         r.report.reportDate < today &&
         !isReviewed(r) &&
-        (r.report.status === 'draft' || r.status === 'conflict' || r.status === 'rejected'),
+        (r.report.status === 'draft' || r.status === 'conflict' || r.status === 'rejected' || sentBackNote(r) !== undefined),
     )
     .sort((a, b) => (a.report.reportDate < b.report.reportDate ? 1 : a.report.reportDate > b.report.reportDate ? -1 : 0))
     .slice(0, UNFINISHED_SHOWN);

@@ -82,6 +82,8 @@ describe('photo uploader (#81 PR 2)', () => {
       recordId,
       status: 'pending',
       reason: null,
+      updatedAt: T.toISOString(),
+      server: null,
       report: {
         orgId: ORG, siteId: SITE.id, reportDate: '2026-10-20', status: 'draft', headcount: 12, workDone: 'Slab',
         blockers: null, seriousBlocker: false, safetyIncident: false, nextDayPlan: null, editReason: null,
