@@ -76,14 +76,17 @@ export default async function AttendancePage({
   if (f.status === "open" || f.status === "rejected" || f.status === "approved") days = days.eq("status", f.status);
 
   // Membership through Identity's published predicate, not its tables.
-  const [{ data: isMember }, { data: siteData }, { data: dayData }, { data: reviewData }, { data: flagData }] = await Promise.all([
+  const [{ data: isMember }, { data: canManage }, { data: siteData }, { data: dayData }, { data: reviewData }, { data: flagData }] = await Promise.all([
     supabase.rpc("is_org_member", { p_org_id: org }),
+    // Reviewing days is a manager's job: a supervisor (who records on the phone) or an
+    // accountant (who reads approved days through Wages) goes to their own home instead.
+    supabase.rpc("can_manage_sites", { p_org_id: org }),
     supabase.from("site_directory").select("id, name, status").eq("org_id", org).order("name"),
     days,
     reviewExceptions,
     flagExceptions
   ]);
-  if (isMember !== true) redirect("/dashboard");
+  if (isMember !== true || canManage !== true) redirect("/dashboard");
 
   const sites = rows(siteData, isSiteRow);
   const siteName = new Map(sites.map((s) => [s.id, s.name]));

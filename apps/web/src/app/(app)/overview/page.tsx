@@ -45,10 +45,14 @@ export default async function OverviewPage({
   const { date } = parseOverviewParams(params, new Date());
 
   // Everything below runs as the signed-in user, and only through published views
-  // (ADR-041): RLS shows an owner or project manager every site of the organisation,
-  // a supervisor only theirs, an accountant no site, and nothing of another organisation.
-  const [{ data: isMember }, { data: isOwner }, siteRes, reportRes, exceptionRes, approvedRes, alertRes] = await Promise.all([
+  // (ADR-041): RLS shows an owner or project manager every site of the organisation and
+  // nothing of another organisation. Supervisors and accountants are sent away below
+  // (pre-launch audit issue 16); RLS would show them only their sites, or none.
+  const [{ data: isMember }, { data: canManage }, { data: isOwner }, siteRes, reportRes, exceptionRes, approvedRes, alertRes] = await Promise.all([
     supabase.rpc("is_org_member", { p_org_id: org }),
+    // The overview is a manager's page: a supervisor or accountant is sent to their own home
+    // (via /dashboard), as their menus already suggest. Presentation only; RLS stays the boundary.
+    supabase.rpc("can_manage_sites", { p_org_id: org }),
     // Only the owner may export (export_org_data checks again); this only draws the button.
     supabase.rpc("is_org_owner", { p_org_id: org }),
     supabase.from("site_directory").select("id, name, status").eq("org_id", org).order("name").order("id").limit(SITE_LIMIT),
@@ -76,7 +80,7 @@ export default async function OverviewPage({
       .limit(APPROVED_LIMIT),
     supabase.from("material_alerts").select("site_id, material_id, alert").eq("org_id", org).order("site_id").limit(ALERT_LIMIT)
   ]);
-  if (isMember !== true) redirect("/dashboard");
+  if (isMember !== true || canManage !== true) redirect("/dashboard");
 
   // A failed read is not an empty one, and a row the page cannot read is not a
   // missing one: show nothing but the error, never a board where either would read
