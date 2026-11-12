@@ -57,7 +57,14 @@ function HeaderGroup({ group }: { group: NavGroup }) {
 // the browser keeps focus inside it, Esc closes it and the page behind is inert.
 export function SiteHeader({ whatsApp }: { whatsApp?: string | null }) {
   const menu = useRef<HTMLDialogElement>(null);
-  const open = () => menu.current?.showModal();
+  const menuId = useId();
+  // Mirrors the dialog, so the Menu button can say whether it is open (aria-expanded). The
+  // dialog's own close event covers Esc as well as the Close button and the links.
+  const [menuOpen, setMenuOpen] = useState(false);
+  const open = () => {
+    menu.current?.showModal();
+    setMenuOpen(true);
+  };
   const close = () => menu.current?.close();
 
   return (
@@ -75,20 +82,20 @@ export function SiteHeader({ whatsApp }: { whatsApp?: string | null }) {
       <div className="lp-head-right">
         <Link href={CTA.secondary.href} className="lp-pill lp-pill-line lp-head-signin">{CTA.secondary.label}</Link>
         <Link href={CTA.primary.href} className="lp-pill lp-pill-red">{CTA.primary.label}</Link>
-        <button type="button" className="lp-menu-btn" onClick={open} aria-haspopup="dialog">
+        <button type="button" className="lp-menu-btn" onClick={open} aria-haspopup="dialog" aria-expanded={menuOpen} aria-controls={menuId}>
           <i aria-hidden="true" />
           <span>Menu</span>
         </button>
       </div>
 
-      <dialog ref={menu} className="lp-menu" aria-label="Menu">
+      <dialog ref={menu} id={menuId} className="lp-menu" aria-label="Menu" onClose={() => setMenuOpen(false)}>
         <div className="lp-menu-in">
           <div className="lp-menu-top">
             <Wordmark />
             <button type="button" className="lp-menu-close" onClick={close} autoFocus>Close</button>
           </div>
           <p className="lp-menu-eyebrow">( Alarsio · site records with no signal )</p>
-          <nav aria-label="Menu">
+          <nav aria-label="Pages">
             <ul className="lp-menu-links">
               {MENU_LINKS.map((l, i) => (
                 <li key={l.href}>
