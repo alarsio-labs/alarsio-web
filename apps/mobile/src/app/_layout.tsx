@@ -31,8 +31,8 @@ import { useBrandFonts } from '../ui/fonts';
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // Expo Router renders this when any screen throws, instead of a red error screen.
-export function ErrorBoundary({ error }: ErrorBoundaryProps) {
-  return <StartupError detail={error.message} />;
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  return <StartupError detail={error.message} onRetry={retry} />;
 }
 
 // Home already shows the sync panel, so the bar sits on every other screen.

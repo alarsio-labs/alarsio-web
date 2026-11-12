@@ -28,6 +28,7 @@ import {
 } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -125,6 +126,8 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
     };
   }, []);
 
+  // Bumped by Try again: opens the database again if that is what failed.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     openDb().then(
       (opened) => {
@@ -134,7 +137,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
         if (alive.current) setLoad({ kind: 'failed' });
       },
     );
-  }, [openDb]);
+  }, [openDb, attempt]);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -151,6 +154,13 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
       if (alive.current) setLoad({ kind: 'failed' });
     }
   }, [db, userId, siteId, date]);
+
+  // Try again: open the database again if it failed to open, and read the records again.
+  const retry = () => {
+    snapshot.current = '';
+    setAttempt((n) => n + 1);
+    void refresh();
+  };
 
   useEffect(() => {
     const first = setTimeout(() => void refresh(), 0);
@@ -222,7 +232,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <Text style={styles.error}>Could not read the records on this phone.</Text>}
+        {load.kind === 'failed' && <LoadFailed message="Could not read the records on this phone." onRetry={retry} />}
         {load.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
 
         {site && register && (
