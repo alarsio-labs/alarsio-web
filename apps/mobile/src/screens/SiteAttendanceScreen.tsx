@@ -5,11 +5,12 @@
 // geofence figure is the phone's estimate: the database decides (ADR-021).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { estimateGeofence, type GeofenceEstimate } from '../attendance/geofence';
-import type { LocationProvider, PermissionState } from '../attendance/location';
+import type { LocationProvider, PermissionState, UnavailableCause } from '../attendance/location';
+import { locationProblemText, opensSettings } from '../attendance/location-text';
 import {
   checkInVisit,
   checkOutVisit,
@@ -51,6 +52,8 @@ type Step =
       kind: 'reason';
       action: Action;
       cause: 'outside' | 'unavailable';
+      /** Why there is no location, when cause is 'unavailable'. */
+      unavailable?: UnavailableCause;
       located: { lat: number; lng: number } | null;
       estimate: GeofenceEstimate | null;
       accuracyM: number | null;
@@ -203,17 +206,26 @@ export function SiteAttendanceScreen({
     }
   }
 
+  // Try location again: after turning location on, allowing it in Settings or stepping outside.
+  // Asks once more only if the phone never asked; a refused permission is changed in Settings.
+  async function retryLocation(action: Action) {
+    let permission = await location.getPermission();
+    if (permission === 'undetermined') permission = await location.requestPermission();
+    if (!alive.current) return;
+    await locate(action, permission);
+  }
+
   async function locate(action: Action, permission: PermissionState) {
     if (!site) return;
     if (permission !== 'granted') {
-      setStep({ kind: 'reason', action, cause: 'unavailable', located: null, estimate: null, accuracyM: null });
+      setStep({ kind: 'reason', action, cause: 'unavailable', unavailable: 'denied', located: null, estimate: null, accuracyM: null });
       return;
     }
     setStep({ kind: 'locating' });
     const position = await location.readPosition();
     if (!alive.current) return;
     if (position.kind === 'unavailable') {
-      setStep({ kind: 'reason', action, cause: 'unavailable', located: null, estimate: null, accuracyM: null });
+      setStep({ kind: 'reason', action, cause: 'unavailable', unavailable: position.cause, located: null, estimate: null, accuracyM: null });
       return;
     }
     const estimate = estimateGeofence(site, position);
@@ -336,9 +348,13 @@ export function SiteAttendanceScreen({
                     <Text style={styles.line}>Say why you are {step.action.kind === 'in' ? 'checking in' : 'checking out'} here.</Text>
                   </>
                 ) : (
-                  <Text style={styles.line}>
-                    {`Location is not available. Say why you are ${step.action.kind === 'in' ? 'checking in' : 'checking out'} without it.`}
-                  </Text>
+                  <>
+                    <Text style={styles.line}>{locationProblemText(step.unavailable ?? 'error', step.action.kind)}</Text>
+                    <Button label="Try location again" secondary onPress={() => void retryLocation(step.action)} />
+                    {opensSettings(step.unavailable ?? 'error') && (
+                      <Button label="Open settings" secondary onPress={() => void Linking.openSettings().catch(() => undefined)} />
+                    )}
+                  </>
                 )}
                 <TextInput
                   accessibilityLabel="Reason"
