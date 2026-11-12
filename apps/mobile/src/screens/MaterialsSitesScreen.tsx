@@ -7,6 +7,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius } from '../theme';
 
@@ -21,6 +22,8 @@ type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; sites: M
 
 export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSitesScreenProps) {
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
+  // Bumped by Try again, which reads the sites again.
+  const [attempt, setAttempt] = useState(0);
 
   useEffect(() => {
     let cancelled = false;
@@ -38,7 +41,12 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
     return () => {
       cancelled = true;
     };
-  }, [openDb, userId]);
+  }, [openDb, userId, attempt]);
+
+  const retry = () => {
+    setLoad({ kind: 'loading' });
+    setAttempt((n) => n + 1);
+  };
 
   return (
     <SafeAreaView style={styles.container}>
@@ -47,7 +55,7 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
         Materials
       </Text>
       {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-      {load.kind === 'failed' && <Text style={styles.error}>Could not read the sites on this phone.</Text>}
+      {load.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
       {load.kind === 'ready' && load.sites.length === 0 && (
         <Text style={styles.line}>No sites on this phone yet. Connect once to download your sites.</Text>
       )}

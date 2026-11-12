@@ -10,6 +10,7 @@ import type { DeviceDb } from '../db/device-db';
 import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
 import { findReport, listUnfinished, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -56,6 +57,8 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
     };
   }, []);
 
+  // Bumped by Try again: opens the database again if that is what failed.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     openDb().then(
       (opened) => {
@@ -66,7 +69,7 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
         if (alive.current) setLoad({ kind: 'failed' });
       },
     );
-  }, [openDb]);
+  }, [openDb, attempt]);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -88,6 +91,13 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
     }
   }, [db, userId, today]);
 
+  // Try again: open the database again if it failed to open, and read the records again.
+  const retry = () => {
+    snapshot.current = '';
+    setAttempt((n) => n + 1);
+    void refresh();
+  };
+
   useEffect(() => {
     const first = setTimeout(() => void refresh(), 0);
     const tick = db && pollMs > 0 ? setInterval(() => void refresh(), pollMs) : undefined;
@@ -107,7 +117,7 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
         Daily report
       </Text>
       {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-      {load.kind === 'failed' && <Text style={styles.error}>Could not read the sites on this phone.</Text>}
+      {load.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
       {load.kind === 'ready' && load.rows.length === 0 && (
         <Text style={styles.line}>No sites on this phone yet. Connect once to download your sites.</Text>
       )}

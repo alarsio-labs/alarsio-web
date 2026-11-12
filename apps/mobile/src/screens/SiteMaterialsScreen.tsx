@@ -22,6 +22,7 @@ import { loadSiteMaterials, saveMovement, type SiteMaterial, type SiteMaterials 
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
 import { DatePickerField, type OpenDatePicker } from './DatePickerField';
+import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -86,6 +87,8 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
     };
   }, []);
 
+  // Bumped by Try again: opens the database again if that is what failed.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     openDb().then(
       (opened) => {
@@ -95,7 +98,7 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
         if (alive.current) setLoad({ kind: 'failed' });
       },
     );
-  }, [openDb]);
+  }, [openDb, attempt]);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -112,6 +115,13 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
       if (alive.current) setLoad({ kind: 'failed' });
     }
   }, [db, userId, siteId]);
+
+  // Try again: open the database again if it failed to open, and read the records again.
+  const retry = () => {
+    snapshot.current = '';
+    setAttempt((n) => n + 1);
+    void refresh();
+  };
 
   useEffect(() => {
     // First read as soon as the database is open, then on a slow tick so a verdict shows.
@@ -165,7 +175,7 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
     <SafeAreaView style={styles.container}>
       <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
         {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <Text style={styles.error}>Could not read the materials on this phone.</Text>}
+        {load.kind === 'failed' && <LoadFailed message="Could not read the materials on this phone." onRetry={retry} />}
         {load.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
 
         {load.kind === 'ready' && data && (

@@ -368,4 +368,17 @@ describe('DailyReportScreen (#81)', () => {
     await show(USER_A, '2026-10-25');
     await screen.findByText('Report for today, 20 Oct');
   });
+
+  // Phone review, 12 Nov 2026: a database that failed to open was a dead end.
+  it('opens the database again on Try again, and shows the report', async () => {
+    await seedSite(db, USER_A);
+    const openDb = jest.fn<Promise<DeviceDb>, []>().mockRejectedValueOnce(new Error('busy')).mockResolvedValue(db);
+    await render(<DailyReportScreen openDb={openDb} userId={USER_A} siteId={SITE} now={() => NOW} pollMs={50} />);
+
+    expect(await screen.findByText('Could not read the records on this phone.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('Report for today, 20 Oct')).toBeTruthy();
+    expect(openDb).toHaveBeenCalledTimes(2);
+  });
 });
