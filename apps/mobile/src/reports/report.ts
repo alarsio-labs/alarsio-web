@@ -291,14 +291,51 @@ const REPORT_REASONS: Record<string, string> = {
   permission_denied: "You can't report on this site any more.",
 };
 
+/** The server's status of a report, as the phone's mirror holds it (ADR-051). */
+export interface ReportServerView {
+  status: 'submitted' | 'reviewed' | 'rejected';
+  reviewNote: string | null;
+  reviewedAt: string | null;
+}
+
+/**
+ * Whether a manager sent this report back and the phone has not answered yet (#137):
+ * undefined when not, else the manager's note (null if the mirror holds none).
+ * Sent back means the server's copy is `rejected` and either the last push was answered
+ * `sent_back`, or the phone's copy was sent before the review (once the supervisor
+ * resubmits, the phone's send is newer than the review and the old note is not shown).
+ */
+export function sentBackNote(stored: {
+  report: { status: ReportStatus };
+  status: OutboxStatus;
+  reason: string | null;
+  updatedAt: string;
+  server: ReportServerView | null;
+}): string | null | undefined {
+  const server = stored.server;
+  if (!server || server.status !== 'rejected' || stored.report.status !== 'submitted') return undefined;
+  if (stored.status === 'conflict' && stored.reason === 'sent_back') return server.reviewNote;
+  if (stored.status !== 'synced' || server.reviewedAt === null) return undefined;
+  const reviewed = Date.parse(server.reviewedAt.replace(/(\.\d{3})\d+/, '$1'));
+  const sent = Date.parse(stored.updatedAt);
+  return Number.isFinite(reviewed) && Number.isFinite(sent) && reviewed > sent ? server.reviewNote : undefined;
+}
+
+/** The words for a send-back: the manager's own note when there is one (#137). */
+export function sentBackText(note: string | null): string {
+  return note ? `Sent back: ${note}` : REPORT_REASONS.sent_back!;
+}
+
 /**
  * Where a report stands, in plain words. "Submitted" only for a submitted report
- * the server has accepted (ADR-009): nothing else on this phone may say it.
+ * the server has accepted (ADR-009): nothing else on this phone may say it. A report a
+ * manager sent back (sentBackNote) says so, with the note, instead of "Submitted".
  */
 export function reportStatusText(
   status: ReportStatus,
   outbox: OutboxStatus,
   reason: string | null,
+  sentBack?: string | null,
 ): { tone: ReportTone; text: string } {
   switch (outbox) {
     case 'pending':
@@ -307,11 +344,13 @@ export function reportStatusText(
     case 'failed':
       return { tone: 'wait', text: 'Saved on this phone. Could not send yet, will retry.' };
     case 'synced':
+      if (status === 'submitted' && sentBack !== undefined) return { tone: 'attention', text: sentBackText(sentBack) };
       return status === 'submitted'
         ? { tone: 'ok', text: 'Submitted' }
         : { tone: 'ok', text: 'Draft on the server, only you can see it' };
     case 'conflict':
     case 'rejected':
+      if (reason === 'sent_back' && sentBack) return { tone: 'attention', text: `Needs attention · ${sentBackText(sentBack)}` };
       return {
         tone: 'attention',
         text: `Needs attention · ${(reason !== null ? REPORT_REASONS[reason] : undefined) ?? reasonText(reason)}`,
@@ -324,10 +363,22 @@ export function reportStatusText(
  * and a draft still on the phone says so, not only "waiting to send".
  */
 export function reportCardStatus(
-  stored: { report: { status: ReportStatus }; status: OutboxStatus; reason: string | null } | null,
+  stored:
+    | {
+        report: { status: ReportStatus };
+        status: OutboxStatus;
+        reason: string | null;
+        updatedAt?: string;
+        server?: ReportServerView | null;
+      }
+    | null,
 ): { tone: ReportTone | null; text: string } {
   if (!stored) return { tone: null, text: 'Not started' };
-  const s = reportStatusText(stored.report.status, stored.status, stored.reason);
+  const note =
+    stored.updatedAt !== undefined && stored.server !== undefined
+      ? sentBackNote({ ...stored, updatedAt: stored.updatedAt, server: stored.server })
+      : undefined;
+  const s = reportStatusText(stored.report.status, stored.status, stored.reason, note);
   if (stored.report.status === 'draft' && s.tone === 'wait') return { tone: 'wait', text: 'Draft, saved on this phone' };
   return s;
 }

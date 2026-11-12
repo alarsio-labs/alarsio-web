@@ -24,6 +24,7 @@ import {
   ReportError,
   reportErrorText,
   reportStatusText,
+  sentBackNote,
   type DayAttendance,
   type ReportFields,
   type ReportStatus,
@@ -226,7 +227,7 @@ export function DailyReportScreen({
   const reviewed = stored?.status === 'conflict' && stored.reason === 'reviewed';
   const editing = needsReason(stored?.report ?? null);
   const editable = !reviewed;
-  const status = stored ? reportStatusText(stored.report.status, stored.status, stored.reason) : null;
+  const status = stored ? reportStatusText(stored.report.status, stored.status, stored.reason, sentBackNote(stored)) : null;
 
   return (
     <SafeAreaView style={styles.container}>

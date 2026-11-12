@@ -65,6 +65,8 @@ describe('photo store (#81 PR 2)', () => {
       recordId,
       status: 'pending',
       reason: null,
+      updatedAt: T.toISOString(),
+      server: null,
       report: {
         orgId: ORG,
         siteId: SITE.id,

@@ -174,8 +174,11 @@ against the team project (#58), after the `entry_id` migration is pushed.*
   final, and that only the author resubmits, with a reason and a revision naming the send-back.
   `sync_daily_reports_test.sql` proves a push with no reason never resubmits it (`conflict` / `sent_back`).
   The web's Send back form and the phone's resubmit have unit tests. Unticked: the web screen has not been driven
-  against the team project (#58), and the phone learns of a send-back only when it next pushes that report,
-  because there is no report pull (#49).*
+  against the team project (#58).*
+  *The phone now learns of a send-back from a pull (#136, ADR-051: `mirror_report_status`, the author's own
+  `daily_report_status` rows for 14 days) and shows "Sent back: <the manager's note>" on the report, its Today card
+  and the unfinished list until the resubmit reaches the server (#137). `pull.test.ts`, `report-store.test.ts` and
+  `report.test.ts` cover it; not yet run on a phone (needs a new EAS build) or in smoke test S11.*
 
 *Managers read, filter and review reports on the web (#74, ADR-025): `/reports` lists
 `daily_report_status` with flagged reports first, and `/reports/<id>` shows the report, its

@@ -4,7 +4,7 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import type { SyncResultRow } from '../../sync/entities';
 import { applyVerdicts, claimBatch, getStatus } from '../../sync/outbox';
-import { ReportError, type ReportFields } from '../report';
+import { ReportError, sentBackNote, type ReportFields } from '../report';
 import { findReport, listUnfinished, saveReport } from '../report-store';
 
 // jest-expo stubs expo-crypto, so a counter stands in for randomUUID.
@@ -233,6 +233,50 @@ describe('report store (#81)', () => {
         [refused, '2026-10-18'],
         [oldDraft, '2026-10-17'],
       ]);
+    });
+  });
+
+  // #137: a send-back reaches the phone through the report-status mirror (ADR-051).
+  describe('a report a manager sent back (#137)', () => {
+    const mirrorSays = async (status: string, note: string | null, reviewedAt: string, user = USER_A) => {
+      await db.run(`insert or replace into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [user, at(7200).toISOString()]);
+      await db.run(
+        `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at) values (?, ?, ?, ?, ?, ?)`,
+        ['d9000000-0000-4000-8000-000000000001', SITE_1.id, YESTERDAY, status, note, reviewedAt],
+      );
+    };
+
+    it("is not shown from another user's mirror", async () => {
+      const id = await saveReport(db, USER_A, SITE_1, YESTERDAY, fields(), 'submitted', {}, T);
+      await serverAnswers(db, USER_A, [verdict(id, 'accepted')]);
+      await mirrorSays('rejected', 'Add photos', at(3600).toISOString(), USER_B);
+
+      const stored = await findReport(db, USER_A, SITE_1.id, YESTERDAY);
+      expect(stored?.server).toBeNull();
+      expect(await listUnfinished(db, USER_A, TODAY)).toEqual([]);
+    });
+
+    it('carries the note and puts an earlier day back on the unfinished list', async () => {
+      const id = await saveReport(db, USER_A, SITE_1, YESTERDAY, fields(), 'submitted', {}, T);
+      await serverAnswers(db, USER_A, [verdict(id, 'accepted')]);
+      await mirrorSays('rejected', 'Add photos', at(3600).toISOString());
+
+      const stored = await findReport(db, USER_A, SITE_1.id, YESTERDAY);
+      expect(stored?.server).toEqual({ status: 'rejected', reviewNote: 'Add photos', reviewedAt: at(3600).toISOString() });
+      expect(sentBackNote(stored!)).toBe('Add photos');
+      expect((await listUnfinished(db, USER_A, TODAY)).map((r) => r.recordId)).toEqual([id]);
+    });
+
+    it('is no longer shown once the resubmit reached the server after the review', async () => {
+      const id = await saveReport(db, USER_A, SITE_1, YESTERDAY, fields(), 'submitted', {}, T);
+      await serverAnswers(db, USER_A, [verdict(id, 'accepted')]);
+      await mirrorSays('rejected', 'Add photos', at(3600).toISOString());
+      await saveReport(db, USER_A, SITE_1, YESTERDAY, fields({ workDone: 'Slab poured, photos added' }), 'submitted', { reason: 'Added photos' }, at(5000));
+      await serverAnswers(db, USER_A, [verdict(id, 'accepted')], at(5001));
+
+      const stored = await findReport(db, USER_A, SITE_1.id, YESTERDAY);
+      expect(sentBackNote(stored!)).toBeUndefined();
+      expect(await listUnfinished(db, USER_A, TODAY)).toEqual([]);
     });
   });
 });
