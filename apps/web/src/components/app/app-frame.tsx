@@ -5,6 +5,7 @@ import { activeLink } from "@/lib/app/nav";
 import { orgLinks } from "@/lib/dashboard/links";
 import { ROLE_LABEL, type Membership } from "@/lib/dashboard/memberships";
 import { AppTopBar, Crumbs } from "./app-top-bar";
+import type { NameState } from "@/app/(app)/account-actions";
 
 // The console frame for the page being shown (docs/DESIGN.md section 4): the top bar
 // with the modules as pills, and the breadcrumb above the page. The organisation is
@@ -15,10 +16,14 @@ import { AppTopBar, Crumbs } from "./app-top-bar";
 export function AppFrame({
   memberships,
   email,
+  name,
+  updateName,
   signOut
 }: {
   memberships: readonly Membership[];
   email?: string;
+  name?: string | null;
+  updateName?: (prev: NameState, form: FormData) => Promise<NameState>;
   signOut: (form: FormData) => void | Promise<void>;
 }) {
   const pathname = usePathname();
@@ -32,6 +37,8 @@ export function AppFrame({
         orgName={current?.orgName}
         roleLabel={current ? ROLE_LABEL[current.role] : undefined}
         email={email}
+        name={name}
+        updateName={updateName}
         links={links}
         current={here?.path ?? null}
         signOut={signOut}
