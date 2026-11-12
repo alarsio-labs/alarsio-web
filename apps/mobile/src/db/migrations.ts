@@ -160,4 +160,23 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index mirror_approved_days_site on mirror_approved_days (site_id, work_date);
     `,
   },
+  {
+    // Issue #136, ADR-051. The fifth pull mirror: the signed-in author's own daily reports
+    // of the last 14 days from Daily Reporting's view daily_report_status, so the phone can
+    // show a manager's send-back and its note (#137). Replaced whole by each pull and owned by
+    // one user through mirror_state (ADR-023). Drafts are never in the view.
+    version: 8,
+    name: 'mirror report status',
+    sql: `
+      create table mirror_report_status (
+        id          text primary key check (length(id) = 36),
+        site_id     text not null check (length(site_id) = 36),
+        report_date text not null check (length(report_date) = 10),
+        status      text not null check (status in ('submitted', 'reviewed', 'rejected')),
+        review_note text,
+        reviewed_at text
+      );
+      create index mirror_report_status_site on mirror_report_status (site_id, report_date);
+    `,
+  },
 ];

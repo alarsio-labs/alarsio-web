@@ -23,6 +23,12 @@ import { SESSION_CHANGED, SyncTransportError } from './sender';
  */
 export const ROSTER_LOOKBACK_DAYS = 7;
 
+/**
+ * How far back the phone keeps its author's report statuses (#136, ADR-051): two weeks, so a
+ * report sent back a few days after it was filed is still seen; older reports are read on the web.
+ */
+export const REPORT_LOOKBACK_DAYS = 14;
+
 // Columns are named, never '*': a column added to a source later is not copied
 // onto phones until someone decides it should be.
 const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string }> = {
@@ -51,6 +57,13 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, approved_at',
     key: 'entry_id',
   },
+  // Daily Reporting's published view (ADR-025, ADR-042), never daily_reports: ARCHITECTURE rule 4.
+  // Only the columns the phone shows; the author's own rows only (filtered below, RLS beneath).
+  report_status: {
+    table: 'daily_report_status',
+    columns: 'id, site_id, report_date, status, review_note, reviewed_at',
+    key: 'id',
+  },
 };
 
 export interface MirrorSourceOptions {
@@ -58,10 +71,10 @@ export interface MirrorSourceOptions {
   now?: () => Date;
 }
 
-/** The first Asia/Kolkata day of the window: ROSTER_LOOKBACK_DAYS before today. */
-function windowFirstDay(now: Date): string {
+/** The first Asia/Kolkata day of a window: `days` before today (ROSTER_LOOKBACK_DAYS by default). */
+function windowFirstDay(now: Date, days = ROSTER_LOOKBACK_DAYS): string {
   const today = istDate(now.toISOString());
-  return new Date(Date.parse(`${today}T00:00:00Z`) - ROSTER_LOOKBACK_DAYS * 86_400_000).toISOString().slice(0, 10);
+  return new Date(Date.parse(`${today}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
 }
 
 /** The instant the roster window opens: the start of that day. */
@@ -98,6 +111,11 @@ export function supabaseMirrorSource(
       }
       // Approved days of the same window, so the phone holds the days its register can open (ADR-049).
       if (kind === 'approved_days') query = query.gte('work_date', windowFirstDay(now()));
+      // The signed-in author's own reports of the last two weeks (ADR-051); RLS also lets a
+      // manager see others', which the phone has no use for.
+      if (kind === 'report_status') {
+        query = query.eq('author_id', session.user.id).gte('report_date', windowFirstDay(now(), REPORT_LOOKBACK_DAYS));
+      }
       if (after !== null) query = query.gt(key, after);
       const { data, error } = await query
         .order(key)

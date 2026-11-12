@@ -1,7 +1,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js';
 
 import { SESSION_CHANGED, SyncTransportError } from '../sender';
-import { ROSTER_LOOKBACK_DAYS, supabaseMirrorSource } from '../supabase-mirror-source';
+import { REPORT_LOOKBACK_DAYS, ROSTER_LOOKBACK_DAYS, supabaseMirrorSource } from '../supabase-mirror-source';
 
 const USER_A = '11111111-0000-4000-8000-00000000000a';
 const USER_B = '22222222-0000-4000-8000-00000000000b';
@@ -116,6 +116,22 @@ describe('supabaseMirrorSource (#49)', () => {
 
     expect(call(calls, 'gte')).toEqual(['work_date', '2026-10-14']);
     expect(call(calls, 'gt')).toBeUndefined();
+  });
+
+  it("reads only the signed-in author's report statuses, from Daily Reporting's view, for two weeks (ADR-051)", async () => {
+    const { client, calls } = fakeClient(signedInA);
+    await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('report_status', USER_A, 'r-key', 500);
+
+    // Never daily_reports: ARCHITECTURE rule 4 (Daily Reporting publishes this view, ADR-025).
+    expect(call(calls, 'from')).toEqual(['daily_report_status']);
+    // Only what the phone shows: no headcount, blockers or reviewer.
+    expect(call(calls, 'select')).toEqual(['id, site_id, report_date, status, review_note, reviewed_at']);
+    // RLS also shows a manager other people's reports; the phone keeps only its author's.
+    expect(call(calls, 'eq')).toEqual(['author_id', USER_A]);
+    expect(REPORT_LOOKBACK_DAYS).toBe(14);
+    expect(call(calls, 'gte')).toEqual(['report_date', '2026-10-06']);
+    expect(call(calls, 'gt')).toEqual(['id', 'r-key']);
+    expect(call(calls, 'order')).toEqual(['id']);
   });
 
   it('refuses, without querying, when someone else or no one is signed in', async () => {

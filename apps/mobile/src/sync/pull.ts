@@ -17,7 +17,7 @@ export const PULL_PAGE_SIZE = 1000;
 /** A safety stop, far above any real size, so a misbehaving server cannot loop a pull forever. */
 const MAX_PAGES = 1000;
 
-export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days';
+export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status';
 
 /** The column each source is ordered and paged by. */
 const KEY_FIELD: Record<MirrorKind, string> = {
@@ -25,6 +25,7 @@ const KEY_FIELD: Record<MirrorKind, string> = {
   materials: 'material_id',
   roster: 'assignment_id',
   approved_days: 'entry_id',
+  report_status: 'id',
 };
 
 export interface MirrorSource {
@@ -96,6 +97,24 @@ export interface ApprovedEntry {
   approvedAt: string;
 }
 
+/** The statuses daily_report_status shows; a draft never leaves the phone that wrote it. */
+export type ReportServerStatus = 'submitted' | 'reviewed' | 'rejected';
+const isReportServerStatus = (v: unknown): v is ReportServerStatus => v === 'submitted' || v === 'reviewed' || v === 'rejected';
+
+/**
+ * The server's view of one of the author's reports at the last pull (#136, ADR-051).
+ * `rejected` is what a manager's "Send back" stores; its note is then never blank.
+ */
+export interface ReportStatus {
+  id: string;
+  siteId: string;
+  /** Asia/Kolkata calendar day. */
+  reportDate: string;
+  status: ReportServerStatus;
+  reviewNote: string | null;
+  reviewedAt: string | null;
+}
+
 /** What the phone holds for its owner, and when it was refreshed. */
 export interface MirrorSummary {
   refreshedAt: string;
@@ -140,6 +159,7 @@ export async function runPull(
   let materials: MirrorMaterial[];
   let roster: AssignmentRow[];
   let approved: ApprovedRow[];
+  let reports: ReportStatus[];
   try {
     userId = await source.currentUserId();
     if (userId === null) return { kind: 'signed_out' };
@@ -147,6 +167,7 @@ export async function runPull(
     materials = await fetchAll(source, 'materials', userId, pageSize, toMaterial);
     roster = await fetchAll(source, 'roster', userId, pageSize, toAssignment);
     approved = await fetchAll(source, 'approved_days', userId, pageSize, toApprovedDay);
+    reports = await fetchAll(source, 'report_status', userId, pageSize, toReportStatus);
 
     // Still the same user? A sign-out that landed while the pages were coming in
     // must not be undone by a write of that user's data afterwards. This narrows
@@ -165,6 +186,7 @@ export async function runPull(
   materials = materials.filter((m) => siteIds.has(m.siteId));
   roster = roster.filter((w) => siteIds.has(w.siteId));
   approved = approved.filter((a) => siteIds.has(a.siteId));
+  reports = reports.filter((r) => siteIds.has(r.siteId));
 
   const owner = userId.toLowerCase();
   try {
@@ -196,6 +218,13 @@ export async function runPull(
           `insert into mirror_approved_days (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, approved_at)
            values (?, ?, ?, ?, ?, ?, ?)`,
           [a.entryId, a.siteId, a.workerId, a.workDate, a.status, a.overtimeHundredths, a.approvedAt],
+        );
+      }
+      for (const r of reports) {
+        await db.run(
+          `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at)
+           values (?, ?, ?, ?, ?, ?)`,
+          [r.id, r.siteId, r.reportDate, r.status, r.reviewNote, r.reviewedAt],
         );
       }
       await db.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [
@@ -350,6 +379,31 @@ export async function readApprovedDay(db: DeviceDb, userId: string, siteId: stri
   }));
 }
 
+/**
+ * The server's status of this user's report for a site and day, from the last pull (ADR-051),
+ * or null: not pulled yet, not this user's mirror, a draft, or older than two weeks. Null means
+ * "not known", never "not sent back".
+ */
+export async function readReportStatus(db: DeviceDb, userId: string, siteId: string, date: string): Promise<ReportStatus | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!(await ownedBy(db, userId))) return null;
+  const [row] = await db.all<{
+    id: string;
+    site_id: string;
+    report_date: string;
+    status: ReportServerStatus;
+    review_note: string | null;
+    reviewed_at: string | null;
+  }>(
+    `select id, site_id, report_date, status, review_note, reviewed_at from mirror_report_status
+      where site_id = ? and report_date = ? order by id limit 1`,
+    [siteId.toLowerCase(), date],
+  );
+  return row
+    ? { id: row.id, siteId: row.site_id, reportDate: row.report_date, status: row.status, reviewNote: row.review_note, reviewedAt: row.reviewed_at }
+    : null;
+}
+
 /** The Asia/Kolkata calendar day (YYYY-MM-DD) of a timestamp. India has no daylight saving. */
 export function istDate(timestamp: string): string {
   // Postgres can send microseconds; trim to the milliseconds every date parser reads.
@@ -391,6 +445,7 @@ async function deleteMirrors(db: DeviceDb): Promise<void> {
   await db.run(`delete from mirror_materials`);
   await db.run(`delete from mirror_roster`);
   await db.run(`delete from mirror_approved_days`);
+  await db.run(`delete from mirror_report_status`);
   await db.run(`delete from mirror_state`);
 }
 
@@ -542,5 +597,33 @@ function toApprovedDay(v: unknown): ApprovedRow {
     overtimeHours: overtimeHundredths / 100,
     overtimeHundredths,
     approvedAt: v.approved_at,
+  };
+}
+
+function toReportStatus(v: unknown): ReportStatus {
+  if (
+    !isRow(v) ||
+    !isId(v.id) ||
+    !isId(v.site_id) ||
+    !isText(v.report_date) ||
+    !isReportServerStatus(v.status) ||
+    !(v.review_note === null || isText(v.review_note)) ||
+    !(v.reviewed_at === null || isText(v.reviewed_at))
+  ) {
+    return bad('report_status');
+  }
+  const dayOk =
+    /^\d{4}-\d{2}-\d{2}$/.test(v.report_date) &&
+    Number.isFinite(Date.parse(`${v.report_date}T00:00:00Z`)) &&
+    new Date(`${v.report_date}T00:00:00Z`).toISOString().slice(0, 10) === v.report_date;
+  const reviewedOk = v.reviewed_at === null || Number.isFinite(Date.parse(v.reviewed_at.replace(/(\.\d{3})\d+/, '$1')));
+  if (!dayOk || !reviewedOk) return bad('report_status');
+  return {
+    id: v.id.toLowerCase(),
+    siteId: v.site_id.toLowerCase(),
+    reportDate: v.report_date,
+    status: v.status,
+    reviewNote: v.review_note === null || v.review_note.trim() === '' ? null : v.review_note,
+    reviewedAt: v.reviewed_at,
   };
 }

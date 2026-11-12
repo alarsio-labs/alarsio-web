@@ -60,3 +60,4 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-048 | Attendance on the phone, PR 2: the day register, offline, with the approved day learned from the server's answer | Proposed | Attendance & Site Presence |
 | ADR-049 | The phone holds a mirror of approved attendance days, paged by an entry id the view now publishes | Proposed | Offline Sync |
 | ADR-050 | The phone's role gate: supervisors and project managers capture, owners and accountants go to the web | Accepted | Identity & Access |
+| ADR-051 | The phone holds its author's report statuses, so a send-back reaches the supervisor | Proposed | Offline Sync |
