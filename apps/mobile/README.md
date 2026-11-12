@@ -113,6 +113,17 @@ eas build --profile pilot --platform android
 | Version / code | 0.1.0 / 1 |
 | Built from commit | `79bfbf7` (before the `app.json` change below) |
 
+### 5.3a Current pilot build (on alarsio.com/download)
+
+| Item | Value |
+| :-- | :-- |
+| Build ID | `4e6ff308-ac0d-4809-a275-b51379759400` (6 Nov 2026, PR #186) |
+| Version / size | 0.1.0 / 109,406,880 bytes |
+| Hosted at | GitHub Release [`pilot-v0.1.0`](https://github.com/alarsio-labs/alarsio-web/releases/tag/pilot-v0.1.0) (SHA-256 in the release notes) |
+
+expo.dev artifact links take about 23 s to start a download, so the Download page links the GitHub
+Release instead. For a new build, see `docs/DEPLOY.md` §3.
+
 ### 5.4 Install on a phone
 
 1. Open the APK link in Chrome on the phone, or scan the QR on the build page.

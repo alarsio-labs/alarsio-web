@@ -138,6 +138,11 @@ eas build --profile pilot --platform android
 ```
 
 - [ ] Install the APK on one real phone from the build's link. Allow installs from the browser when asked.
+- [ ] Publish it for the Download page: download the APK from the build page, then
+      `gh release create pilot-v<version> <file>.apk --prerelease --notes "<build id, commit, size, SHA-256>"`.
+      Set `PILOT_APK_URL` and `PILOT_APK` in `apps/web/src/lib/site/download.ts` to the release asset and its
+      version, date and size (or set `NEXT_PUBLIC_APK_URL` in Vercel). A GitHub Release starts in about a second;
+      an expo.dev artifact link takes about 23 s.
 - [ ] `EXPO_PUBLIC_*` values are compiled into the app and readable by anyone who has the APK. They must be
       the **publishable** key only; never the service-role key (rule 2).
 - [ ] A new build is needed for every change to those variables or to the native plugins (location, camera).

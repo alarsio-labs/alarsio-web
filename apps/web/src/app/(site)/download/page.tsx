@@ -4,7 +4,7 @@ import { ClosingCta } from "@/components/site/closing-cta";
 import { Eyebrow } from "@/components/site/eyebrow";
 import { PageHero } from "@/components/site/page-hero";
 import { CONTACT_WHATSAPP, whatsAppHref } from "@/lib/site/contact";
-import { APK_URL } from "@/lib/site/download";
+import { APK_URL, PILOT_APK, PILOT_APK_URL, apkFacts } from "@/lib/site/download";
 
 export const metadata: Metadata = {
   title: "Download the Android app",
@@ -13,7 +13,7 @@ export const metadata: Metadata = {
 };
 
 const STEPS = [
-  { title: "Download the app", body: "Tap the button on your Android phone. The file is about 100 MB, so use Wi-Fi if you can." },
+  { title: "Download the app", body: "Tap the button on your Android phone. The file is about 110 MB, so use Wi-Fi if you can." },
   { title: "Allow the install", body: "Android asks whether to allow apps from this source. Allow it once for your browser, then tap Install." },
   { title: "Sign in", body: "Open Alarsio and sign in with the email and password from the invite your owner sent you. Your sites download while you have signal." }
 ];
@@ -49,6 +49,8 @@ export default function DownloadPage() {
             <Link href="/contact" className="lp-pill lp-pill-red">Contact us</Link>
           )}
         </div>
+        {/* Only for the build these facts describe: a link set through NEXT_PUBLIC_APK_URL may be another. */}
+        {APK_URL === PILOT_APK_URL ? <p className="hm-note">{apkFacts(PILOT_APK)} · Android only</p> : null}
       </PageHero>
 
       <section className="hm-band hm-paper" aria-labelledby="install">
