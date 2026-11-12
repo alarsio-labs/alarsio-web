@@ -356,6 +356,10 @@ In `components/app/`: `AppFrame`, `AppTopBar` (with `Brand`, `OrgSwitch`, `Accou
 `SidebarNav`, `Icon`, `PageHead`, `StatCard`, `Card`, `DataTable`, `StatusTag`, `Button` / `ButtonLink`
 and `Notice`. Fields stay in `v2-form.tsx`. A screen uses these pieces and does not restyle them.
 
+- **Account menu** (`AccountMenu`, `NameForm`): the round button shows the initial of the person's name (else
+  their email); the panel shows "Signed in as", the name and the email, a **Your name** field with Save
+  (`updateMyName` in `app/(app)/account-actions.ts`, 1 to 120 characters, the person's own row only), then Sign out.
+  "New user" (a profile made without a name) is never shown as a name.
 - **Page head.** Light title, the note under it, and on the right an optional `aside` (a segmented control)
   and one action.
 - **Segmented control** (`.ax-seg`): a glass capsule; the current item is ink with white text. The Overview

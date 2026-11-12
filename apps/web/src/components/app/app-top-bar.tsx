@@ -1,5 +1,7 @@
 import Link from "next/link";
 import type { OrgLink } from "@/lib/dashboard/links";
+import type { NameState } from "@/app/(app)/account-actions";
+import { NameForm } from "./name-form";
 import { Icon } from "./nav-icon";
 import { SidebarNav } from "./sidebar-nav";
 
@@ -9,6 +11,7 @@ import { SidebarNav } from "./sidebar-nav";
 // so they open without JavaScript.
 
 type SignOut = (form: FormData) => void | Promise<void>;
+type UpdateName = (prev: NameState, form: FormData) => Promise<NameState>;
 
 const initial = (s: string) => s.trim().charAt(0).toUpperCase() || "A";
 
@@ -47,20 +50,33 @@ export function SignOutButton({ signOut }: { signOut: SignOut }) {
   );
 }
 
-/** The round account button and its menu: who is signed in, and Sign out. */
-export function AccountMenu({ email, signOut }: { email?: string; signOut: SignOut }) {
+/** The round account button and its menu: who is signed in, their name, and Sign out. */
+export function AccountMenu({
+  email,
+  name,
+  updateName,
+  signOut
+}: {
+  email?: string;
+  name?: string | null;
+  updateName?: UpdateName;
+  signOut: SignOut;
+}) {
+  const label = name || email;
   return (
     <details className="cx-account">
       <summary className="cx-account-button" aria-label="Account">
-        {email ? initial(email) : <Icon name="workers" size={18} />}
+        {label ? initial(label) : <Icon name="workers" size={18} />}
       </summary>
       <div className="cx-pop cx-account-panel">
         {email && (
           <p className="cx-account-email">
             <span className="cx-account-label">Signed in as</span>
+            {name && <span className="cx-account-name">{name}</span>}
             <span title={email}>{email}</span>
           </p>
         )}
+        {updateName && <NameForm name={name ?? null} action={updateName} />}
         <SignOutButton signOut={signOut} />
       </div>
     </details>
@@ -71,6 +87,8 @@ export function AppTopBar({
   orgName,
   roleLabel,
   email,
+  name,
+  updateName,
   links = [],
   current = null,
   signOut
@@ -78,6 +96,8 @@ export function AppTopBar({
   orgName?: string;
   roleLabel?: string;
   email?: string;
+  name?: string | null;
+  updateName?: UpdateName;
   links?: readonly OrgLink[];
   current?: string | null;
   signOut: SignOut;
@@ -106,7 +126,7 @@ export function AppTopBar({
             </div>
           </details>
         )}
-        <AccountMenu email={email} signOut={signOut} />
+        <AccountMenu email={email} name={name} updateName={updateName} signOut={signOut} />
       </div>
     </header>
   );

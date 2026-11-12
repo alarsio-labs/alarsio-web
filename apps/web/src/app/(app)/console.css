@@ -147,6 +147,16 @@
 .cx-account-email { display: grid; gap: 2px; padding: 8px 10px; border-bottom: 1px solid var(--hair-faint); min-width: 0; }
 .cx-account-email span:last-child { font-weight: 500; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .cx-account-label { font-size: 12px; color: var(--faint); }
+/* "Your name" in the account menu (components/app/name-form.tsx). */
+.cx-account-name { font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.cx-name { display: grid; gap: 6px; padding: 10px; border-bottom: 1px solid var(--hair-faint); }
+.cx-name-row { display: flex; gap: 6px; }
+.cx-name-row input { flex: 1; min-width: 0; min-height: 40px; padding: 0 10px; font: inherit; font-size: 16px; border: 1px solid var(--line-strong); border-radius: 10px; background: #fff; color: var(--ink); }
+.cx-name-row input:focus-visible { outline: 2px solid var(--accent); outline-offset: 1px; }
+.cx-name-row button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: var(--ink); color: #fff; font: inherit; font-weight: 600; cursor: pointer; }
+.cx-name-row button:disabled { opacity: 0.6; cursor: progress; }
+.cx-name-error { margin: 0; font-size: 12px; color: var(--red-deep); }
+.cx-name .cx-account-label { margin: 0; }
 .cx-signout { display: contents; }
 .cx-signout-btn {
   display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 0 10px;
