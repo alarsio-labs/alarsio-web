@@ -11,6 +11,7 @@ import {
   PULL_PAGE_SIZE,
   readApprovedDay,
   readMaterials,
+  readReportStatus,
   readRosterOn,
   readSites,
   runPull,
@@ -68,14 +69,24 @@ const approvedDay = (n: number, siteId = SITE_1, workDate = '2026-10-20', status
 });
 
 type Rows = Record<string, unknown>[];
-// A test that is not about approved days leaves them out: the server then returns none.
-type Data = Omit<Record<MirrorKind, Rows>, 'approved_days'> & { approved_days?: Rows };
+// A test that is not about approved days or report statuses leaves them out: the server then returns none.
+type Data = Omit<Record<MirrorKind, Rows>, 'approved_days' | 'report_status'> & { approved_days?: Rows; report_status?: Rows };
 const KEY: Record<MirrorKind, string> = {
   sites: 'id',
   materials: 'material_id',
   roster: 'assignment_id',
   approved_days: 'entry_id',
+  report_status: 'id',
 };
+
+const reportStatus = (n: number, siteId = SITE_1, reportDate = '2026-10-20', status = 'rejected', note: unknown = 'Add photos of the slab') => ({
+  id: ID('d9000000', n),
+  site_id: siteId,
+  report_date: reportDate,
+  status,
+  review_note: status === 'rejected' ? note : null,
+  reviewed_at: status === 'submitted' ? null : '2026-10-20T13:30:00.654321+00:00',
+});
 
 /**
  * A server as one user sees it, paging like PostgREST with `.gt(key, after)`,
@@ -560,7 +571,7 @@ describe('pull (#49)', () => {
 
       await prepareDeviceDb(old, deviceMigrations);
 
-      expect(await readUserVersion(old)).toBe(7);
+      expect(await readUserVersion(old)).toBe(deviceMigrations.length);
       expect(await old.all('select * from mirror_approved_days')).toEqual([]);
       expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
       expect(await readApprovedDay(old, USER_A, SITE_1, DAY)).toEqual([]);
@@ -682,6 +693,110 @@ describe('pull (#49)', () => {
 
       expect(await db.all('select * from mirror_approved_days')).toEqual([]);
       expect(await readApprovedDay(db, USER_A, SITE_1, DAY)).toEqual([]);
+    });
+  });
+
+  // #136, ADR-051: negative cases first.
+  describe('report status (#136, ADR-051)', () => {
+    const DAY = '2026-10-20';
+    const pullReports = async (rows: Rows, user: string | null = USER_A) => {
+      const { source } = fakeSource({ ...oneOfEach(), report_status: rows }, user);
+      return runPull(db, source, { now: () => T0 });
+    };
+
+    it('device migration 8 adds the table, and a phone on version 7 keeps its sites and approved days', async () => {
+      const old = await openTestDeviceDb();
+      await prepareDeviceDb(old, deviceMigrations.slice(0, 7));
+      await old.run(
+        `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
+         values (?, ?, 'Kothrud', 'Pune', 18.52, 73.85, 200, 'active')`,
+        [SITE_1, ORG],
+      );
+      await old.run(
+        `insert into mirror_approved_days (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, approved_at)
+         values (?, ?, ?, ?, 'present', 0, '2026-10-20T11:00:00Z')`,
+        [ID('e7000000', 1), SITE_1, ID('77000000', 1), DAY],
+      );
+      await old.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [USER_A, T0.toISOString()]);
+
+      await prepareDeviceDb(old, deviceMigrations);
+
+      expect(await readUserVersion(old)).toBe(8);
+      expect(await old.all('select * from mirror_report_status')).toEqual([]);
+      expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
+      expect(await readApprovedDay(old, USER_A, SITE_1, DAY)).toHaveLength(1);
+    });
+
+    it('shows nothing before a pull, or from another user\'s mirror', async () => {
+      expect(await readReportStatus(db, USER_A, SITE_1, DAY)).toBeNull();
+      await pullReports([reportStatus(1)]);
+      expect(await readReportStatus(db, USER_B, SITE_1, DAY)).toBeNull();
+    });
+
+    it('fails the pull and keeps the old mirror when a row cannot be read', async () => {
+      await pullReports([reportStatus(1)]);
+      for (const bad of [
+        { status: 'draft' },
+        { status: 'approved' },
+        { report_date: '20-10-2026' },
+        { report_date: '2026-13-45' },
+        { review_note: 42 },
+        { reviewed_at: 'yesterday' },
+        { site_id: 'short' },
+      ]) {
+        expect(await pullReports([{ ...reportStatus(2), ...bad }])).toEqual({ kind: 'failed', reason: 'bad_row:report_status' });
+      }
+      expect((await readReportStatus(db, USER_A, SITE_1, DAY))?.id).toBe(ID('d9000000', 1));
+    });
+
+    it('keeps the old copy when only the report fetch fails', async () => {
+      await pullReports([reportStatus(1)]);
+      const { source, state } = fakeSource({ ...oneOfEach(), report_status: [] });
+      state.fail = { kind: 'report_status', error: new SyncTransportError('network') };
+
+      expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'network' });
+      expect((await readReportStatus(db, USER_A, SITE_1, DAY))?.status).toBe('rejected');
+    });
+
+    it('keeps no row for a site the phone no longer holds', async () => {
+      await pullReports([reportStatus(1, SITE_2)]);
+      expect(await db.all('select * from mirror_report_status')).toEqual([]);
+    });
+
+    it('drops a report the server stops showing, and is emptied on sign-out', async () => {
+      const { source, state } = fakeSource({ ...oneOfEach(), report_status: [reportStatus(1)] });
+      await runPull(db, source, { now: () => T0 });
+      state.data = { ...oneOfEach(), report_status: [] };
+      await runPull(db, source, { now: () => T0 });
+      expect(await readReportStatus(db, USER_A, SITE_1, DAY)).toBeNull();
+
+      await pullReports([reportStatus(2)]);
+      await clearMirrors(db);
+      expect(await db.all('select * from mirror_report_status')).toEqual([]);
+    });
+
+    it('refuses a date that is not YYYY-MM-DD', async () => {
+      await pullReports([reportStatus(1)]);
+      await expect(readReportStatus(db, USER_A, SITE_1, 'today')).rejects.toThrow('date must be YYYY-MM-DD');
+    });
+
+    it('holds a sent-back report with the manager\'s note, and a submitted one with none', async () => {
+      await pullReports([reportStatus(1), reportStatus(2, SITE_1, '2026-10-19', 'submitted')]);
+
+      expect(await readReportStatus(db, USER_A, SITE_1, DAY)).toEqual({
+        id: ID('d9000000', 1),
+        siteId: SITE_1,
+        reportDate: DAY,
+        status: 'rejected',
+        reviewNote: 'Add photos of the slab',
+        reviewedAt: '2026-10-20T13:30:00.654321+00:00',
+      });
+      expect(await readReportStatus(db, USER_A, SITE_1, '2026-10-19')).toMatchObject({ status: 'submitted', reviewNote: null, reviewedAt: null });
+    });
+
+    it('reads a blank note as no note', async () => {
+      await pullReports([reportStatus(1, SITE_1, DAY, 'rejected', '   ')]);
+      expect((await readReportStatus(db, USER_A, SITE_1, DAY))?.reviewNote).toBeNull();
     });
   });
 });

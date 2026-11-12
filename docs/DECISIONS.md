@@ -2169,6 +2169,34 @@ directly, which `ARCHITECTURE.md` does not name. If Identity wants a view later,
 
 ---
 
+## ADR-051 · The phone holds its author's report statuses, so a send-back reaches the supervisor
+**Date:** 2026-11-12 · **Status:** Proposed · **By:** Ishant under the deadline override (issue #136, for #137; owner: Nikhil, whose files the pull is)
+
+**Context.** ADR-042 lets a manager send a daily report back with a note, but the phone learns of it only when it
+next pushes that report (a `conflict` / `sent_back` answer), and there is no report pull (#49). A supervisor who
+filed and walked away never sees the note, so S11 cannot pass. Daily Reporting already publishes
+`daily_report_status` (ADR-025, ADR-042) with `status` and `review_note`, under RLS.
+
+**Decision.**
+- R1. **A fifth pull source, `report_status`,** reading `daily_report_status` (never `daily_reports`: ARCHITECTURE rule 4)
+  with only `id, site_id, report_date, status, review_note, reviewed_at`, paged by `id` like every source (ADR-023).
+- R2. **The author's own rows only:** `.eq('author_id', <signed-in user>)`. RLS would also show a project manager other
+  people's reports, which the phone has no use for. The view never contains drafts.
+- R3. **Window:** today and the last 14 days in Asia/Kolkata (`REPORT_LOOKBACK_DAYS`), filtered on `report_date`.
+  Longer than the roster's 7 days, because a report is often reviewed days after it is filed.
+- R4. **Device migration 8, `mirror_report_status`,** indexed on `(site_id, report_date)`, refilled in the pull's one
+  transaction with only the rows of sites the phone holds, emptied on sign-out, read only when `mirror_state` says the
+  mirror is the user's (`readReportStatus`). A row the phone cannot read fails the pull; a blank note is stored as null.
+- R5. **No count in `PullResult` or `MirrorSummary`:** the sync panel does not show it, and adding it would change
+  every shape that lists the mirrors.
+
+**Consequences.** #137 can show "Sent back: <note>" from the phone's copy, offline, without waiting for the next push.
+Costs: the copy is as old as the last pull (about 5 minutes online); a report more than 14 days old is read on the
+web only; every pull downloads up to about 15 rows per site; and it is covered by store and source tests, not yet run on
+a device or against the team project (#58).
+
+---
+
 ## Template — copy this for a new decision
 
 The reviewer's approval of the PR that adds an ADR is its acceptance: the author sets
