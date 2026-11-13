@@ -63,7 +63,8 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # Applies the auth shim and every migration to a throwaway postgres:15, then
+      # Applies the auth shim and every migration to a throwaway postgres:15.19 (pinned
+      # in run.sh), then
       # runs every supabase/tests/*_test.sql. Without this job a broken migration
       # chain reached main with every check green (#12). Docker is preinstalled on
       # ubuntu-latest, and the runner needs no pnpm install, so it runs directly.

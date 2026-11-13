@@ -67,7 +67,11 @@ if ! docker info >/dev/null 2>&1; then
 fi
 
 name="alarsio-testdb-$$"
-docker run -d --rm --name "$name" -e POSTGRES_PASSWORD=test postgres:15 >/dev/null
+# Pinned to a point release: postgres:15 moved to 15.20 on 12 Nov 2026 and
+# workforce_test.sql ("an anonymized worker is skipped") started failing with no
+# change on our side. Move the pin forward on purpose, after that is understood.
+PG_IMAGE="${PG_IMAGE:-postgres:15.19}"
+docker run -d --rm --name "$name" -e POSTGRES_PASSWORD=test "$PG_IMAGE" >/dev/null
 trap 'docker stop "$name" >/dev/null 2>&1 || true' EXIT
 
 for _ in $(seq 1 60); do
