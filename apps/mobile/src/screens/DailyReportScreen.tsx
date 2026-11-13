@@ -5,7 +5,7 @@
 // boundary (ADR-013): the phone's checks only say what is wrong sooner.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
+import { AppState, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { readHeadcount } from '../attendance/headcount';
@@ -88,6 +88,17 @@ export function DailyReportScreen({
   const filled = useRef(false);
   const snapshot = useRef('');
   const busy = useRef(false);
+  // What the form held when it was filled or last saved: anything else is unsaved typing,
+  // kept as a draft when the supervisor leaves or Android puts the app away (phone review).
+  const saved = useRef('');
+  const latest = useRef<{ db: DeviceDb | null; load: Load; form: ReportFields; userId: string; day: string; now: () => Date }>({
+    db: null,
+    load: { kind: 'loading' },
+    form: fieldsOf(null),
+    userId,
+    day: '',
+    now,
+  });
 
   const today = istDate(now().toISOString());
   const day = reportDay(date, today);
@@ -133,7 +144,9 @@ export function DailyReportScreen({
       if (!filled.current) {
         filled.current = true;
         setAttendance(counted);
-        setForm(openingFields(stored?.report ?? null, counted));
+        const opening = openingFields(stored?.report ?? null, counted);
+        saved.current = JSON.stringify(opening);
+        setForm(opening);
       }
       setLoad({ kind: 'ready', site, stored, photoList });
     } catch {
@@ -160,6 +173,44 @@ export function DailyReportScreen({
     };
   }, [db, refresh, pollMs]);
 
+  // After every render, so the handlers below see what is on screen now.
+  useEffect(() => {
+    latest.current = { db, load, form, userId, day, now };
+  });
+
+  // Keeps unsaved typing as a draft: on leaving the screen, and when the app goes to the
+  // background (Android may then close it). Only a report that is not submitted: changing a
+  // submitted one needs a reason, so that waits for Send changes. A save the rules refuse is
+  // left alone; the typing is then still on screen if the app is open again.
+  // Reads everything from `latest`, so it is made once and the listeners below are added once.
+  const keepTyping = useCallback(() => {
+    const { db: open, load: current, form: typed, userId: who, day: which, now: clock } = latest.current;
+    if (busy.current || !open || current.kind !== 'ready') return;
+    if (current.stored && current.stored.report.status !== 'draft') return;
+    const text = JSON.stringify(typed);
+    if (text === saved.current) return;
+    busy.current = true;
+    saveReport(open, who, current.site, which, typed, 'draft', { reason: '' }, clock())
+      .then(() => {
+        saved.current = text;
+      })
+      .catch(() => undefined)
+      .finally(() => {
+        busy.current = false;
+      });
+  }, []);
+
+  useEffect(() => {
+    const sub = AppState.addEventListener('change', (state) => {
+      if (state !== 'active') keepTyping();
+    });
+    return () => {
+      // Optional only for test doubles of AppState; the real one always returns a subscription.
+      sub?.remove();
+      keepTyping();
+    };
+  }, [keepTyping]);
+
   const set = <K extends keyof ReportFields>(key: K) => (value: ReportFields[K]) =>
     setForm((f) => ({ ...f, [key]: value }));
 
@@ -169,6 +220,7 @@ export function DailyReportScreen({
     busy.current = true;
     try {
       await saveReport(db, userId, load.site, day, form, status, { reason: reasonText }, now());
+      saved.current = JSON.stringify(form);
       if (!alive.current) return;
       setMessage(null);
       setReasonText('');
@@ -353,6 +405,11 @@ export function DailyReportScreen({
           <View style={styles.buttons}>
             {!editing && <Button label="Save draft" secondary onPress={() => void save('draft')} />}
             <Button label={editing ? 'Send changes' : 'Submit'} onPress={() => void save('submitted')} />
+            <Text style={styles.note}>
+              {editing
+                ? 'Changes to a submitted report are kept only when you tap Send changes.'
+                : 'What you type is kept as a draft if you leave this screen.'}
+            </Text>
           </View>
         )}
       </ScrollView>
@@ -406,6 +463,7 @@ const styles = StyleSheet.create({
   content: { padding: 16, gap: 12, paddingBottom: 32 },
   title: { fontSize: 24, fontWeight: '600' },
   line: { fontSize: 16, color: colors.ink },
+  note: { fontSize: 14, color: colors.muted },
   status: { fontSize: 16, fontWeight: '600' },
   error: { fontSize: 16, color: colors.redDeep },
   field: { gap: 4, backgroundColor: colors.paper },
