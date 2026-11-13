@@ -8,6 +8,19 @@ const db = vi.hoisted(() => ({
   result: { data: "membership-id" as unknown, error: null as { code?: string } | null }
 }));
 
+// The invite remembered at sign-up must be forgotten once it is used or refused,
+// or the dashboard would keep sending the person back to it.
+const jar = vi.hoisted(() => ({ deleted: [] as string[] }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => undefined,
+    set: () => undefined,
+    delete: (name: string) => {
+      jar.deleted.push(name);
+    }
+  })
+}));
+
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
@@ -47,6 +60,20 @@ async function target(run: () => Promise<unknown>): Promise<string> {
 beforeEach(() => {
   db.calls.length = 0;
   db.result = { data: "membership-id", error: null };
+  jar.deleted.length = 0;
+});
+
+describe("the remembered invite", () => {
+  it("is forgotten when the invite is accepted", async () => {
+    expect(await target(() => acceptInvite(form(TOKEN)))).toBe("/dashboard");
+    expect(jar.deleted).toEqual(["alarsio_invite"]);
+  });
+
+  it("is forgotten when the invite is refused, so the dashboard cannot loop back to it", async () => {
+    db.result = { data: null, error: null };
+    expect(await target(() => acceptInvite(form(TOKEN)))).toBe("/invite/invalid");
+    expect(jar.deleted).toEqual(["alarsio_invite"]);
+  });
 });
 
 describe("acceptInvite", () => {

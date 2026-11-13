@@ -6,6 +6,7 @@ import { ensureProfile } from "@/lib/profile";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { publicEnv } from "@/lib/env";
 import { checkNewPassword } from "@/lib/auth/password";
+import { rememberInvite } from "@/lib/auth/pending-invite";
 
 function text(form: FormData, name: string): string {
   const v = form.get(name);
@@ -20,6 +21,8 @@ function back(path: string, error: string, next: string): never {
 
 export async function signIn(form: FormData) {
   const next = safeNextPath(form.get("next"));
+  // Kept even if this attempt fails, so the next sign-in from any page still finds the invite.
+  await rememberInvite(next);
   const email = text(form, "email").toLowerCase();
   const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
   if (!email || !password) back("/sign-in", "missing_fields", next);
@@ -35,6 +38,8 @@ export async function signIn(form: FormData) {
 
 export async function signUp(form: FormData) {
   const next = safeNextPath(form.get("next"));
+  // The confirm link may lose `next`; the dashboard then finds the invite here.
+  await rememberInvite(next);
   const fullName = text(form, "full_name").slice(0, 120);
   const email = text(form, "email").toLowerCase();
   const password = typeof form.get("password") === "string" ? (form.get("password") as string) : "";
@@ -67,6 +72,7 @@ export async function signUp(form: FormData) {
  */
 export async function resendConfirmation(form: FormData) {
   const next = safeNextPath(form.get("next"));
+  await rememberInvite(next);
   const from = form.get("from") === "expired" ? "/link-expired" : "/check-email";
   const email = text(form, "email").toLowerCase();
   if (!/^\S+@\S+\.\S+$/.test(email)) back(from, "missing_fields", next);

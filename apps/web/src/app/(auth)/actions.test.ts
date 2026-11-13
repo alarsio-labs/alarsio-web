@@ -15,6 +15,25 @@ const sb = vi.hoisted(() => ({
   profiles: [] as string[]
 }));
 
+// The cookie jar the actions write to (next/headers). An invite opened before sign-up
+// is kept here, so a sign-in that lost `next` can still find it (the reviewer setup on 13 Nov).
+type CookieOptions = Record<string, unknown>;
+const jar = vi.hoisted(() => ({
+  set: [] as { name: string; value: string; options: CookieOptions }[],
+  deleted: [] as string[]
+}));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({
+    get: () => undefined,
+    set: (name: string, value: string, options: CookieOptions) => {
+      jar.set.push({ name, value, options });
+    },
+    delete: (name: string) => {
+      jar.deleted.push(name);
+    }
+  })
+}));
+
 vi.mock("server-only", () => ({}));
 vi.mock("next/navigation", () => ({
   redirect: (url: string) => {
@@ -70,6 +89,36 @@ beforeEach(() => {
   sb.getUser = { data: { user: { id: "u1" } } };
   sb.updateUser = { error: null };
   sb.resend = { error: null };
+  jar.set.length = 0;
+  jar.deleted.length = 0;
+});
+
+describe("an invite opened before signing up or in", () => {
+  const TOKEN = "c".repeat(64);
+  const invite = `/invite/${TOKEN}`;
+  const newUser = { full_name: "Vikas Yadav", email: "vikas@example.com", password: "longenough", terms: "on" };
+  const member = { email: "vikas@example.com", password: "correct horse" };
+  const remembered = () => jar.set.filter((c) => c.name === "alarsio_invite");
+
+  it("is remembered on sign-up, for 72 hours like the invite itself", async () => {
+    await target(() => signUp(form({ ...newUser, next: invite })));
+    expect(remembered()).toHaveLength(1);
+    expect(remembered()[0]?.value).toBe(TOKEN);
+    expect(remembered()[0]?.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 72 * 60 * 60 });
+  });
+
+  it("is remembered on sign-in and when the confirmation email is sent again", async () => {
+    await target(() => signIn(form({ ...member, next: invite })));
+    await target(() => resendConfirmation(form({ email: "vikas@example.com", next: invite })));
+    expect(remembered().map((c) => c.value)).toEqual([TOKEN, TOKEN]);
+  });
+
+  it("is not set for any other next, or for a malformed invite path", async () => {
+    await target(() => signUp(form({ ...newUser, next: "/team?org=o1" })));
+    await target(() => signIn(form({ ...member, next: "/dashboard" })));
+    await target(() => signIn(form({ ...member, next: "/invite/abc" })));
+    expect(remembered()).toHaveLength(0);
+  });
 });
 
 describe("signIn", () => {

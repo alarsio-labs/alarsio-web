@@ -9,6 +9,7 @@ import { timezoneOptions } from "@/lib/dashboard/org-form";
 import { Icon, iconForPath } from "@/components/app/nav-icon";
 import { PageHead } from "@/components/app/page-head";
 import { StatusTag } from "@/components/app/status-tag";
+import { rememberedInvitePath } from "@/lib/auth/pending-invite";
 import { createOrganization } from "./actions";
 import { CreateOrgWizard } from "./create-org-wizard";
 import "./dashboard.css";
@@ -37,6 +38,12 @@ export default async function DashboardPage({
   const home = error ? null : homeFor(memberships);
   if (home) redirect(home);
   const hasOrgs = memberships.length > 0;
+  // Someone who opened an invite and then signed in without it (13 Nov) belongs in that
+  // organisation, not in a new one: send them back to "Join the team".
+  if (!hasOrgs && !error) {
+    const invite = await rememberedInvitePath();
+    if (invite) redirect(invite);
+  }
 
   return (
     <main className="db-main">
