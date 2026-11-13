@@ -39,4 +39,19 @@ describe('StartupError', () => {
     await fireEvent.press(screen.getByRole('button', { name: 'WhatsApp support' }));
     expect(Linking.openURL).toHaveBeenCalledWith('https://wa.me/917977239722');
   });
+
+  // Phone review, 12 Nov 2026: a crash inside a screen offers the retry Expo Router passes.
+  it('offers Try again when it can retry, and says so in its sentence', async () => {
+    const retry = jest.fn(() => Promise.resolve());
+    await render(<StartupError detail="x" onRetry={retry} />);
+
+    expect(screen.getByText(/^Something went wrong on this screen\. Tap Try again/)).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+    expect(retry).toHaveBeenCalledTimes(1);
+  });
+
+  it('shows no Try again when the app could not start at all', async () => {
+    await render(<StartupError detail="x" />);
+    expect(screen.queryByRole('button', { name: 'Try again' })).toBeNull();
+  });
 });

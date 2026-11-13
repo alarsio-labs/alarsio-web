@@ -1,5 +1,6 @@
 import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { Linking } from 'react-native';
 
 import type { LocationProvider, PermissionState, PositionResult } from '../../attendance/location';
 import type { DeviceDb } from '../../db/device-db';
@@ -530,6 +531,52 @@ describe('SiteAttendanceScreen (#79)', () => {
 
       await screen.findByRole('button', { name: 'Check in' });
       expect(screen.queryByText(/Checked in 09:10/)).toBeNull();
+    });
+  });
+
+  // Phone review, 12 Nov 2026: each cause says what to do, with a way to fix it in place.
+  describe('when the phone gives no location', () => {
+    it('says the permission was refused and opens Settings', async () => {
+      const open = jest.spyOn(Linking, 'openSettings').mockResolvedValue(undefined);
+      await seedSite(db, USER_A);
+      await show(fakeLocation({ permission: 'denied' }));
+      await press('Check in');
+
+      expect(await screen.findByText(/not allowed to use it on this phone/)).toBeTruthy();
+      await press('Open settings');
+      expect(open).toHaveBeenCalledTimes(1);
+      expect(await outboxRows(db)).toHaveLength(0);
+      open.mockRestore();
+    });
+
+    it('says location is off, offers no Settings button, and tries again', async () => {
+      await seedSite(db, USER_A);
+      const location = fakeLocation({ position: { kind: 'unavailable', cause: 'services_off' } });
+      await show(location);
+      await press('Check in');
+
+      expect(await screen.findByText(/location is turned off on this phone/)).toBeTruthy();
+      expect(screen.queryByRole('button', { name: 'Open settings' })).toBeNull();
+      await press('Try location again');
+      await waitFor(() => expect(location.calls.readPosition).toBe(2));
+    });
+
+    it('after a slow GPS, Try location again checks in once a fix arrives', async () => {
+      await seedSite(db, USER_A);
+      const location = fakeLocation({});
+      const answers: PositionResult[] = [{ kind: 'unavailable', cause: 'timeout' }, fix(100)];
+      location.readPosition = async () => {
+        location.calls.readPosition += 1;
+        return answers.shift() ?? fix(100);
+      };
+      await show(location);
+      await press('Check in');
+
+      expect(await screen.findByText(/could not find where you are in time/)).toBeTruthy();
+      await press('Try location again');
+
+      await screen.findByText(/Checked in 09:10/);
+      expect(await outboxRows(db)).toHaveLength(1);
     });
   });
 });

@@ -24,6 +24,7 @@ import {
   ReportError,
   reportErrorText,
   reportStatusText,
+  sentBackNote,
   type DayAttendance,
   type ReportFields,
   type ReportStatus,
@@ -31,6 +32,7 @@ import {
 } from '../reports/report';
 import { findReport, saveReport, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -108,6 +110,8 @@ export function DailyReportScreen({
     };
   }, []);
 
+  // Bumped by Try again: opens the database again if that is what failed.
+  const [attempt, setAttempt] = useState(0);
   useEffect(() => {
     openDb().then(
       (opened) => {
@@ -117,7 +121,7 @@ export function DailyReportScreen({
         if (alive.current) setLoad({ kind: 'failed' });
       },
     );
-  }, [openDb]);
+  }, [openDb, attempt]);
 
   const refresh = useCallback(async () => {
     if (!db) return;
@@ -151,6 +155,13 @@ export function DailyReportScreen({
       if (alive.current) setLoad({ kind: 'failed' });
     }
   }, [db, userId, siteId, day, photos]);
+
+  // Try again: open the database again if it failed to open, and read the records again.
+  const retry = () => {
+    snapshot.current = '';
+    setAttempt((n) => n + 1);
+    void refresh();
+  };
 
   useEffect(() => {
     // First read as soon as the database is open, then on a slow tick so a verdict shows.
@@ -266,7 +277,7 @@ export function DailyReportScreen({
           Daily report
         </Text>
         {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <Text style={styles.error}>Could not read the records on this phone.</Text>}
+        {load.kind === 'failed' && <LoadFailed message="Could not read the records on this phone." onRetry={retry} />}
         {load.kind === 'missing' && (
           <Text style={styles.line}>This site is not on this phone. Connect once to refresh your sites.</Text>
         )}
@@ -278,7 +289,7 @@ export function DailyReportScreen({
   const reviewed = stored?.status === 'conflict' && stored.reason === 'reviewed';
   const editing = needsReason(stored?.report ?? null);
   const editable = !reviewed;
-  const status = stored ? reportStatusText(stored.report.status, stored.status, stored.reason) : null;
+  const status = stored ? reportStatusText(stored.report.status, stored.status, stored.reason, sentBackNote(stored)) : null;
 
   return (
     <SafeAreaView style={styles.container}>

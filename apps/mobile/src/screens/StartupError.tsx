@@ -11,15 +11,25 @@ import {
 } from '../config/support';
 import { colors, primaryTarget, radius, space, type } from '../theme';
 
-export function StartupError({ detail }: { detail: string }) {
+export function StartupError({ detail, onRetry }: { detail: string; onRetry?: () => void | Promise<void> }) {
   const [showDetails, setShowDetails] = useState(false);
   const open = (url: string) => void Linking.openURL(url).catch(() => undefined);
 
   return (
     <ScrollView contentContainerStyle={styles.box}>
       <Text style={styles.text}>
-        {`The app could not start. Close it and open it again. If this keeps happening, contact support: ${SUPPORT_EMAIL} or WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}.`}
+        {`${onRetry ? 'Something went wrong on this screen. Tap Try again, or close the app and open it again.' : 'The app could not start. Close it and open it again.'} If this keeps happening, contact support: ${SUPPORT_EMAIL} or WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}.`}
       </Text>
+      {onRetry && (
+        <Pressable
+          accessibilityRole="button"
+          accessibilityLabel="Try again"
+          onPress={() => void Promise.resolve(onRetry()).catch(() => undefined)}
+          style={[styles.button, styles.primary]}
+        >
+          <Text style={[styles.buttonText, styles.primaryText]}>Try again</Text>
+        </Pressable>
+      )}
       <Pressable
         accessibilityRole="button"
         accessibilityLabel="Email support"
@@ -70,6 +80,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: space.lg,
   },
   buttonText: { color: colors.white, fontSize: type.body },
+  primary: { backgroundColor: colors.red },
+  primaryText: { color: colors.ink, fontWeight: '600' },
   link: { minHeight: 44, justifyContent: 'center' },
   linkText: { color: colors.ink, fontSize: type.small, textDecorationLine: 'underline' },
   detail: { fontSize: type.small, color: colors.muted },

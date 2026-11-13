@@ -83,4 +83,18 @@ describe('AttendanceSitesScreen (#79)', () => {
     expect(await screen.findByText('Could not read the sites on this phone.')).toBeTruthy();
     expect(screen.queryByText(/disk full/)).toBeNull(); // no raw error text (ADR-029)
   });
+
+  // Phone review, 12 Nov 2026: the failure used to be a dead end.
+  it('offers Try again after a failed read, and shows the sites once the database opens', async () => {
+    await seed(db, USER_A);
+    const openDb = jest.fn<Promise<DeviceDb>, []>().mockRejectedValueOnce(new Error('busy')).mockResolvedValue(db);
+    await render(<AttendanceSitesScreen openDb={openDb} userId={USER_A} onOpenSite={jest.fn()} />);
+
+    expect(await screen.findByText('Could not read the sites on this phone.')).toBeTruthy();
+    await fireEvent.press(screen.getByRole('button', { name: 'Try again' }));
+
+    expect(await screen.findByText('Kothrud')).toBeTruthy();
+    expect(screen.queryByText('Could not read the sites on this phone.')).toBeNull();
+    expect(openDb).toHaveBeenCalledTimes(2);
+  });
 });

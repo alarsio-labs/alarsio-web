@@ -13,6 +13,8 @@ import {
   reportErrorText,
   ReportError,
   reportStatusText,
+  reportCardStatus,
+  sentBackNote,
   type Report,
   type ReportFields,
 } from '../report';
@@ -327,5 +329,67 @@ describe('headcount from the day’s attendance (#109, ADR-038)', () => {
       previous: null,
     });
     expect(r.headcount).toBe(14);
+  });
+});
+
+// #137: the phone shows a manager's send-back, with the note, from the mirror (ADR-051).
+// Negative cases first.
+describe('a report a manager sent back (#137)', () => {
+  const SENT = '2026-10-20T12:00:00.000Z';
+  const base = {
+    report: { status: 'submitted' as const },
+    status: 'synced' as const,
+    reason: null,
+    updatedAt: SENT,
+    server: { status: 'rejected' as const, reviewNote: 'Add photos of the slab', reviewedAt: '2026-10-20T13:30:00.654321+00:00' },
+  };
+
+  it('is not sent back with no mirror row, or when the server holds it as submitted or reviewed', () => {
+    expect(sentBackNote({ ...base, server: null })).toBeUndefined();
+    expect(sentBackNote({ ...base, server: { ...base.server, status: 'submitted' } })).toBeUndefined();
+    expect(sentBackNote({ ...base, server: { ...base.server, status: 'reviewed' } })).toBeUndefined();
+  });
+
+  it('is not sent back once the supervisor resubmitted after the review, or while the resubmit waits to send', () => {
+    expect(sentBackNote({ ...base, updatedAt: '2026-10-20T14:00:00.000Z' })).toBeUndefined();
+    expect(sentBackNote({ ...base, status: 'pending' })).toBeUndefined();
+  });
+
+  it('is not shown for a draft, or a review time it cannot read', () => {
+    expect(sentBackNote({ ...base, report: { status: 'draft' } })).toBeUndefined();
+    expect(sentBackNote({ ...base, server: { ...base.server, reviewedAt: null } })).toBeUndefined();
+    expect(sentBackNote({ ...base, server: { ...base.server, reviewedAt: 'soon' } })).toBeUndefined();
+  });
+
+  it("gives the manager's note when the review came after the phone sent it", () => {
+    expect(sentBackNote(base)).toBe('Add photos of the slab');
+    expect(sentBackNote({ ...base, server: { ...base.server, reviewNote: null } })).toBeNull();
+  });
+
+  it("gives the note when the last push was answered sent_back, whatever the times", () => {
+    expect(sentBackNote({ ...base, status: 'conflict', reason: 'sent_back', updatedAt: '2026-10-21T09:00:00.000Z' })).toBe(
+      'Add photos of the slab',
+    );
+  });
+
+  it('says "Sent back: <note>" instead of "Submitted", and never says Submitted for it', () => {
+    expect(reportStatusText('submitted', 'synced', null, 'Add photos of the slab')).toEqual({
+      tone: 'attention',
+      text: 'Sent back: Add photos of the slab',
+    });
+    expect(reportStatusText('submitted', 'synced', null, null).text).toMatch(/^A manager sent this report back/);
+    expect(reportStatusText('submitted', 'synced', null)).toEqual({ tone: 'ok', text: 'Submitted' });
+  });
+
+  it("puts the manager's note in place of the fixed sentence on a sent_back answer", () => {
+    expect(reportStatusText('submitted', 'conflict', 'sent_back', 'Recount the cement').text).toBe(
+      'Needs attention · Sent back: Recount the cement',
+    );
+    expect(reportStatusText('submitted', 'conflict', 'sent_back').text).toMatch(/^Needs attention · A manager sent this report back/);
+  });
+
+  it('shows on the card too, and only with the mirror view', () => {
+    expect(reportCardStatus(base)).toEqual({ tone: 'attention', text: 'Sent back: Add photos of the slab' });
+    expect(reportCardStatus({ report: { status: 'submitted' }, status: 'synced', reason: null })).toEqual({ tone: 'ok', text: 'Submitted' });
   });
 });

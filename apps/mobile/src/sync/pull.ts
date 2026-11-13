@@ -404,6 +404,27 @@ export async function readReportStatus(db: DeviceDb, userId: string, siteId: str
     : null;
 }
 
+/** Every report status the phone holds for this user (ADR-051), or none when the mirror is not theirs. */
+export async function readReportStatuses(db: DeviceDb, userId: string): Promise<ReportStatus[]> {
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{
+    id: string;
+    site_id: string;
+    report_date: string;
+    status: ReportServerStatus;
+    review_note: string | null;
+    reviewed_at: string | null;
+  }>(`select id, site_id, report_date, status, review_note, reviewed_at from mirror_report_status order by id`);
+  return rows.map((row) => ({
+    id: row.id,
+    siteId: row.site_id,
+    reportDate: row.report_date,
+    status: row.status,
+    reviewNote: row.review_note,
+    reviewedAt: row.reviewed_at,
+  }));
+}
+
 /** The Asia/Kolkata calendar day (YYYY-MM-DD) of a timestamp. India has no daylight saving. */
 export function istDate(timestamp: string): string {
   // Postgres can send microseconds; trim to the milliseconds every date parser reads.
