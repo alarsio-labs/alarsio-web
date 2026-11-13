@@ -84,7 +84,8 @@ CI runs all of these on every PR. A red build does not get reviewed.
 
 ## SQL suites (`pnpm test:db`)
 
-`supabase/tests/run.sh` starts a throwaway `postgres:15` in Docker, applies
+`supabase/tests/run.sh` starts a throwaway `postgres:15.19` in Docker (a pinned point
+release, so a new image cannot change results overnight; override with `PG_IMAGE`), applies
 `support/auth_shim.sql`, then **every** migration in order, then the suites. Name
 one or more suites to run only those; every migration is applied either way.
 CI runs every suite on every PR (job *SQL suites*).
