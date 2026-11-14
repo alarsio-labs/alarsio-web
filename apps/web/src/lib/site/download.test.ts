@@ -15,7 +15,7 @@ describe("PILOT_APK_URL", () => {
 
 describe("apkFacts", () => {
   it("names the version, the build date and the size in decimal megabytes", () => {
-    expect(apkFacts(PILOT_APK)).toBe("Version 0.1.0 · 6 Nov 2026 · 109 MB");
+    expect(apkFacts(PILOT_APK)).toBe("Version 0.1.1 · 13 Nov 2026 · 62 MB");
     expect(apkFacts({ version: "1.2.0", built: "1 Dec 2026", bytes: 54_400_000 })).toBe("Version 1.2.0 · 1 Dec 2026 · 54 MB");
   });
 });

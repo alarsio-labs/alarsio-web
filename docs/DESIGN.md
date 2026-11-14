@@ -175,7 +175,7 @@ frame, in `components/site/public-frame.tsx`, and every page after the home page
   `hm-card-dark` (loam bands) with a mono `hm-num` label; links inside them are `.pg-link`.
 - **Download** (`app/(site)/download`): hero with the APK button (from `NEXT_PUBLIC_APK_URL`, else the pilot
   build's `PILOT_APK_URL` on its GitHub Release, https only, `lib/site/download.ts`) and "Use the web app instead",
-  then a mono line "Version 0.1.0 · 6 Nov 2026 · 109 MB · Android only" (only for that build); three numbered
+  then a mono line "Version 0.1.1 · 13 Nov 2026 · 62 MB · Android only" (only for that build); three numbered
   install steps; a loam "Phone or web?" band; the closing band. With no valid link the button becomes
   "Ask on WhatsApp" (or Contact), never a dead link.
 - **Contact** (`app/(site)/contact`): hero, three numbered topic cards, a loam "Reach us" band showing only
