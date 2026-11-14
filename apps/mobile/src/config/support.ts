@@ -1,7 +1,7 @@
-// The only place the support contacts and web links appear. To switch to a
-// support@alarsio.com mailbox later, change SUPPORT_EMAIL here and nowhere else.
+// The only place the support contacts and web links appear. Support mail goes to
+// the support@alarsio.com mailbox (Titan, 14 Nov 2026); change it here and nowhere else.
 
-export const SUPPORT_EMAIL = 'alarsio.team@gmail.com';
+export const SUPPORT_EMAIL = 'support@alarsio.com';
 export const SUPPORT_WHATSAPP_DISPLAY = '+91 79772 39722';
 export const SUPPORT_WHATSAPP_URL = 'https://wa.me/917977239722';
 

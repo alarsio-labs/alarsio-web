@@ -155,7 +155,8 @@ eas build --profile pilot --platform android
 | `NEXT_PUBLIC_SUPABASE_URL` | Vercel | yes (sent to browsers) | web |
 | `NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY` | Vercel | yes | web |
 | `NEXT_PUBLIC_SITE_URL` | Vercel | yes | web: invite and verification links |
-| `NEXT_PUBLIC_CONTACT_EMAIL` | Vercel | yes | web: support email on the Contact page (redeploy after a change) |
+| `NEXT_PUBLIC_CONTACT_EMAIL` | Vercel | yes | web: main company email on the Contact page and footer (hello@; redeploy after a change) |
+| `NEXT_PUBLIC_SUPPORT_EMAIL` | Vercel (optional) | yes | web: app-help email on Contact, Download, error and check-email pages; defaults to support@alarsio.com |
 | `NEXT_PUBLIC_CONTACT_WHATSAPP` | Vercel | yes | web: WhatsApp number, digits with country code (redeploy after a change) |
 | `NEXT_PUBLIC_CONTACT_PHONE` | Vercel | yes | web: phone number for "Call us" links, digits with country code; unset hides them (redeploy after a change) |
 | `NEXT_PUBLIC_APK_URL` | Vercel | yes | web: optional https link to the pilot APK on `/download`; unset uses `PILOT_APK_URL` in `apps/web/src/lib/site/download.ts` (redeploy after a change) |

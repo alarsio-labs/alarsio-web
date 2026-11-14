@@ -31,7 +31,7 @@ describe('AboutScreen', () => {
     await render(<AboutScreen user={user} appVersion="0.1.0" unsentCounts={counts} signOut={jest.fn()} />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Email support' }));
-    expect(open).toHaveBeenCalledWith('mailto:alarsio.team@gmail.com');
+    expect(open).toHaveBeenCalledWith('mailto:support@alarsio.com');
     await fireEvent.press(screen.getByRole('button', { name: 'WhatsApp support' }));
     expect(open).toHaveBeenCalledWith('https://wa.me/917977239722');
     await fireEvent.press(screen.getByRole('link', { name: 'Privacy policy' }));

@@ -3,7 +3,7 @@ import Link from "next/link";
 import { ClosingCta } from "@/components/site/closing-cta";
 import { Eyebrow } from "@/components/site/eyebrow";
 import { PageHero } from "@/components/site/page-hero";
-import { CONTACT_WHATSAPP, whatsAppHref } from "@/lib/site/contact";
+import { CONTACT_WHATSAPP, SUPPORT_EMAIL, whatsAppHref } from "@/lib/site/contact";
 import { APK_URL, PILOT_APK, PILOT_APK_URL, apkFacts } from "@/lib/site/download";
 
 export const metadata: Metadata = {
@@ -66,6 +66,9 @@ export default function DownloadPage() {
               </li>
             ))}
           </ol>
+          <p className="hm-note">
+            Stuck on a step? Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+          </p>
         </div>
       </section>
 

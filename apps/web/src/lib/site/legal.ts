@@ -4,7 +4,7 @@ export const LEGAL = {
   entity: "Alarsio",
   address: "SRMCEM Campus, Tiwariganj, Lucknow 226028",
   officerName: "Anuradha Tiwari",
-  officerEmail: "alarsio.team@gmail.com",
+  officerEmail: "support@alarsio.com",
   courtsCity: "Lucknow, Uttar Pradesh"
 } as const;
 

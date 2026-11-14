@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ContactLink } from "@/components/site/doc";
+import { SUPPORT_EMAIL } from "@/lib/site/contact";
 import { PageHero } from "@/components/site/page-hero";
 import { PublicHeader } from "@/components/site/public-frame";
 import { anton, mono } from "./fonts";
@@ -23,7 +23,7 @@ export default function ErrorPage({ reset }: { error: Error & { digest?: string 
               <Link href="/" className="lp-pill lp-pill-line">Home</Link>
             </div>
             <p className="hm-section-lede pg-help">
-              If it keeps happening, write to <ContactLink />.
+              If it keeps happening, write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>.
             </p>
           </PageHero>
         </div>

@@ -4,7 +4,7 @@ import { ClosingCta } from "@/components/site/closing-cta";
 import { Eyebrow } from "@/components/site/eyebrow";
 import { PageHero } from "@/components/site/page-hero";
 import { REPLY_PROMISE } from "@/lib/site/enquiry";
-import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
+import { CONTACT_EMAIL, SUPPORT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, whatsAppHref } from "@/lib/site/contact";
 
 export const metadata: Metadata = {
   title: "Contact Us",
@@ -95,6 +95,10 @@ export default function ContactPage() {
                   <a className="pg-link" href={`mailto:${CONTACT_EMAIL}`}>
                     Open your email app →
                   </a>
+                  <p>
+                    Already using Alarsio and need help with the app? Write to{" "}
+                    <a className="pg-link" href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+                  </p>
                 </div>
               ) : null}
               {whatsApp && CONTACT_WHATSAPP ? (

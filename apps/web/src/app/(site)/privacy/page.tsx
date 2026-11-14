@@ -12,7 +12,7 @@ export const metadata: Metadata = {
 
 // Not yet reviewed by a lawyer: have it checked against the DPDP Act, 2023 before relying on it.
 // Entity, address and Grievance Officer come from lib/site/legal.ts.
-const UPDATED = "8 November 2026";
+const UPDATED = "14 November 2026";
 
 const sections: DocSection[] = [
   {
