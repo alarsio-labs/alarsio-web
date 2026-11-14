@@ -3,15 +3,16 @@
 // (or set the variable) when a new pilot build ships. NEXT_PUBLIC_ values are fixed at build time.
 
 /**
- * The pilot APK: EAS build 4e6ff308 (version 0.1.0, 6 Nov 2026: splash, tutorial, restyle, PR #186),
- * re-hosted on the GitHub Release pilot-v0.1.0, which starts in about a second where expo.dev took
- * about 23 s (pre-launch audit issue 8). The release notes hold the build id and the SHA-256.
+ * The pilot APK: EAS build 95b5015a (version 0.1.1, build 2, 13 Nov 2026: sent-back reports,
+ * Try again, the location reason at check-in, fewer permissions, report drafts kept), re-hosted on
+ * the GitHub Release pilot-v0.1.1, which starts in about a second where expo.dev took about 23 s
+ * (pre-launch audit issue 8). The release notes hold the build id and the SHA-256.
  * A new build: upload it to a new release, then change this link and PILOT_APK below.
  */
-export const PILOT_APK_URL = "https://github.com/alarsio-labs/alarsio-web/releases/download/pilot-v0.1.0/alarsio-pilot-0.1.0.apk";
+export const PILOT_APK_URL = "https://github.com/alarsio-labs/alarsio-web/releases/download/pilot-v0.1.1/alarsio-pilot-0.1.1.apk";
 
 /** What the Download page says about that file. Only true of PILOT_APK_URL, not of an override. */
-export const PILOT_APK = { version: "0.1.0", built: "6 Nov 2026", bytes: 109_406_880 } as const;
+export const PILOT_APK = { version: "0.1.1", built: "13 Nov 2026", bytes: 61_653_285 } as const;
 
 /** "Version 0.1.0 · 6 Nov 2026 · 109 MB", in the decimal megabytes Android shows. */
 export function apkFacts(apk: { version: string; built: string; bytes: number }): string {
