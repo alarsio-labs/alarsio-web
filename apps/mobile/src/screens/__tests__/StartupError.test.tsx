@@ -14,7 +14,7 @@ describe('StartupError', () => {
 
     expect(
       screen.getByText(
-        'The app could not start. Close it and open it again. If this keeps happening, contact support: alarsio.team@gmail.com or WhatsApp +91 79772 39722.',
+        'The app could not start. Close it and open it again. If this keeps happening, contact support: support@alarsio.com or WhatsApp +91 79772 39722.',
       ),
     ).toBeTruthy();
   });
@@ -34,7 +34,7 @@ describe('StartupError', () => {
     await render(<StartupError detail="x" />);
 
     await fireEvent.press(screen.getByRole('button', { name: 'Email support' }));
-    expect(Linking.openURL).toHaveBeenCalledWith('mailto:alarsio.team@gmail.com');
+    expect(Linking.openURL).toHaveBeenCalledWith('mailto:support@alarsio.com');
 
     await fireEvent.press(screen.getByRole('button', { name: 'WhatsApp support' }));
     expect(Linking.openURL).toHaveBeenCalledWith('https://wa.me/917977239722');

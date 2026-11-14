@@ -70,7 +70,7 @@ describe('HomeScreen', () => {
       <HomeScreen openDb={openFakeDb} config={{ ok: false, missing: ['EXPO_PUBLIC_SUPABASE_URL'] }} />,
     );
 
-    expect(await screen.findByText(/alarsio.team@gmail.com/)).toBeTruthy();
+    expect(await screen.findByText(/support@alarsio.com/)).toBeTruthy();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
     expect(screen.queryByText(/Device database/)).toBeNull();
     await fireEvent.press(screen.getByRole('button', { name: 'Show details' }));

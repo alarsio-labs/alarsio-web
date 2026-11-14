@@ -2,6 +2,8 @@
 // NEXT_PUBLIC_ values are fixed at build time, so a change needs a redeploy.
 export const CONTACT_EMAIL = process.env.NEXT_PUBLIC_CONTACT_EMAIL || undefined;
 export const CONTACT_WHATSAPP = process.env.NEXT_PUBLIC_CONTACT_WHATSAPP || undefined;
+/** Help for people already using the app: the support@ mailbox (Titan, since 14 Nov 2026). */
+export const SUPPORT_EMAIL = process.env.NEXT_PUBLIC_SUPPORT_EMAIL || "support@alarsio.com";
 
 function digitsOf(raw: string): string {
   return raw.replace(/\D/g, "");

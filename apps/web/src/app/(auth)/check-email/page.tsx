@@ -6,6 +6,7 @@ import { PendingLink } from "@/components/auth/pending-link";
 import { IconBadge, InboxVisual } from "@/components/auth/visuals";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
+import { SUPPORT_EMAIL } from "@/lib/site/contact";
 
 export const metadata: Metadata = { title: "Check your email" };
 
@@ -48,6 +49,9 @@ export default async function CheckEmailPage({
       <AuthFoot>
         <p>
           <PendingLink href={signInHref}>Back to sign in</PendingLink>
+        </p>
+        <p>
+          Still nothing? Write to <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
         </p>
       </AuthFoot>
     </AuthScene>

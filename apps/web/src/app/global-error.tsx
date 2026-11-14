@@ -1,6 +1,6 @@
 "use client";
 
-import { CONTACT_EMAIL } from "@/lib/site/contact";
+import { SUPPORT_EMAIL } from "@/lib/site/contact";
 
 // The last resort: the root layout itself failed, so this draws its own <html> and <body> with
 // inline styles in the DESIGN.md colours (cream, ink, red). It shows no error text.
@@ -20,11 +20,9 @@ export default function GlobalError({ reset }: { error: Error & { digest?: strin
             <button type="button" onClick={() => reset()} style={{ ...button, background: "#171717", color: "#e7e2d8" }}>Try again</button>
             <a href="/" style={{ ...button, background: "transparent", color: "#171717" }}>Home</a>
           </p>
-          {CONTACT_EMAIL ? (
-            <p style={{ color: "#56524c" }}>
-              If it keeps happening, write to <a href={`mailto:${CONTACT_EMAIL}`} style={{ color: "#b92725" }}>{CONTACT_EMAIL}</a>.
-            </p>
-          ) : null}
+          <p style={{ color: "#56524c" }}>
+            If it keeps happening, write to <a href={`mailto:${SUPPORT_EMAIL}`} style={{ color: "#b92725" }}>{SUPPORT_EMAIL}</a>.
+          </p>
         </main>
       </body>
     </html>
