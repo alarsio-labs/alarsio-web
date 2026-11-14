@@ -3,6 +3,7 @@ import { CONTACT_EMAIL, CONTACT_PHONE, CONTACT_WHATSAPP, displayPhone, telHref, 
 import { FOOTER_COLUMNS } from "@/lib/site/nav";
 import { CookieConsent, CookieSettingsLink } from "./cookie-consent";
 import { SiteHeader } from "./site-header";
+import { SocialLinks } from "./social-links";
 import { Wordmark } from "./wordmark";
 
 // The pieces every public page shares (docs/DESIGN.md v2.1, "Public frame"): the header with
@@ -25,6 +26,7 @@ export function SiteFooter() {
           <div>
             <Wordmark />
             <p className="lp-sitefoot-tag">Offline-first site records for construction contractors in India.</p>
+            <SocialLinks />
           </div>
           <nav aria-label="Footer" className="lp-sitefoot-cols">
             {FOOTER_COLUMNS.map((col) => (

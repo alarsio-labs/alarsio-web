@@ -164,8 +164,10 @@ frame, in `components/site/public-frame.tsx`, and every page after the home page
 - **Menu.** A native modal `<dialog>`, full screen on loam: numbered Anton links (`MENU_LINKS`), then Start
   free pilot, Sign in and WhatsApp (when configured). Focus starts on Close and stays inside; Esc closes it
   and returns focus to the Menu button; the page behind does not scroll.
-- **Footer.** `SiteFooter` on every public page: loam, wordmark and one line, four columns (Product, Get
-  started, Company, Legal; `FOOTER_COLUMNS`), 44 px rows, then copyright and the contact email.
+- **Footer.** `SiteFooter` on every public page: loam, wordmark and one line, then "Connect with us on:"
+  with a round 44 px link each to LinkedIn, X and Instagram (`SocialLinks`, addresses in
+  `lib/site/social.ts`, no tracking query string, new tab), four columns (Product, Get started, Company,
+  Legal; `FOOTER_COLUMNS`), 44 px rows, then copyright and the contact email.
 - **Page hero** (`components/site/page-hero.tsx`, `PageHero`): the first band of every page after the home
   page: a small breadcrumb, the red `( eyebrow )`, the Anton headline (`hm-h1`, at most 18ch), a lede (56ch),
   an optional mono "Last updated" line and room for buttons or facts. It clears the fixed 56 px header itself
