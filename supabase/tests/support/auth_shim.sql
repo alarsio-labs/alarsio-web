@@ -5,7 +5,7 @@ create role authenticated nologin;
 grant usage on schema public to anon, authenticated;
 
 create schema auth;
-create table auth.users (id uuid primary key, email text);
+create table auth.users (id uuid primary key, email text, last_sign_in_at timestamptz);
 grant usage on schema auth to anon, authenticated;
 
 create function auth.uid() returns uuid language sql stable as $$

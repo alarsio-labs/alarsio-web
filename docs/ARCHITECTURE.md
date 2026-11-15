@@ -26,7 +26,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
 | **Wage Summaries** | `wage_periods`, `wage_lines`, `wage_line_days`, `wage_adjustments`, `wage_period_reopens` (ADR-035) | Identity, Sites, Attendance, Workforce |
 | **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials, Workforce and Attendance views for the mirrors |
-| **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters` | Identity |
+| **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters`, `staff_members` (ADR-052) | Identity |
 
 Dependencies point **downward** only. Identity → Sites → field capture → wages.
 A new arrow pointing up is a decision, not a shortcut.
@@ -46,7 +46,7 @@ list, publish it deliberately and add it here in the same PR.
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
 | Wage Summaries | `calculate_wage_period(period_id)` · `lock_wage_period(period_id)` · `reopen_wage_period(period_id, reason)` (owner only) · `wage_period_attendance_changes(period_id)` (all `SECURITY DEFINER`; `can_view_wages`, and `is_org_owner` for reopen; ADR-035) | `wage_summary` · `wage_summary_by_site` (owner and accountant only; ADR-035) |
 | Offline Sync | `sync_push(batch)` · types `sync_verdict` and `sync_result`, which every handler returns | — |
-| Audit & Guards | `write_audit` · `enforce_rate_limit(key, limit, window)` | — |
+| Audit & Guards | `write_audit` · `enforce_rate_limit(key, limit, window)` · `is_staff()` · `staff_org_usage()` (both `SECURITY DEFINER`; staff only; ADR-052) | — |
 
 ## The five ways modules may talk
 
@@ -129,6 +129,16 @@ organisation's data from `/export`: every table except `purge_log` and
 exception to rule 4 below: read-only, owner-only, and kept in
 `apps/web/src/lib/export/`. A new table or column must be added to
 `apps/web/src/lib/export/tables.ts` (or exempted with an ADR); a test fails until it is.
+
+## Staff usage
+
+The second read that crosses every module and every organisation (ADR-052). A member of
+our team sees, at `/staff/usage`, how each organisation uses Alarsio: counts and dates only,
+never a name, email or phone. `staff_org_usage()` is `SECURITY DEFINER` and raises `42501`
+unless the caller is in `staff_members`, an allowlist that no client can read or write and
+that is filled by hand in the SQL editor. It is a named exception to rule 4 below
+(read-only, staff-only, counts-only), it adds no role, and no existing policy changes.
+`staff_members` is exempt from the audit-coverage and export guards (ADR-052 S6).
 
 ## What is deliberately not here
 

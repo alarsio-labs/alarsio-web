@@ -39,6 +39,11 @@ describe("proxy", () => {
     expect(location(await go("/wages/period-1?org=o1"))).toMatch(/\/sign-in\?next=%2Fwages%2Fperiod-1/);
   });
 
+  it("sends a signed-out visitor on /staff/usage to sign in, and leaves /staffx alone (ADR-052)", async () => {
+    expect(location(await go("/staff/usage"))).toBe("https://alarsio.test/sign-in?next=%2Fstaff%2Fusage");
+    expect(location(await go("/staffx"))).toBeNull();
+  });
+
   it("leaves the signed-out export download POST to its own sign-in", async () => {
     expect(location(await go("/export/download", "POST"))).toBeNull();
   });

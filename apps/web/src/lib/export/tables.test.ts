@@ -59,8 +59,8 @@ describe("export table list", () => {
     expect(new Set(listed).size).toBe(listed.length);
   });
 
-  it("exempts only the two tables closed to every client (ADR-012)", () => {
-    expect([...EXPORT_EXEMPT].sort()).toEqual(["purge_log", "rate_limit_counters"]);
+  it("exempts only the three tables closed to every client (ADR-012, ADR-052)", () => {
+    expect([...EXPORT_EXEMPT].sort()).toEqual(["purge_log", "rate_limit_counters", "staff_members"]);
   });
 
   it("exports every column, in table order, except the withheld ones", () => {
