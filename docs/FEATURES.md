@@ -318,6 +318,7 @@ PR 3b), so no row above changes.*
 - [x] Audit log readable by the owner only; retention purge with a 3-year floor, logged in `purge_log`
 - [x] Per-user rate limit (`enforce_rate_limit`) for `sync_push` and invites
 - [ ] A customer can export all of their own data
+- [ ] Team-only organisation usage page at `/staff/usage`, counts only, access decided in the database (ADR-052; internal tool, not a customer feature)
 
 *Audit coverage is proven, not assumed (#72, ADR-024): `audit_coverage_test.sql` fails
 CI if any table except the three logs lacks `write_audit()` after every row change, and

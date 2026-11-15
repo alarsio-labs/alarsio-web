@@ -40,7 +40,7 @@ as $$
     join pg_namespace n on n.oid = c.relnamespace
    where n.nspname = 'public'
      and c.relkind in ('r', 'p')
-     and c.relname not in ('audit_log', 'purge_log', 'rate_limit_counters')
+     and c.relname not in ('audit_log', 'purge_log', 'rate_limit_counters', 'staff_members')
      and c.oid not in (select relid from audited)
   union all
   select format('table public.%I is audited but has no uuid id column', c.relname)
@@ -68,8 +68,8 @@ begin
   perform test_assert(
     (select count(*) from pg_class c join pg_namespace n on n.oid = c.relnamespace
       where n.nspname = 'public' and c.relkind = 'r'
-        and c.relname in ('audit_log', 'purge_log', 'rate_limit_counters')) = 3,
-    'the three exempt log tables exist');
+        and c.relname in ('audit_log', 'purge_log', 'rate_limit_counters', 'staff_members')) = 4,
+    'the four exempt tables exist (three logs, and staff_members, ADR-052)');
 
   -- And the guard is looking at something: every business table so far.
   perform test_assert(

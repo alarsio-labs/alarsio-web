@@ -178,4 +178,5 @@ export const WITHHELD_COLUMNS: Readonly<Record<string, readonly string[]>> = {
 };
 
 // Closed to every client role (ADR-012): RLS on, no policies, no grants.
-export const EXPORT_EXEMPT: readonly string[] = ["purge_log", "rate_limit_counters"];
+// staff_members (ADR-052) is closed the same way, and holds no organisation's data.
+export const EXPORT_EXEMPT: readonly string[] = ["purge_log", "rate_limit_counters", "staff_members"];

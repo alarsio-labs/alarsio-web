@@ -2197,6 +2197,24 @@ a device or against the team project (#58).
 
 ---
 
+## ADR-052 · Staff usage: a database allowlist, two definer functions, counts only
+**Date:** 2026-11-15 · **Status:** Proposed · **By:** Manish under the deadline override (owner: Anuradha, Audit, Retention & Guards; marked for the owner to confirm)
+
+**Context.** We need to see, in one place, how each customer organisation uses Alarsio (design-partner evidence, support). Until now that was a hand-run SQL file. Every table is protected by RLS that shows a user only their own organisation, and the published views are `security_invoker`, so no signed-in user can see all organisations, by design. The page must not need a new role (ADR-003), the service-role key (rule 2) or a change to any existing policy.
+
+**Decision.**
+- S1. **`public.staff_members(user_id, added_at, added_by)`** is an allowlist. RLS is on with no policy, and `anon`, `authenticated` and `public` have no privilege on it, so nobody can read or write it through the API. Rows are added by hand in the Supabase SQL editor; no application code writes it. `user_id` references `auth.users` with `on delete cascade`.
+- S2. **`is_staff()`** (`SECURITY DEFINER`, `search_path = public`, `stable`) answers only about the caller: `auth.uid()` is in `staff_members`. `anon` and `public` cannot execute it.
+- S3. **`staff_org_usage()`** (`SECURITY DEFINER`, same settings) raises `42501` unless `is_staff()`, then returns one row per organisation, counts and dates only: members by role, active users in 28 days, sites, workers, attendance marks, daily reports, material entries, site check-ins, last record, last sign-in, and records for the last four weeks (weeks start Monday, Asia/Kolkata). No worker name, email, phone or coordinate is returned. `anon` and `public` cannot execute it.
+- S4. **Access is decided in the database.** The page `/staff/usage` calls the function as the signed-in user; on `42501` it calls `notFound()`, so a non-staff account sees the same 404 as any unknown address. The page is in `SIGNED_IN_ONLY` and is linked from no menu. It is a convenience: the function is the boundary.
+- S5. **A named exception to ARCHITECTURE rule 4**, like the data export (ADR-026). The function reads `organizations`, `memberships`, `sites`, `workers`, `attendance_entries`, `daily_reports`, `material_transactions` and `site_visits` and `auth.users.last_sign_in_at` directly, because a published view cannot show one user every organisation. It is read-only, staff-only and counts-only, and it lives in Audit, Retention & Guards.
+- S6. **`staff_members` is exempt from two guards:** `audit_coverage_test.sql` (ADR-024; it has no uuid `id` and no organisation for `write_audit`) and `EXPORT_EXEMPT` in `lib/export/tables.ts` (ADR-026; it is organisation-free and closed to every client).
+- S7. **No new role.** `app_role` stays four values. Staff is not an organisation role: it is a person on our team, held outside every organisation.
+
+**Consequences.** One page for design-partner evidence, with no service key and no policy change. Costs: a staff user is made by hand in SQL, with no screen to add or remove one; a staff read of another organisation's counts is not written to `audit_log` (that table is per organisation); counts include archived sites and anonymised workers; the function scans four record tables on each load, which is fine at pilot scale and must be revisited past a few hundred thousand rows; the page is covered by function and data-shaping tests, not yet by a run against the team project.
+
+---
+
 ## Template — copy this for a new decision
 
 The reviewer's approval of the PR that adds an ADR is its acceptance: the author sets

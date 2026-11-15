@@ -34,7 +34,7 @@ insert into public.workers (id, org_id, code, full_name, trade, pay_type, create
 -- ------------------------------------------------- grants the export relies on
 
 -- authenticated may SELECT every column of every table, except the two closed
--- logs and invites.token_hash. A new column-limited grant breaks the export's
+-- logs, staff_members (ADR-052) and invites.token_hash. A new column-limited grant breaks the export's
 -- query; this names the column so tables.ts WITHHELD_COLUMNS can follow.
 do $$
 declare r record;
@@ -45,7 +45,7 @@ begin
       join pg_namespace n on n.oid = c.relnamespace
       join pg_attribute a on a.attrelid = c.oid and a.attnum > 0 and not a.attisdropped
      where n.nspname = 'public' and c.relkind in ('r', 'p')
-       and c.relname not in ('purge_log', 'rate_limit_counters')
+       and c.relname not in ('purge_log', 'rate_limit_counters', 'staff_members')
   loop
     if r.tbl = 'invites' and r.col = 'token_hash' then
       perform test_assert(not has_column_privilege('authenticated', format('public.%I', r.tbl), r.col, 'SELECT'),
@@ -58,6 +58,7 @@ begin
 
   perform test_assert(not has_table_privilege('authenticated', 'public.purge_log', 'SELECT'), 'purge_log stays closed');
   perform test_assert(not has_table_privilege('authenticated', 'public.rate_limit_counters', 'SELECT'), 'rate_limit_counters stays closed');
+  perform test_assert(not has_table_privilege('authenticated', 'public.staff_members', 'SELECT'), 'staff_members stays closed (ADR-052)');
 end $$;
 
 -- ---------------------------------------- the export's query, as each user
@@ -72,7 +73,7 @@ begin
   for r in
     select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
      where n.nspname = 'public' and c.relkind in ('r', 'p')
-       and c.relname not in ('purge_log', 'rate_limit_counters')
+       and c.relname not in ('purge_log', 'rate_limit_counters', 'staff_members')
      order by 1
   loop
     select string_agg(format('%I', a.attname), ', ' order by a.attnum) into v_cols
@@ -119,7 +120,7 @@ begin
     select c.relname from pg_class c join pg_namespace n on n.oid = c.relnamespace
       join pg_attribute a on a.attrelid = c.oid and a.attname = 'org_id'
      where n.nspname = 'public' and c.relkind = 'r'
-       and c.relname not in ('purge_log', 'rate_limit_counters')
+       and c.relname not in ('purge_log', 'rate_limit_counters', 'staff_members')
   loop
     execute format('select count(*) from public.%I where org_id <> %L', r.relname,
                    'aaaaaaaa-0000-0000-0000-000000000001') into v_other;
