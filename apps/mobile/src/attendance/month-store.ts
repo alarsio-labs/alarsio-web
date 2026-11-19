@@ -21,6 +21,8 @@ import { SCAN_LIMIT } from './register-store';
 export interface MonthDay {
   date: string;
   mark: DayMark | null;
+  /** The note of a mark saved on this phone. The month mirror holds no notes, so null for a server mark. */
+  note: string | null;
   /** Where a mark saved on this phone has got to; null for a mark that came from the server. */
   sync: { status: OutboxStatus; verdictReason: string | null } | null;
   /** The phone knows the day is approved: a change goes through a correction in the day register. */
@@ -61,6 +63,7 @@ export async function readWorkerMonth(
 
   const marks = new Map<string, DayMark>(mirror.map((e) => [e.workDate, { status: e.status, overtimeHours: e.overtimeHours }]));
   const sync = new Map<string, MonthDay['sync']>();
+  const notes = new Map<string, string | null>();
   const locked = new Set(approvedDates);
   // Newest first, so the first record seen for a date is the one that counts.
   for (const r of records) {
@@ -68,6 +71,7 @@ export async function readWorkerMonth(
     if (!e || !same(e.workerId, workerId) || !e.key.date.startsWith(`${month}-`) || sync.has(e.key.date)) continue;
     marks.set(e.key.date, { status: e.mark.status, overtimeHours: e.mark.overtimeHours });
     sync.set(e.key.date, { status: r.status, verdictReason: r.reason });
+    notes.set(e.key.date, e.mark.note);
     if (r.status === 'conflict' && r.reason === 'locked') locked.add(e.key.date);
   }
 
@@ -77,6 +81,7 @@ export async function readWorkerMonth(
     return {
       date,
       mark: marks.get(date) ?? null,
+      note: notes.get(date) ?? null,
       sync: sync.get(date) ?? null,
       locked: locked.has(date),
       blocked: reasons.length === 0 || reasons.every((r) => r !== null) ? (reasons[0] ?? 'not_assigned') : null,
