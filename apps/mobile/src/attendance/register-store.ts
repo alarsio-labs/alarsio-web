@@ -6,7 +6,7 @@
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from '../sync/entities';
 import { enqueue, listRecords, newRecordId, type OutboxRecord } from '../sync/outbox';
-import { readApprovedDay, readRosterOn, type RosterWorker } from '../sync/pull';
+import { readApprovedDay, readDayStatus, readRosterOn, type RosterWorker } from '../sync/pull';
 import {
   buildCorrectionPayload,
   buildDayPayload,
@@ -59,7 +59,7 @@ export interface Register {
   day: { recordId: string; status: OutboxStatus; verdictReason: string | null } | null;
   /**
    * The phone knows the day is approved: its copy of the server's approved days holds
-   * the day (ADR-049), or the server answered `locked` to an entry, or accepted a
+   * the day (ADR-049) or its month copy says approved (ADR-053), or the server answered `locked` to an entry, or accepted a
    * correction (which it takes only on an approved day). A phone that has not pulled
    * since the approval and has not been told cannot know it (ADR-048 D2). The outbox's
    * answer is never lifted by a later pull.
@@ -69,7 +69,7 @@ export interface Register {
 
 const DATE = /^\d{4}-\d{2}-\d{2}$/;
 // listRecords reads newest first and stops at a limit; 3000 entries is about a month of a 100-worker site.
-const SCAN_LIMIT = 3000;
+export const SCAN_LIMIT = 3000;
 
 const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
@@ -106,9 +106,10 @@ function correctionOf(r: OutboxRecord, date: string) {
 /** One day of one site as this user's phone holds it. Another user's records are never read. */
 export async function readRegister(db: DeviceDb, userId: string, siteId: string, date: string): Promise<Register> {
   checkDate(date);
-  const [roster, approvedDay, entryRecords, dayRecords, correctionRecords] = await Promise.all([
+  const [roster, approvedDay, dayStatus, entryRecords, dayRecords, correctionRecords] = await Promise.all([
     readRosterOn(db, userId, siteId, date),
     readApprovedDay(db, userId, siteId, date),
+    readDayStatus(db, userId, siteId, date),
     listRecords(db, userId, 'attendance_entries', { siteId, limit: SCAN_LIMIT }),
     listRecords(db, userId, 'attendance_days', { siteId }),
     listRecords(db, userId, 'attendance_corrections', { siteId }),
@@ -145,6 +146,7 @@ export async function readRegister(db: DeviceDb, userId: string, siteId: string,
   const approved = new Map(approvedDay.map((a) => [a.workerId.toLowerCase(), a]));
   const locked =
     approvedDay.length > 0 ||
+    dayStatus === 'approved' ||
     [...entries.values()].some((e) => e.status === 'conflict' && e.verdictReason === 'locked') ||
     [...corrections.values()].some((c) => c.status === 'synced');
 
