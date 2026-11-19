@@ -17,7 +17,7 @@ export const PULL_PAGE_SIZE = 1000;
 /** A safety stop, far above any real size, so a misbehaving server cannot loop a pull forever. */
 const MAX_PAGES = 1000;
 
-export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status';
+export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status' | 'month_entries';
 
 /** The column each source is ordered and paged by. */
 const KEY_FIELD: Record<MirrorKind, string> = {
@@ -26,6 +26,7 @@ const KEY_FIELD: Record<MirrorKind, string> = {
   roster: 'assignment_id',
   approved_days: 'entry_id',
   report_status: 'id',
+  month_entries: 'entry_id',
 };
 
 export interface MirrorSource {
@@ -115,6 +116,27 @@ export interface ReportStatus {
   reviewedAt: string | null;
 }
 
+/** The status of an attendance day (attendance_days). */
+export type DayStatus = 'open' | 'approved' | 'rejected';
+const isDayStatus = (v: unknown): v is DayStatus => v === 'open' || v === 'approved' || v === 'rejected';
+
+/** One entry of the month mirror (#234, ADR-053): a worker's mark, and the status of its day. */
+export interface MonthEntry {
+  /** Asia/Kolkata calendar day. */
+  workDate: string;
+  status: ApprovedStatus;
+  /** Paid overtime hours, 0 to 8, at most two decimals. */
+  overtimeHours: number;
+  dayStatus: DayStatus;
+}
+
+interface MonthRow extends MonthEntry {
+  entryId: string;
+  siteId: string;
+  workerId: string;
+  overtimeHundredths: number;
+}
+
 /** What the phone holds for its owner, and when it was refreshed. */
 export interface MirrorSummary {
   refreshedAt: string;
@@ -160,6 +182,7 @@ export async function runPull(
   let roster: AssignmentRow[];
   let approved: ApprovedRow[];
   let reports: ReportStatus[];
+  let months: MonthRow[];
   try {
     userId = await source.currentUserId();
     if (userId === null) return { kind: 'signed_out' };
@@ -168,6 +191,7 @@ export async function runPull(
     roster = await fetchAll(source, 'roster', userId, pageSize, toAssignment);
     approved = await fetchAll(source, 'approved_days', userId, pageSize, toApprovedDay);
     reports = await fetchAll(source, 'report_status', userId, pageSize, toReportStatus);
+    months = await fetchAll(source, 'month_entries', userId, pageSize, toMonthEntry);
 
     // Still the same user? A sign-out that landed while the pages were coming in
     // must not be undone by a write of that user's data afterwards. This narrows
@@ -187,6 +211,7 @@ export async function runPull(
   roster = roster.filter((w) => siteIds.has(w.siteId));
   approved = approved.filter((a) => siteIds.has(a.siteId));
   reports = reports.filter((r) => siteIds.has(r.siteId));
+  months = months.filter((m) => siteIds.has(m.siteId));
 
   const owner = userId.toLowerCase();
   try {
@@ -225,6 +250,13 @@ export async function runPull(
           `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at)
            values (?, ?, ?, ?, ?, ?)`,
           [r.id, r.siteId, r.reportDate, r.status, r.reviewNote, r.reviewedAt],
+        );
+      }
+      for (const m of months) {
+        await db.run(
+          `insert into mirror_month_entries (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, day_status)
+           values (?, ?, ?, ?, ?, ?, ?)`,
+          [m.entryId, m.siteId, m.workerId, m.workDate, m.status, m.overtimeHundredths, m.dayStatus],
         );
       }
       await db.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [
@@ -425,6 +457,93 @@ export async function readReportStatuses(db: DeviceDb, userId: string): Promise<
   }));
 }
 
+/**
+ * One worker's entries in one month (YYYY-MM) at a site, from the month mirror (#234, ADR-053),
+ * oldest day first. Only the current and the previous month are held: an empty answer for an
+ * older month means "not on this phone", never "no entries".
+ */
+export async function readMonthEntries(
+  db: DeviceDb,
+  userId: string,
+  siteId: string,
+  workerId: string,
+  month: string,
+): Promise<MonthEntry[]> {
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{
+    work_date: string;
+    status: ApprovedStatus;
+    overtime_hundredths: number;
+    day_status: DayStatus;
+  }>(
+    `select work_date, status, overtime_hundredths, day_status from mirror_month_entries
+      where site_id = ? and worker_id = ? and work_date like ? order by work_date`,
+    [siteId, workerId, `${month}-%`],
+  );
+  return rows.map((r) => ({
+    workDate: r.work_date,
+    status: r.status,
+    overtimeHours: r.overtime_hundredths / 100,
+    dayStatus: r.day_status,
+  }));
+}
+
+/**
+ * The status of a site's day as the month mirror holds it, from any worker's entry that day, or
+ * null when the mirror holds none. Null means "not known", never "open": the day may be older than
+ * the mirror reaches, or approved since the last pull.
+ */
+export async function readDayStatus(db: DeviceDb, userId: string, siteId: string, date: string): Promise<DayStatus | null> {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!(await ownedBy(db, userId))) return null;
+  const rows = await db.all<{ day_status: DayStatus }>(
+    `select day_status from mirror_month_entries where site_id = ? and work_date = ? limit 1`,
+    [siteId, date],
+  );
+  return rows[0]?.day_status ?? null;
+}
+
+/** The days of one month (YYYY-MM) at a site that the phone knows are approved, from the month and approved-days mirrors. */
+export async function readApprovedDates(db: DeviceDb, userId: string, siteId: string, month: string): Promise<string[]> {
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+  if (!(await ownedBy(db, userId))) return [];
+  const like = `${month}-%`;
+  const rows = await db.all<{ work_date: string }>(
+    `select work_date from mirror_month_entries where site_id = ? and work_date like ? and day_status = 'approved'
+     union
+     select work_date from mirror_approved_days where site_id = ? and work_date like ?`,
+    [siteId, like, siteId, like],
+  );
+  return rows.map((r) => r.work_date);
+}
+
+/** Every worker the roster mirror holds for a site, once each, by name. */
+export async function readSiteWorkers(db: DeviceDb, userId: string, siteId: string): Promise<RosterWorker[]> {
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{ worker_id: string; site_id: string; code: string; name: string; trade: string }>(
+    `select worker_id, site_id, min(code) as code, min(name) as name, min(trade) as trade
+       from mirror_roster where site_id = ? group by worker_id, site_id order by min(name), worker_id`,
+    [siteId],
+  );
+  return rows.map((r) => ({ workerId: r.worker_id, siteId: r.site_id, code: r.code, name: r.name, trade: r.trade }));
+}
+
+/** One worker's assignments at a site: the days they were on its roster, both ends inclusive (ADR-021 D10). */
+export async function readWorkerAssignments(
+  db: DeviceDb,
+  userId: string,
+  siteId: string,
+  workerId: string,
+): Promise<{ assignedOn: string; unassignedOn: string | null }[]> {
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{ assigned_on: string; unassigned_on: string | null }>(
+    `select assigned_on, unassigned_on from mirror_roster where site_id = ? and worker_id = ? order by assigned_on`,
+    [siteId, workerId],
+  );
+  return rows.map((r) => ({ assignedOn: r.assigned_on, unassignedOn: r.unassigned_on }));
+}
+
 /** The Asia/Kolkata calendar day (YYYY-MM-DD) of a timestamp. India has no daylight saving. */
 export function istDate(timestamp: string): string {
   // Postgres can send microseconds; trim to the milliseconds every date parser reads.
@@ -467,6 +586,7 @@ async function deleteMirrors(db: DeviceDb): Promise<void> {
   await db.run(`delete from mirror_roster`);
   await db.run(`delete from mirror_approved_days`);
   await db.run(`delete from mirror_report_status`);
+  await db.run(`delete from mirror_month_entries`);
   await db.run(`delete from mirror_state`);
 }
 
@@ -618,6 +738,36 @@ function toApprovedDay(v: unknown): ApprovedRow {
     overtimeHours: overtimeHundredths / 100,
     overtimeHundredths,
     approvedAt: v.approved_at,
+  };
+}
+
+function toMonthEntry(v: unknown): MonthRow {
+  if (
+    !isRow(v) ||
+    !isId(v.entry_id) ||
+    !isId(v.site_id) ||
+    !isId(v.worker_id) ||
+    !isText(v.work_date) ||
+    !isApprovedStatus(v.status) ||
+    !isDayStatus(v.day_status)
+  ) {
+    return bad('month_entries');
+  }
+  const overtimeHundredths = toHundredths(v.overtime_hours);
+  const dayOk =
+    /^\d{4}-\d{2}-\d{2}$/.test(v.work_date) &&
+    Number.isFinite(Date.parse(`${v.work_date}T00:00:00Z`)) &&
+    new Date(`${v.work_date}T00:00:00Z`).toISOString().slice(0, 10) === v.work_date;
+  if (overtimeHundredths === undefined || !dayOk) return bad('month_entries');
+  return {
+    entryId: v.entry_id.toLowerCase(),
+    siteId: v.site_id.toLowerCase(),
+    workerId: v.worker_id.toLowerCase(),
+    workDate: v.work_date,
+    status: v.status,
+    overtimeHours: overtimeHundredths / 100,
+    overtimeHundredths,
+    dayStatus: v.day_status,
   };
 }
 
