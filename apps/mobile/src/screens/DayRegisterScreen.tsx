@@ -50,7 +50,7 @@ type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { k
 
 type Editing = { workerId: string; correction: boolean };
 
-const STATUS_LABEL: Record<EntryStatus, string> = {
+export const STATUS_LABEL: Record<EntryStatus, string> = {
   present: 'Present',
   absent: 'Absent',
   half_day: 'Half day',
@@ -65,7 +65,7 @@ function shiftDay(day: string, by: number): string {
 }
 
 // A fixed sentence per failure, never the error's own text.
-function errorText(error: unknown): string {
+export function errorText(error: unknown): string {
   if (error instanceof RegisterError) {
     switch (error.code) {
       case 'status':
@@ -379,7 +379,7 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
   );
 }
 
-function Button({
+export function Button({
   label,
   onPress,
   secondary = false,
