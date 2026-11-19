@@ -103,8 +103,17 @@ describe('worker month store (#234, ADR-053)', () => {
     const syncedAt = (updatedAt: string, refreshedAt: string) =>
       Promise.all([
         db.run(`update outbox set status = 'synced', updated_at = ?`, [updatedAt]),
-        db.run(`update mirror_state set refreshed_at = ?`, [refreshedAt]),
+        db.run(`update mirror_state set refreshed_at = ?, month_refreshed_at = ?`, [refreshedAt, refreshedAt]),
       ]);
+
+    it('still shows when a later pull kept the older month rows', async () => {
+      await saveMark(db, USER_A, SITE, '2026-11-14', W1, mark('present'), NOW);
+      await seedMonth(db, { date: '2026-11-14', status: 'absent' });
+      await syncedAt('2026-11-19T06:00:00.000Z', '2026-11-19T05:00:00.000Z');
+      await db.run(`update mirror_state set refreshed_at = '2026-11-19T07:00:00.000Z'`);
+
+      expect(await day('2026-11-14')).toMatchObject({ mark: { status: 'present' }, sync: { status: 'synced' } });
+    });
 
     it('gives way to a later pull, which may carry a change made elsewhere', async () => {
       await saveMark(db, USER_A, SITE, '2026-11-14', W1, mark('present'), NOW);
