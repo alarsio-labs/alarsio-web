@@ -2232,7 +2232,7 @@ register also cannot know that a day older than that week is approved (ADR-049 M
 - W3. **Device migration 9, `mirror_month_entries`:** the view's columns with overtime in integer hundredths,
   indexed on `(site_id, worker_id, work_date)` and `(site_id, work_date)`. Refilled in the pull's one
   transaction for sites the phone holds, removed on sign-out, read only when `mirror_state` says it is the user's
-  (ADR-023). A value the phone cannot read fails the pull; it never becomes 0.
+  (ADR-023). A value the phone cannot read is never turned into 0 (see W8 for what the pull does then).
 - W4. **The register is also locked** when the month mirror says the day is `approved`, from any worker's entry
   that day. This closes ADR-049 M7 for any day that has an entry and is inside the window. No row means
   "not known", never "open".
@@ -2247,9 +2247,18 @@ register also cannot know that a day older than that week is approved (ADR-049 M
 - W7. **A date can be marked only if some assignment of the worker covers it** (both ends count, ADR-021 D10) and
   it is not after tomorrow. The workers listed are those the roster mirror holds, so a worker who left more than
   about a week ago is not listed.
+- W8. **The month fetch cannot block the other mirrors** (amends ADR-023's all-or-nothing pull for this one
+  source). If the month view is missing, fails, or has a row the phone cannot read, the pull still replaces
+  sites, materials, roster, approved days and reports, and keeps the old month rows, but only this user's, and
+  only for sites the phone still holds; for another user it keeps none. The result says `monthStale`. **Device
+  migration 10** adds `mirror_state.month_refreshed_at`, the time the month rows were last replaced, and W5's
+  "a pull taken after that" means that time, not the pull's. So a kept, older month never overwrites a mark that
+  synced since. A changed session still fails the whole pull.
 
-**Consequences.** One worker's month, offline, with the same save path as the register. Costs: the pull fails
-until PR 1's view is deployed, so PR 2 must not ship first; every refresh downloads two months of entries
+**Consequences.** One worker's month, offline, with the same save path as the register. Costs: until PR 1's
+view is deployed, a phone has no month rows and the screen shows nothing for a month (the other mirrors still
+refresh); after a failed month fetch the day locks and marks can be as old as the last good pull, and nothing on
+the screen says so yet; every refresh downloads two months of entries
 (about 6,000 rows for 3 sites of 100 workers); an approved day with no entries is still invisible (W4); a day
 reopened after approval can stay locked on a phone (ADR-049 M6); the view has no `note`, so a day changed from
 the month screen keeps the note of a mark saved on this phone, but a note held only by the server can be
