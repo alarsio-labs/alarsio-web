@@ -11,6 +11,7 @@ import { SiteAttendanceScreen } from '../../screens/SiteAttendanceScreen';
 const location = expoLocationProvider();
 
 const openRegister = (siteId: string) => router.push({ pathname: '/attendance/register/[siteId]', params: { siteId } });
+const openWorkers = (siteId: string) => router.push({ pathname: '/attendance/workers/[siteId]', params: { siteId } });
 
 export default function SiteAttendanceRoute() {
   const user = useSessionUser();
@@ -23,6 +24,7 @@ export default function SiteAttendanceRoute() {
       siteId={siteId}
       location={location}
       onOpenRegister={() => openRegister(siteId)}
+      onOpenWorkers={() => openWorkers(siteId)}
     />
   );
 }

@@ -70,13 +70,18 @@ const approvedDay = (n: number, siteId = SITE_1, workDate = '2026-10-20', status
 
 type Rows = Record<string, unknown>[];
 // A test that is not about approved days or report statuses leaves them out: the server then returns none.
-type Data = Omit<Record<MirrorKind, Rows>, 'approved_days' | 'report_status'> & { approved_days?: Rows; report_status?: Rows };
+type Data = Omit<Record<MirrorKind, Rows>, 'approved_days' | 'report_status' | 'month_entries'> & {
+  approved_days?: Rows;
+  report_status?: Rows;
+  month_entries?: Rows;
+};
 const KEY: Record<MirrorKind, string> = {
   sites: 'id',
   materials: 'material_id',
   roster: 'assignment_id',
   approved_days: 'entry_id',
   report_status: 'id',
+  month_entries: 'entry_id',
 };
 
 const reportStatus = (n: number, siteId = SITE_1, reportDate = '2026-10-20', status = 'rejected', note: unknown = 'Add photos of the slab') => ({
@@ -721,7 +726,7 @@ describe('pull (#49)', () => {
 
       await prepareDeviceDb(old, deviceMigrations);
 
-      expect(await readUserVersion(old)).toBe(8);
+      expect(await readUserVersion(old)).toBe(deviceMigrations[deviceMigrations.length - 1]!.version);
       expect(await old.all('select * from mirror_report_status')).toEqual([]);
       expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
       expect(await readApprovedDay(old, USER_A, SITE_1, DAY)).toHaveLength(1);

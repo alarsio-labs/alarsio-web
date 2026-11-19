@@ -579,4 +579,31 @@ describe('SiteAttendanceScreen (#79)', () => {
       expect(await outboxRows(db)).toHaveLength(1);
     });
   });
+
+  describe('the workers button (#234)', () => {
+    it('opens the worker month list, and is not shown when no screen is given to open', async () => {
+      await seedSite(db, USER_A);
+      const onOpenWorkers = jest.fn();
+      await render(
+        <SiteAttendanceScreen
+          openDb={() => Promise.resolve(db)}
+          userId={USER_A}
+          siteId={SITE}
+          location={fakeLocation({})}
+          now={() => clock}
+          pollMs={0}
+          onOpenWorkers={onOpenWorkers}
+        />,
+      );
+      await press('Workers');
+      expect(onOpenWorkers).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no Workers button without the callback', async () => {
+      await seedSite(db, USER_A);
+      await show(fakeLocation({}), USER_A, 0);
+      await screen.findByRole('button', { name: 'Check in' });
+      expect(screen.queryByRole('button', { name: 'Workers' })).toBeNull();
+    });
+  });
 });

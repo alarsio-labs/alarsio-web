@@ -179,4 +179,26 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index mirror_report_status_site on mirror_report_status (site_id, report_date);
     `,
   },
+  {
+    // Issue #234, ADR-053. The sixth pull mirror: every entry of the current and the previous
+    // month on the sites the user sees, from Attendance's view attendance_month_entries, with
+    // the status of its day. It gives the worker month screen its marks, and tells the register
+    // a day is approved beyond the week mirror_approved_days reaches. Replaced whole by each
+    // pull and owned by one user through mirror_state (ADR-023). Overtime is integer hundredths.
+    version: 9,
+    name: 'mirror month entries',
+    sql: `
+      create table mirror_month_entries (
+        entry_id            text primary key check (length(entry_id) = 36),
+        site_id             text not null check (length(site_id) = 36),
+        worker_id           text not null check (length(worker_id) = 36),
+        work_date           text not null check (length(work_date) = 10),
+        status              text not null check (status in ('present', 'absent', 'half_day', 'leave')),
+        overtime_hundredths integer not null check (overtime_hundredths between 0 and 800),
+        day_status          text not null check (day_status in ('open', 'approved', 'rejected'))
+      );
+      create index mirror_month_entries_worker on mirror_month_entries (site_id, worker_id, work_date);
+      create index mirror_month_entries_day on mirror_month_entries (site_id, work_date);
+    `,
+  },
 ];

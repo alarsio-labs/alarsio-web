@@ -278,6 +278,35 @@ describe('day register store (#79)', () => {
       expect((await readRegister(db, USER_A, SITE.id, DATE)).locked).toBe(true);
     });
   });
+
+  describe('an approved day the phone learned from the month mirror (ADR-053)', () => {
+    const OLD_DAY = '2026-10-02'; // older than the week mirror_approved_days holds
+    let entryNo = 0;
+    const seedMonth = (dayStatus: string, date = OLD_DAY, site = SITE.id) =>
+      db.run(
+        `insert into mirror_month_entries (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, day_status)
+         values (?, ?, ?, ?, 'present', 0, ?)`,
+        [`ffffffff-0000-4000-8000-${String((entryNo += 1)).padStart(12, '0')}`, site, W3, date, dayStatus],
+      );
+
+    it('locks the day even when this worker has no entry that day', async () => {
+      await seedMonth('approved');
+
+      expect((await readRegister(db, USER_A, SITE.id, OLD_DAY)).locked).toBe(true);
+      expect(await code(saveMark(db, USER_A, SITE, OLD_DAY, W1, mark('absent')))).toBe('locked');
+      expect(await outbox(db)).toHaveLength(0);
+    });
+
+    it('does not lock an open or sent-back day, another day or another site', async () => {
+      await seedMonth('open');
+      expect((await readRegister(db, USER_A, SITE.id, OLD_DAY)).locked).toBe(false);
+
+      await db.run('delete from mirror_month_entries');
+      await seedMonth('approved', '2026-10-03');
+      await seedMonth('approved', OLD_DAY, '51000000-0000-4000-8000-0000000000ff');
+      expect((await readRegister(db, USER_A, SITE.id, OLD_DAY)).locked).toBe(false);
+    });
+  });
 });
 
 describe('an approved day learned by a pull, then a correction in airplane mode (#127)', () => {

@@ -42,6 +42,7 @@ function mirrorSource(user = USER_A): MirrorSource {
     ],
     roster: [],
     approved_days: [],
+    month_entries: [],
     report_status: [],
   };
   return {
