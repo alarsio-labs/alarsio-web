@@ -5,6 +5,7 @@ import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
+import { saveMark } from '../../attendance/register-store';
 import { WorkerMonthScreen } from '../WorkerMonthScreen';
 
 // The header title is set through expo-router, which Jest does not load.
@@ -107,6 +108,18 @@ describe('WorkerMonthScreen (#234)', () => {
 
     await screen.findByText('17 Nov · Half day · 1.5 h overtime');
     expect(JSON.parse((await outboxEntries())[0]!.payload)).toMatchObject({ status: 'half_day', overtime_hours: 1.5 });
+  });
+
+  it('keeps the note of a day saved on this phone when the day is changed', async () => {
+    await saveMark(db, USER_A, { id: SITE, orgId: ORG }, '2026-11-17', W1, { status: 'absent', overtimeHours: 0, note: 'left early' }, NOW);
+    await open();
+    await fireEvent.press(await screen.findByLabelText('Change 17 Nov'));
+    expect(screen.getByLabelText('Note').props.value).toBe('left early');
+    await fireEvent.press(screen.getByLabelText('Half day'));
+    await fireEvent.press(screen.getByLabelText('Save'));
+
+    await screen.findByText('17 Nov · Half day');
+    expect(JSON.parse((await outboxEntries())[0]!.payload)).toMatchObject({ status: 'half_day', note: 'left early' });
   });
 
   it('says why a bad overtime was refused and saves nothing', async () => {
