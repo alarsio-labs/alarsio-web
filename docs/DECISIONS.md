@@ -2215,6 +2215,47 @@ a device or against the team project (#58).
 
 ---
 
+## ADR-053 · The phone holds a mirror of the last two months of attendance entries, for a worker's month screen
+**Date:** 2026-11-19 · **Status:** Proposed · **By:** Nikhil (issue #234, PR 2; the view is Manish's PR 1, review: Manish, whose screens these are)
+
+**Context.** A supervisor wants one worker's whole month on the phone: each day's mark, a summary, and a way to mark
+a day, with no signal. ADR-049's mirror holds approved days for one week only, and says nothing of open days. The
+register also cannot know that a day older than that week is approved (ADR-049 M7).
+
+**Decision.**
+- W1. **Attendance publishes `attendance_month_entries`** (PR 1, Manish): one row per entry on the sites the user
+  sees, with `entry_id`, `site_id`, `worker_id`, `work_date`, `status`, `overtime_hours` and `day_status`
+  (`open`, `approved`, `rejected`). Same RLS and `security_invoker` as ADR-032. The phone reads only the view
+  (ARCHITECTURE rule 4), as the sixth pull mirror, paged by `entry_id`.
+- W2. **Window:** the current and the previous month in Asia/Kolkata, filtered on `work_date`. An older month is
+  "not on this phone": the screen says to open it on the web, and never shows an empty month as if it were fact.
+- W3. **Device migration 9, `mirror_month_entries`:** the view's columns with overtime in integer hundredths,
+  indexed on `(site_id, worker_id, work_date)` and `(site_id, work_date)`. Refilled in the pull's one
+  transaction for sites the phone holds, removed on sign-out, read only when `mirror_state` says it is the user's
+  (ADR-023). A value the phone cannot read fails the pull; it never becomes 0.
+- W4. **The register is also locked** when the month mirror says the day is `approved`, from any worker's entry
+  that day. This closes ADR-049 M7 for any day that has an entry and is inside the window. No row means
+  "not known", never "open".
+- W5. **The month screen reads the mirror with the outbox laid over it.** A mark saved on the phone wins, with its
+  sync state shown. Marks are saved through the register's `saveMark`, so the roster, lock and outbox rules are
+  the register's, not a second copy. An approved day is read-only there; its change is a correction in the day
+  register. A pending correction is not shown in the month view until the next pull.
+- W6. **The summary follows the server's rule.** present 1 day, half day 0.5, leave and absent 0 (as
+  `wage_compute_days`); overtime summed in hundredths. A day with no entry is "not marked", never absent: nobody
+  has said the worker was away.
+- W7. **A date can be marked only if some assignment of the worker covers it** (both ends count, ADR-021 D10) and
+  it is not after tomorrow. The workers listed are those the roster mirror holds, so a worker who left more than
+  about a week ago is not listed.
+
+**Consequences.** One worker's month, offline, with the same save path as the register. Costs: the pull fails
+until PR 1's view is deployed, so PR 2 must not ship first; every refresh downloads two months of entries
+(about 6,000 rows for 3 sites of 100 workers); an approved day with no entries is still invisible (W4); a day
+reopened after approval can stay locked on a phone (ADR-049 M6); the view has no `note`, so a day changed from
+the month screen is saved with the note typed there and can replace an older one (open question for Manish);
+and the screens are covered by store and unit tests, not run on a device or against the team project (#58).
+
+---
+
 ## Template — copy this for a new decision
 
 The reviewer's approval of the PR that adds an ADR is its acceptance: the author sets
