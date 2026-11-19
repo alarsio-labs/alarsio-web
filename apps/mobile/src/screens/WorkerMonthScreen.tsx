@@ -65,6 +65,8 @@ export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date
   const alive = useRef(true);
   const snapshot = useRef('');
   const busy = useRef(false);
+  // Only the newest read may show: a slow read of a worker or month left behind must not overwrite it.
+  const latestRead = useRef(0);
 
   useEffect(() => {
     alive.current = true;
@@ -88,18 +90,20 @@ export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date
 
   const refresh = useCallback(async () => {
     if (!db) return;
+    const ticket = ++latestRead.current;
     try {
       const site = (await readSites(db, userId)).find((s) => s.id === siteId);
       const workers = site ? await readSiteWorkers(db, userId, siteId) : [];
       const read = site && workerId ? await readWorkerMonth(db, userId, siteId, workerId, month, now()) : null;
-      if (!alive.current) return;
+      if (!alive.current || ticket !== latestRead.current) return;
       const snap = JSON.stringify([site ?? null, workers, read]);
       if (snap === snapshot.current) return;
       snapshot.current = snap;
       setLoad(site ? { kind: 'ready', site, workers, month: read } : { kind: 'missing' });
     } catch {
+      if (!alive.current || ticket !== latestRead.current) return;
       snapshot.current = '';
-      if (alive.current) setLoad({ kind: 'failed' });
+      setLoad({ kind: 'failed' });
     }
     // `now` is the phone's clock: a new function each render must not restart the read.
     // eslint-disable-next-line react-hooks/exhaustive-deps
