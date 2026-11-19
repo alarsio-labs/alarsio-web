@@ -145,7 +145,7 @@ export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date
   function openEditor(day: MonthDay) {
     setStatus(day.mark?.status ?? 'present');
     setOvertime(day.mark && day.mark.overtimeHours > 0 ? String(day.mark.overtimeHours) : '');
-    setNote('');
+    setNote(day.note ?? '');
     setMessage(null);
     setEditing(day.date);
   }
