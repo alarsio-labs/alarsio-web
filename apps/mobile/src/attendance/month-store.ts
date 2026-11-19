@@ -5,7 +5,7 @@
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from '../sync/entities';
 import { listRecords } from '../sync/outbox';
-import { istDate, mirrorInfo, readApprovedDates, readMonthEntries, readWorkerAssignments } from '../sync/pull';
+import { assertMonth, istDate, mirrorInfo, readApprovedDates, readMonthEntries, readWorkerAssignments } from '../sync/pull';
 import {
   monthDates,
   shiftMonth,
@@ -16,7 +16,7 @@ import {
   type NotMarkable,
 } from './month';
 import { parseEntryPayload } from './register';
-import { SCAN_LIMIT } from './register-store';
+import { SCAN_LIMIT, same } from './register-store';
 
 export interface MonthDay {
   date: string;
@@ -38,8 +38,6 @@ export interface WorkerMonth {
   summary: MonthSummary;
 }
 
-const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
-
 export async function readWorkerMonth(
   db: DeviceDb,
   userId: string,
@@ -48,7 +46,7 @@ export async function readWorkerMonth(
   month: string,
   now: Date = new Date(),
 ): Promise<WorkerMonth> {
-  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+  assertMonth(month);
   const today = istDate(now.toISOString());
   if (month < shiftMonth(today.slice(0, 7), -1)) {
     return { available: false, days: [], summary: summariseMonth([], new Map()) };
