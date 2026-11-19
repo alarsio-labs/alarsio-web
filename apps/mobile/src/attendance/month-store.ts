@@ -5,7 +5,7 @@
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from '../sync/entities';
 import { listRecords } from '../sync/outbox';
-import { istDate, readApprovedDates, readMonthEntries, readWorkerAssignments } from '../sync/pull';
+import { istDate, mirrorInfo, readApprovedDates, readMonthEntries, readWorkerAssignments } from '../sync/pull';
 import {
   monthDates,
   shiftMonth,
@@ -54,21 +54,27 @@ export async function readWorkerMonth(
     return { available: false, days: [], summary: summariseMonth([], new Map()) };
   }
 
-  const [mirror, approvedDates, assignments, records] = await Promise.all([
+  const [mirror, approvedDates, assignments, records, info] = await Promise.all([
     readMonthEntries(db, userId, siteId, workerId, month),
     readApprovedDates(db, userId, siteId, month),
     readWorkerAssignments(db, userId, siteId, workerId),
     listRecords(db, userId, 'attendance_entries', { siteId, limit: SCAN_LIMIT }),
+    mirrorInfo(db),
   ]);
+  const refreshedAt = info ? Date.parse(info.refreshedAt) : 0;
 
   const marks = new Map<string, DayMark>(mirror.map((e) => [e.workDate, { status: e.status, overtimeHours: e.overtimeHours }]));
   const sync = new Map<string, MonthDay['sync']>();
   const notes = new Map<string, string | null>();
+  const seen = new Set<string>();
   const locked = new Set(approvedDates);
   // Newest first, so the first record seen for a date is the one that counts.
   for (const r of records) {
     const e = parseEntryPayload(r.payload);
-    if (!e || !same(e.workerId, workerId) || !e.key.date.startsWith(`${month}-`) || sync.has(e.key.date)) continue;
+    if (!e || !same(e.workerId, workerId) || !e.key.date.startsWith(`${month}-`) || seen.has(e.key.date)) continue;
+    seen.add(e.key.date);
+    // The server has it and a pull since then holds the day: the pull is newer, it may carry a change made elsewhere.
+    if (r.status === 'synced' && Date.parse(r.updatedAt) < refreshedAt && marks.has(e.key.date)) continue;
     marks.set(e.key.date, { status: e.mark.status, overtimeHours: e.mark.overtimeHours });
     sync.set(e.key.date, { status: r.status, verdictReason: r.reason });
     notes.set(e.key.date, e.mark.note);
