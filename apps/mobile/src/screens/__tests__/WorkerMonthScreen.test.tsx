@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
@@ -146,6 +146,29 @@ describe('WorkerMonthScreen (#234)', () => {
 
     await fireEvent.press(screen.getByLabelText('Later month'));
     await waitFor(() => expect(screen.getByText('November 2026')).toBeTruthy());
+  });
+
+  it('ignores a slow read of the worker left behind, so another worker\'s days never show', async () => {
+    await seedEntry(db, '2026-11-10', 'present');
+    let release: () => void = () => {};
+    const gate = new Promise<void>((resolve) => (release = resolve));
+    const slow = Object.create(db) as DeviceDb;
+    slow.all = async (sql, params) => {
+      if (sql.includes('from mirror_month_entries') && params?.includes(W1)) await gate;
+      return db.all(sql, params);
+    };
+    await render(<WorkerMonthScreen openDb={async () => slow} userId={USER_A} siteId={SITE} now={() => NOW} pollMs={0} />);
+    await fireEvent.press(await screen.findByLabelText('Open Worker 1'));
+    await fireEvent.press(await screen.findByLabelText('Back to workers'));
+    await fireEvent.press(await screen.findByLabelText('Open Worker 2'));
+    await screen.findByText('Present 0 · Half days 0 · Leave 0 · Absent 0 · Not marked 30');
+
+    release();
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    });
+    expect(screen.queryByText('10 Nov · Present')).toBeNull();
+    expect(screen.getByText('Present 0 · Half days 0 · Leave 0 · Absent 0 · Not marked 30')).toBeTruthy();
   });
 
   it('goes back to the worker list', async () => {
