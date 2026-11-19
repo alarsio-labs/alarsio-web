@@ -184,7 +184,7 @@ describe('pull (#49)', () => {
       approvedDays: 0,
     });
 
-    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString() });
+    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString(), monthRefreshedAt: T0.toISOString() });
     expect(await readSites(db, USER_A)).toEqual([
       {
         id: SITE_1,
@@ -392,7 +392,7 @@ describe('pull (#49)', () => {
 
     expect((await readSites(db, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
     expect(await readMaterials(db, USER_A)).toHaveLength(1);
-    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString() });
+    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString(), monthRefreshedAt: T0.toISOString() });
   });
 
   it('turns a failed write into a fixed reason, and keeps the old mirror', async () => {
@@ -410,7 +410,7 @@ describe('pull (#49)', () => {
 
     expect(result).toEqual({ kind: 'failed', reason: 'local_error' });
     expect((await readSites(db, USER_A)).map((s) => s.name)).toEqual(['Kothrud']);
-    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString() });
+    expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString(), monthRefreshedAt: T0.toISOString() });
   });
 
   it('fails without storing anything when the user changes mid-pull', async () => {
