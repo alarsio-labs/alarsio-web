@@ -71,7 +71,7 @@ const DATE = /^\d{4}-\d{2}-\d{2}$/;
 // listRecords reads newest first and stops at a limit; 3000 entries is about a month of a 100-worker site.
 export const SCAN_LIMIT = 3000;
 
-const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
+export const same = (a: string, b: string) => a.toLowerCase() === b.toLowerCase();
 
 function checkDate(date: string): void {
   if (!DATE.test(date)) throw new RegisterError('bad_date');
