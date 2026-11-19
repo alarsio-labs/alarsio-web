@@ -40,6 +40,8 @@ export interface SiteAttendanceScreenProps {
   pollMs?: number;
   /** Opens the day register for this site (#79, ADR-048). No button without it. */
   onOpenRegister?: () => void;
+  /** Opens one worker's month for this site (#234, ADR-053). No button without it. */
+  onOpenWorkers?: () => void;
 }
 
 type Action = { kind: 'in' } | { kind: 'out'; recordId: string };
@@ -102,6 +104,7 @@ export function SiteAttendanceScreen({
   now = () => new Date(),
   pollMs = 3000,
   onOpenRegister,
+  onOpenWorkers,
 }: SiteAttendanceScreenProps) {
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [siteLoad, setSiteLoad] = useState<SiteLoad>({ kind: 'loading' });
@@ -400,6 +403,10 @@ export function SiteAttendanceScreen({
 
             {step.kind === 'idle' && site.orgId !== null && onOpenRegister && (
               <Button label="Day register" secondary onPress={onOpenRegister} />
+            )}
+
+            {step.kind === 'idle' && site.orgId !== null && onOpenWorkers && (
+              <Button label="Workers" secondary onPress={onOpenWorkers} />
             )}
 
             {shown.map((v) => {
