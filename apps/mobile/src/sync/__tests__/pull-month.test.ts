@@ -3,7 +3,16 @@ import { deviceMigrations } from '../../db/migrations';
 import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { readUserVersion } from '../../db/run-migrations';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
-import { clearMirrors, readDayStatus, readMonthEntries, readSites, runPull, type MirrorKind, type MirrorSource } from '../pull';
+import {
+  clearMirrors,
+  mirrorInfo,
+  readDayStatus,
+  readMonthEntries,
+  readSites,
+  runPull,
+  type MirrorKind,
+  type MirrorSource,
+} from '../pull';
 import { SyncTransportError } from '../sender';
 
 // Issue #234, ADR-053: the month mirror, read from Attendance's view attendance_month_entries.
@@ -83,9 +92,19 @@ describe('month mirror (#234, ADR-053)', () => {
 
     await prepareDeviceDb(old, deviceMigrations);
 
-    expect(await readUserVersion(old)).toBe(9);
+    expect(await readUserVersion(old)).toBe(10);
     expect(await old.all('select * from mirror_month_entries')).toEqual([]);
     expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
+  });
+
+  it('device migration 10 dates the month rows of a phone on version 9 as old as its pull', async () => {
+    const old = await openTestDeviceDb();
+    await prepareDeviceDb(old, deviceMigrations.slice(0, 9));
+    await old.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [USER_A, T0.toISOString()]);
+
+    await prepareDeviceDb(old, deviceMigrations);
+
+    expect(await mirrorInfo(old)).toEqual({ userId: USER_A, refreshedAt: T0.toISOString(), monthRefreshedAt: T0.toISOString() });
   });
 
   it('shows nothing before a pull, or from another user\'s mirror', async () => {
@@ -127,7 +146,7 @@ describe('month mirror (#234, ADR-053)', () => {
     expect(await readDayStatus(db, USER_A, SITE_2, '2026-11-10')).toBeNull();
   });
 
-  it('fails the pull and keeps the old mirror when a row cannot be read', async () => {
+  it('finishes the pull and keeps the old month rows when a month row cannot be read', async () => {
     await pull([monthRow({ work_date: '2026-11-10' })]);
     for (const bad of [
       { status: 'sick' },
@@ -139,17 +158,66 @@ describe('month mirror (#234, ADR-053)', () => {
       { entry_id: 'short' },
       { worker_id: null },
     ]) {
-      expect(await pull([monthRow(bad)])).toEqual({ kind: 'failed', reason: 'bad_row:month_entries' });
+      expect(await pull([monthRow(bad)])).toMatchObject({ kind: 'done', monthStale: true });
     }
     expect(await readMonthEntries(db, USER_A, SITE_1, WORKER_1, '2026-11')).toHaveLength(1);
   });
 
-  it('keeps the old copy when only the month fetch fails', async () => {
+  describe('when only the month fetch fails', () => {
+    const T1 = new Date('2026-11-19T09:00:00.000Z');
+    const failingPull = async (user: string, sites: Rows) => {
+      const { source, state } = fakeSource({ sites, month_entries: [] }, user);
+      state.failMonth = true;
+      return runPull(db, source, { now: () => T1 });
+    };
+
+    it('still refreshes the other mirrors, keeps the old month rows and their date', async () => {
+      await pull([monthRow()]);
+
+      expect(await failingPull(USER_A, [site(SITE_1), site(SITE_2)])).toMatchObject({ kind: 'done', sites: 2, monthStale: true });
+
+      expect((await readSites(db, USER_A)).map((s) => s.id)).toEqual([SITE_1, SITE_2]);
+      expect(await readMonthEntries(db, USER_A, SITE_1, WORKER_1, '2026-11')).toHaveLength(1);
+      expect(await mirrorInfo(db)).toEqual({ userId: USER_A, refreshedAt: T1.toISOString(), monthRefreshedAt: T0.toISOString() });
+    });
+
+    it('drops the month rows of a site the phone no longer holds', async () => {
+      await runPull(db, fakeSource({ sites: [site(SITE_1), site(SITE_2)], month_entries: [monthRow(), monthRow({ site_id: SITE_2 })] }).source, {
+        now: () => T0,
+      });
+
+      await failingPull(USER_A, [site(SITE_1)]);
+
+      expect((await db.all<{ site_id: string }>('select site_id from mirror_month_entries')).map((r) => r.site_id)).toEqual([SITE_1]);
+    });
+
+    it('never keeps another user\'s month rows', async () => {
+      await pull([monthRow()]);
+
+      expect(await failingPull(USER_B, [site(SITE_1)])).toMatchObject({ kind: 'done', monthStale: true });
+
+      expect(await db.all('select * from mirror_month_entries')).toEqual([]);
+      expect((await mirrorInfo(db))?.monthRefreshedAt).toBeNull();
+    });
+
+    it('is not hidden: a fresh pull is not marked stale', async () => {
+      expect(await pull([monthRow()])).not.toHaveProperty('monthStale');
+    });
+  });
+
+  it('still fails the whole pull, keeping every old mirror, when the session changed during the month fetch', async () => {
     await pull([monthRow()]);
-    const { source, state } = fakeSource({ sites: [site(SITE_1)], month_entries: [] });
-    state.failMonth = true;
-    expect(await runPull(db, source, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'network' });
-    expect(await readMonthEntries(db, USER_A, SITE_1, WORKER_1, '2026-11')).toHaveLength(1);
+    const { source } = fakeSource({ sites: [site(SITE_1), site(SITE_2)], month_entries: [] });
+    const switched: MirrorSource = {
+      ...source,
+      fetchPage: async (kind, userId, after, limit) => {
+        if (kind === 'month_entries') throw new SyncTransportError('session_changed');
+        return source.fetchPage(kind, userId, after, limit);
+      },
+    };
+
+    expect(await runPull(db, switched, { now: () => T0 })).toEqual({ kind: 'failed', reason: 'session_changed' });
+    expect((await readSites(db, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
   });
 
   it('keeps no row for a site the phone no longer holds', async () => {
