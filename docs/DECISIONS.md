@@ -2237,7 +2237,8 @@ register also cannot know that a day older than that week is approved (ADR-049 M
   that day. This closes ADR-049 M7 for any day that has an entry and is inside the window. No row means
   "not known", never "open".
 - W5. **The month screen reads the mirror with the outbox laid over it.** A mark saved on the phone wins, with its
-  sync state shown. Marks are saved through the register's `saveMark`, so the roster, lock and outbox rules are
+  sync state shown, until it is synced and a pull taken after that holds the day: then the pull wins, as it may
+  carry a change made elsewhere. Marks are saved through the register's `saveMark`, so the roster, lock and outbox rules are
   the register's, not a second copy. An approved day is read-only there; its change is a correction in the day
   register. A pending correction is not shown in the month view until the next pull.
 - W6. **The summary follows the server's rule.** present 1 day, half day 0.5, leave and absent 0 (as
