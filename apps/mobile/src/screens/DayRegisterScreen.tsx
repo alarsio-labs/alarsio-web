@@ -11,7 +11,6 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import {
   cleanMark,
-  ENTRY_STATUSES,
   entryStatusText,
   RegisterError,
   type EntryStatus,
@@ -29,6 +28,7 @@ import {
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { LoadFailed } from './LoadFailed';
+import { fieldStyles, MarkFields, STATUS_LABEL } from './MarkFields';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -49,13 +49,6 @@ const DAYS_BACK = 7;
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { kind: 'ready'; site: MirrorSite; register: Register };
 
 type Editing = { workerId: string; correction: boolean };
-
-export const STATUS_LABEL: Record<EntryStatus, string> = {
-  present: 'Present',
-  absent: 'Absent',
-  half_day: 'Half day',
-  leave: 'Leave',
-};
 
 const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
 const dayLabel = (day: string) => `${Number(day.slice(8, 10))} ${MONTHS[Number(day.slice(5, 7)) - 1] ?? ''}`;
@@ -323,41 +316,18 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
 
                   {open && (
                     <View style={styles.panel}>
-                      <View style={styles.row}>
-                        {ENTRY_STATUSES.map((s) => (
-                          <Pressable
-                            key={s}
-                            accessibilityRole="button"
-                            accessibilityLabel={STATUS_LABEL[s]}
-                            accessibilityState={{ selected: status === s }}
-                            onPress={() => setStatus(s)}
-                            style={[styles.chip, status === s && styles.chipOn]}
-                          >
-                            <Text style={status === s ? styles.chipTextOn : styles.chipText}>{STATUS_LABEL[s]}</Text>
-                          </Pressable>
-                        ))}
-                      </View>
-                      <TextInput
-                        accessibilityLabel="Overtime hours"
-                        style={styles.input}
-                        value={overtime}
-                        onChangeText={setOvertime}
-                        keyboardType="decimal-pad"
-                        placeholder="Overtime hours (0 to 8)"
-                      />
-                      <TextInput
-                        accessibilityLabel="Note"
-                        style={[styles.input, styles.tall]}
-                        value={note}
-                        onChangeText={setNote}
-                        maxLength={500}
-                        multiline
-                        placeholder="Note (optional)"
+                      <MarkFields
+                        status={status}
+                        onStatus={setStatus}
+                        overtime={overtime}
+                        onOvertime={setOvertime}
+                        note={note}
+                        onNote={setNote}
                       />
                       {open.correction && (
                         <TextInput
                           accessibilityLabel="Reason for the correction"
-                          style={[styles.input, styles.tall]}
+                          style={[fieldStyles.input, fieldStyles.tall]}
                           value={reason}
                           onChangeText={setReason}
                           maxLength={500}
@@ -422,12 +392,6 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
   panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, fontSize: 16, backgroundColor: colors.paper },
-  tall: { minHeight: 70, textAlignVertical: 'top' },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  chipOn: { backgroundColor: colors.ink },
-  chipText: { color: colors.ink, fontSize: 15 },
-  chipTextOn: { color: colors.white, fontSize: 15 },
   button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
   buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
   buttonDisabled: { opacity: 0.4 },
