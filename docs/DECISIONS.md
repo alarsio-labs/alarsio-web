@@ -2251,7 +2251,8 @@ register also cannot know that a day older than that week is approved (ADR-049 M
 until PR 1's view is deployed, so PR 2 must not ship first; every refresh downloads two months of entries
 (about 6,000 rows for 3 sites of 100 workers); an approved day with no entries is still invisible (W4); a day
 reopened after approval can stay locked on a phone (ADR-049 M6); the view has no `note`, so a day changed from
-the month screen is saved with the note typed there and can replace an older one (open question for Manish);
+the month screen keeps the note of a mark saved on this phone, but a note held only by the server can be
+replaced by a blank one (open question for Manish: add `note` to the view);
 and the screens are covered by store and unit tests, not run on a device or against the team project (#58).
 
 ---
