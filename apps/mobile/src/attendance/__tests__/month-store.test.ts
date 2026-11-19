@@ -99,6 +99,14 @@ describe('worker month store (#234, ADR-053)', () => {
     expect((await month()).summary).toMatchObject({ present: 1, absent: 1, overtimeHours: 1.5 });
   });
 
+  it('carries the note of a mark saved on this phone, and none for a mirror-only day', async () => {
+    await seedMonth(db, { date: '2026-11-16' });
+    await saveMark(db, USER_A, SITE, '2026-11-18', W1, { status: 'present', overtimeHours: 0, note: 'left early' }, NOW);
+
+    expect((await day('2026-11-18')).note).toBe('left early');
+    expect((await day('2026-11-16')).note).toBeNull();
+  });
+
   it('keeps one worker\'s saved marks out of another\'s month', async () => {
     await seedRoster(db, W2);
     await saveMark(db, USER_A, SITE, '2026-11-18', W2, mark('present'), NOW);
