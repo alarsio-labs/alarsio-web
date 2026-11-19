@@ -57,6 +57,13 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, approved_at',
     key: 'entry_id',
   },
+  // Attendance's month view (ADR-053), also never the tables. day_status says whether the entry's day
+  // is open, approved or sent back, so the register knows an approved day older than the week above.
+  month_entries: {
+    table: 'attendance_month_entries',
+    columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, day_status',
+    key: 'entry_id',
+  },
   // Daily Reporting's published view (ADR-025, ADR-042), never daily_reports: ARCHITECTURE rule 4.
   // Only the columns the phone shows; the author's own rows only (filtered below, RLS beneath).
   report_status: {
@@ -75,6 +82,12 @@ export interface MirrorSourceOptions {
 function windowFirstDay(now: Date, days = ROSTER_LOOKBACK_DAYS): string {
   const today = istDate(now.toISOString());
   return new Date(Date.parse(`${today}T00:00:00Z`) - days * 86_400_000).toISOString().slice(0, 10);
+}
+
+/** The first day of last month, Asia/Kolkata: the month mirror holds this month and the one before (ADR-053). */
+function monthWindowFirstDay(now: Date): string {
+  const [year, month] = istDate(now.toISOString()).split('-').map(Number);
+  return new Date(Date.UTC(year!, month! - 2, 1)).toISOString().slice(0, 10);
 }
 
 /** The instant the roster window opens: the start of that day. */
@@ -111,6 +124,7 @@ export function supabaseMirrorSource(
       }
       // Approved days of the same window, so the phone holds the days its register can open (ADR-049).
       if (kind === 'approved_days') query = query.gte('work_date', windowFirstDay(now()));
+      if (kind === 'month_entries') query = query.gte('work_date', monthWindowFirstDay(now()));
       // The signed-in author's own reports of the last two weeks (ADR-051); RLS also lets a
       // manager see others', which the phone has no use for.
       if (kind === 'report_status') {
