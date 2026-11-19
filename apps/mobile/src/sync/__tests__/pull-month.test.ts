@@ -108,6 +108,13 @@ describe('month mirror (#234, ADR-053)', () => {
     ]);
   });
 
+  it('stores every row when there are more than one insert batch holds', async () => {
+    const rows = Array.from({ length: 250 }, (_, i) => monthRow({ work_date: `2026-11-${String((i % 28) + 1).padStart(2, '0')}`, worker_id: ID('77000000', i + 100) }));
+    await pull(rows);
+    expect(await db.all('select entry_id from mirror_month_entries')).toHaveLength(250);
+    expect(await readMonthEntries(db, USER_A, SITE_1, ID('77000000', 349), '2026-11')).toHaveLength(1);
+  });
+
   it('knows a day is approved even when the asked worker has no entry that day', async () => {
     await pull([monthRow({ worker_id: WORKER_2, work_date: '2026-10-28', day_status: 'approved' })]);
     expect(await readDayStatus(db, USER_A, SITE_1, '2026-10-28')).toBe('approved');
