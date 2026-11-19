@@ -5,6 +5,7 @@ export type ScreenKey =
   | 'attendance_sites'
   | 'check_in'
   | 'day_register'
+  | 'worker_month'
   | 'report_sites'
   | 'daily_report'
   | 'materials_sites'
@@ -15,6 +16,7 @@ const NAMES: Record<ScreenKey, string> = {
   attendance_sites: 'Attendance',
   check_in: 'Check in',
   day_register: 'Day register',
+  worker_month: 'Worker month',
   report_sites: 'Daily reports',
   daily_report: 'Daily report',
   materials_sites: 'Materials',
