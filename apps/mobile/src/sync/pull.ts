@@ -371,7 +371,7 @@ export async function readMaterials(db: DeviceDb, userId: string, siteId?: strin
  * who is still assigned.
  */
 export async function readRosterOn(db: DeviceDb, userId: string, siteId: string, date: string): Promise<RosterWorker[]> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!isCalendarDay(date)) throw new Error('date must be YYYY-MM-DD');
   if (!(await ownedBy(db, userId))) return [];
   const rows = await db.all<{ worker_id: string; site_id: string; code: string; name: string; trade: string }>(
     `select worker_id, site_id, min(code) as code, min(name) as name, min(trade) as trade
@@ -391,7 +391,7 @@ export async function readRosterOn(db: DeviceDb, userId: string, siteId: string,
  * the week the mirror reaches. The date is an Asia/Kolkata day.
  */
 export async function readApprovedDay(db: DeviceDb, userId: string, siteId: string, date: string): Promise<ApprovedEntry[]> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!isCalendarDay(date)) throw new Error('date must be YYYY-MM-DD');
   if (!(await ownedBy(db, userId))) return [];
   const rows = await db.all<{
     worker_id: string;
@@ -417,7 +417,7 @@ export async function readApprovedDay(db: DeviceDb, userId: string, siteId: stri
  * "not known", never "not sent back".
  */
 export async function readReportStatus(db: DeviceDb, userId: string, siteId: string, date: string): Promise<ReportStatus | null> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!isCalendarDay(date)) throw new Error('date must be YYYY-MM-DD');
   if (!(await ownedBy(db, userId))) return null;
   const [row] = await db.all<{
     id: string;
@@ -469,7 +469,7 @@ export async function readMonthEntries(
   workerId: string,
   month: string,
 ): Promise<MonthEntry[]> {
-  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+  assertMonth(month);
   if (!(await ownedBy(db, userId))) return [];
   const rows = await db.all<{
     work_date: string;
@@ -495,7 +495,7 @@ export async function readMonthEntries(
  * the mirror reaches, or approved since the last pull.
  */
 export async function readDayStatus(db: DeviceDb, userId: string, siteId: string, date: string): Promise<DayStatus | null> {
-  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) throw new Error('date must be YYYY-MM-DD');
+  if (!isCalendarDay(date)) throw new Error('date must be YYYY-MM-DD');
   if (!(await ownedBy(db, userId))) return null;
   const rows = await db.all<{ day_status: DayStatus }>(
     `select day_status from mirror_month_entries where site_id = ? and work_date = ? limit 1`,
@@ -506,7 +506,7 @@ export async function readDayStatus(db: DeviceDb, userId: string, siteId: string
 
 /** The days of one month (YYYY-MM) at a site that the phone knows are approved, from the month and approved-days mirrors. */
 export async function readApprovedDates(db: DeviceDb, userId: string, siteId: string, month: string): Promise<string[]> {
-  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+  assertMonth(month);
   if (!(await ownedBy(db, userId))) return [];
   const like = `${month}-%`;
   const rows = await db.all<{ work_date: string }>(
@@ -709,6 +709,20 @@ function toAssignment(v: unknown): AssignmentRow {
   };
 }
 
+/** A real calendar day (YYYY-MM-DD), not just ten characters. */
+function isCalendarDay(v: string): boolean {
+  return (
+    /^\d{4}-\d{2}-\d{2}$/.test(v) &&
+    Number.isFinite(Date.parse(`${v}T00:00:00Z`)) &&
+    new Date(`${v}T00:00:00Z`).toISOString().slice(0, 10) === v
+  );
+}
+
+/** Refuses anything but a month written YYYY-MM. */
+export function assertMonth(month: string): void {
+  if (!/^\d{4}-\d{2}$/.test(month)) throw new Error('month must be YYYY-MM');
+}
+
 function toApprovedDay(v: unknown): ApprovedRow {
   if (
     !isRow(v) ||
@@ -722,11 +736,8 @@ function toApprovedDay(v: unknown): ApprovedRow {
     return bad('approved_days');
   }
   const overtimeHundredths = toHundredths(v.overtime_hours);
-  // A real calendar day, not just ten characters, and a timestamp Postgres could have sent.
-  const dayOk =
-    /^\d{4}-\d{2}-\d{2}$/.test(v.work_date) &&
-    Number.isFinite(Date.parse(`${v.work_date}T00:00:00Z`)) &&
-    new Date(`${v.work_date}T00:00:00Z`).toISOString().slice(0, 10) === v.work_date;
+  // A timestamp Postgres could have sent.
+  const dayOk = isCalendarDay(v.work_date);
   const approvedOk = Number.isFinite(Date.parse(v.approved_at.replace(/(\.\d{3})\d+/, '$1')));
   if (overtimeHundredths === undefined || !dayOk || !approvedOk) return bad('approved_days');
   return {
@@ -754,11 +765,7 @@ function toMonthEntry(v: unknown): MonthRow {
     return bad('month_entries');
   }
   const overtimeHundredths = toHundredths(v.overtime_hours);
-  const dayOk =
-    /^\d{4}-\d{2}-\d{2}$/.test(v.work_date) &&
-    Number.isFinite(Date.parse(`${v.work_date}T00:00:00Z`)) &&
-    new Date(`${v.work_date}T00:00:00Z`).toISOString().slice(0, 10) === v.work_date;
-  if (overtimeHundredths === undefined || !dayOk) return bad('month_entries');
+  if (overtimeHundredths === undefined || !isCalendarDay(v.work_date)) return bad('month_entries');
   return {
     entryId: v.entry_id.toLowerCase(),
     siteId: v.site_id.toLowerCase(),
@@ -783,10 +790,7 @@ function toReportStatus(v: unknown): ReportStatus {
   ) {
     return bad('report_status');
   }
-  const dayOk =
-    /^\d{4}-\d{2}-\d{2}$/.test(v.report_date) &&
-    Number.isFinite(Date.parse(`${v.report_date}T00:00:00Z`)) &&
-    new Date(`${v.report_date}T00:00:00Z`).toISOString().slice(0, 10) === v.report_date;
+  const dayOk = isCalendarDay(v.report_date);
   const reviewedOk = v.reviewed_at === null || Number.isFinite(Date.parse(v.reviewed_at.replace(/(\.\d{3})\d+/, '$1')));
   if (!dayOk || !reviewedOk) return bad('report_status');
   return {
