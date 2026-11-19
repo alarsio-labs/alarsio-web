@@ -99,6 +99,38 @@ describe('worker month store (#234, ADR-053)', () => {
     expect((await month()).summary).toMatchObject({ present: 1, absent: 1, overtimeHours: 1.5 });
   });
 
+  describe('a mark the server already has', () => {
+    const syncedAt = (updatedAt: string, refreshedAt: string) =>
+      Promise.all([
+        db.run(`update outbox set status = 'synced', updated_at = ?`, [updatedAt]),
+        db.run(`update mirror_state set refreshed_at = ?`, [refreshedAt]),
+      ]);
+
+    it('gives way to a later pull, which may carry a change made elsewhere', async () => {
+      await saveMark(db, USER_A, SITE, '2026-11-14', W1, mark('present'), NOW);
+      await seedMonth(db, { date: '2026-11-14', status: 'absent' });
+      await syncedAt('2026-11-19T06:00:00.000Z', '2026-11-19T07:00:00.000Z');
+
+      expect(await day('2026-11-14')).toMatchObject({ mark: { status: 'absent' }, sync: null });
+      expect((await month()).summary).toMatchObject({ present: 0, absent: 1 });
+    });
+
+    it('still shows when it synced after the last pull', async () => {
+      await saveMark(db, USER_A, SITE, '2026-11-14', W1, mark('present'), NOW);
+      await seedMonth(db, { date: '2026-11-14', status: 'absent' });
+      await syncedAt('2026-11-19T07:00:00.000Z', '2026-11-19T06:00:00.000Z');
+
+      expect(await day('2026-11-14')).toMatchObject({ mark: { status: 'present' }, sync: { status: 'synced' } });
+    });
+
+    it('still shows when the later pull holds nothing for that day', async () => {
+      await saveMark(db, USER_A, SITE, '2026-11-14', W1, mark('present'), NOW);
+      await syncedAt('2026-11-19T06:00:00.000Z', '2026-11-19T07:00:00.000Z');
+
+      expect((await day('2026-11-14')).mark).toEqual({ status: 'present', overtimeHours: 0 });
+    });
+  });
+
   it('carries the note of a mark saved on this phone, and none for a mirror-only day', async () => {
     await seedMonth(db, { date: '2026-11-16' });
     await saveMark(db, USER_A, SITE, '2026-11-18', W1, { status: 'present', overtimeHours: 0, note: 'left early' }, NOW);
