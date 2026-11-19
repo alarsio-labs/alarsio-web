@@ -59,7 +59,8 @@ export async function readWorkerMonth(
     listRecords(db, userId, 'attendance_entries', { siteId, workerId, month, limit: SCAN_LIMIT }),
     mirrorInfo(db),
   ]);
-  const refreshedAt = info ? Date.parse(info.refreshedAt) : 0;
+  // When the month rows were replaced, not the pull: a failed month fetch keeps them older.
+  const refreshedAt = info?.monthRefreshedAt ? Date.parse(info.monthRefreshedAt) : 0;
 
   const marks = new Map<string, DayMark>(mirror.map((e) => [e.workDate, { status: e.status, overtimeHours: e.overtimeHours }]));
   const sync = new Map<string, MonthDay['sync']>();
