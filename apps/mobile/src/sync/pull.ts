@@ -45,7 +45,8 @@ export interface MirrorSource {
 
 export type PullResult =
   | { kind: 'signed_out' }
-  | { kind: 'done'; sites: number; materials: number; roster: number; approvedDays: number }
+  // `monthStale`: the month view failed, so the month rows are the ones from an earlier pull (ADR-053).
+  | { kind: 'done'; sites: number; materials: number; roster: number; approvedDays: number; monthStale?: true }
   | { kind: 'failed'; reason: string };
 
 export interface MirrorSite {
@@ -182,7 +183,7 @@ export async function runPull(
   let roster: AssignmentRow[];
   let approved: ApprovedRow[];
   let reports: ReportStatus[];
-  let months: MonthRow[];
+  let months: MonthRow[] | null;
   try {
     userId = await source.currentUserId();
     if (userId === null) return { kind: 'signed_out' };
@@ -191,7 +192,7 @@ export async function runPull(
     roster = await fetchAll(source, 'roster', userId, pageSize, toAssignment);
     approved = await fetchAll(source, 'approved_days', userId, pageSize, toApprovedDay);
     reports = await fetchAll(source, 'report_status', userId, pageSize, toReportStatus);
-    months = await fetchAll(source, 'month_entries', userId, pageSize, toMonthEntry);
+    months = await fetchMonths(source, userId, pageSize);
 
     // Still the same user? A sign-out that landed while the pages were coming in
     // must not be undone by a write of that user's data afterwards. This narrows
@@ -211,12 +212,16 @@ export async function runPull(
   roster = roster.filter((w) => siteIds.has(w.siteId));
   approved = approved.filter((a) => siteIds.has(a.siteId));
   reports = reports.filter((r) => siteIds.has(r.siteId));
-  months = months.filter((m) => siteIds.has(m.siteId));
+  months = months?.filter((m) => siteIds.has(m.siteId)) ?? null;
 
   const owner = userId.toLowerCase();
   try {
+    // Old month rows are kept only when they are this user's own.
+    const before = await mirrorInfo(db);
+    const keepMonth = months === null && before?.userId === owner;
+    const refreshedAt = now().toISOString();
     await db.transaction(async () => {
-      await deleteMirrors(db);
+      await deleteMirrors(db, keepMonth);
       for (const s of sites) {
         await db.run(
           `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
@@ -253,17 +258,20 @@ export async function runPull(
         );
       }
       // Up to thousands of rows: one statement per 100 rows, not one per row. 700 values stay under SQLite's 999 limit.
-      for (let i = 0; i < months.length; i += 100) {
-        const chunk = months.slice(i, i + 100);
+      if (keepMonth) await db.run(`delete from mirror_month_entries where site_id not in (select id from mirror_sites)`);
+      const fresh = months ?? [];
+      for (let i = 0; i < fresh.length; i += 100) {
+        const chunk = fresh.slice(i, i + 100);
         await db.run(
           `insert into mirror_month_entries (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, day_status)
            values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
           chunk.flatMap((m) => [m.entryId, m.siteId, m.workerId, m.workDate, m.status, m.overtimeHundredths, m.dayStatus]),
         );
       }
-      await db.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [
+      await db.run(`insert into mirror_state (id, user_id, refreshed_at, month_refreshed_at) values (1, ?, ?, ?)`, [
         owner,
-        now().toISOString(),
+        refreshedAt,
+        months ? refreshedAt : keepMonth ? (before?.monthRefreshedAt ?? null) : null,
       ]);
     });
   } catch {
@@ -277,15 +285,21 @@ export async function runPull(
     materials: materials.length,
     roster: roster.length,
     approvedDays: approved.length,
+    ...(months === null && { monthStale: true as const }),
   };
 }
 
-/** Whose mirror this is, and when it was refreshed; null before the first pull. */
-export async function mirrorInfo(db: DeviceDb): Promise<{ userId: string; refreshedAt: string } | null> {
-  const [row] = await db.all<{ user_id: string; refreshed_at: string }>(
-    `select user_id, refreshed_at from mirror_state where id = 1`,
+/**
+ * Whose mirror this is, when it was refreshed, and when its month rows were (null if it
+ * holds none); null before the first pull.
+ */
+export async function mirrorInfo(
+  db: DeviceDb,
+): Promise<{ userId: string; refreshedAt: string; monthRefreshedAt: string | null } | null> {
+  const [row] = await db.all<{ user_id: string; refreshed_at: string; month_refreshed_at: string | null }>(
+    `select user_id, refreshed_at, month_refreshed_at from mirror_state where id = 1`,
   );
-  return row ? { userId: row.user_id, refreshedAt: row.refreshed_at } : null;
+  return row ? { userId: row.user_id, refreshedAt: row.refreshed_at, monthRefreshedAt: row.month_refreshed_at } : null;
 }
 
 /** What the phone holds for this user, or null when it holds nothing of theirs. */
@@ -582,13 +596,27 @@ async function ownedBy(db: DeviceDb, userId: string): Promise<boolean> {
   return info !== null && info.userId === userId.toLowerCase();
 }
 
-async function deleteMirrors(db: DeviceDb): Promise<void> {
+/**
+ * The month view is the newest source and the only one a missing view can break, so it must not
+ * block the others: if it fails, the pull goes on without it and keeps the old month rows (ADR-053).
+ * A changed session still stops the whole pull.
+ */
+async function fetchMonths(source: MirrorSource, userId: string, pageSize: number): Promise<MonthRow[] | null> {
+  try {
+    return await fetchAll(source, 'month_entries', userId, pageSize, toMonthEntry);
+  } catch (error) {
+    if (reasonOf(error) === SESSION_CHANGED) throw error;
+    return null;
+  }
+}
+
+async function deleteMirrors(db: DeviceDb, keepMonth = false): Promise<void> {
   await db.run(`delete from mirror_sites`);
   await db.run(`delete from mirror_materials`);
   await db.run(`delete from mirror_roster`);
   await db.run(`delete from mirror_approved_days`);
   await db.run(`delete from mirror_report_status`);
-  await db.run(`delete from mirror_month_entries`);
+  if (!keepMonth) await db.run(`delete from mirror_month_entries`);
   await db.run(`delete from mirror_state`);
 }
 
