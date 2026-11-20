@@ -599,6 +599,22 @@ describe('outbox', () => {
       expect((await listRecords(db, USER_A, 'site_visits')).map((r) => r.recordId)).toEqual([ID(3), ID(2), ID(1)]);
     });
 
+    it('keeps one worker and one month when asked, whatever the letter case of the worker id', async () => {
+      const mark = (n: number, workerId: string, date: string): NewOutboxEntry => ({
+        entity: 'site_visits',
+        recordId: ID(n),
+        authorId: USER_A,
+        payload: { site_id: SITE_A, worker_id: workerId, attendance_date: date },
+      });
+      await enqueue(db, mark(1, 'AA-1', '2026-11-10'), T0);
+      await enqueue(db, mark(2, 'aa-1', '2026-10-31'), T0);
+      await enqueue(db, mark(3, 'BB-2', '2026-11-10'), T0);
+      await enqueue(db, mark(4, 'aa-1', '2026-11-11'), T0);
+
+      const rows = await listRecords(db, USER_A, 'site_visits', { siteId: SITE_A, workerId: 'AA-1', month: '2026-11' });
+      expect(rows.map((r) => r.recordId)).toEqual([ID(4), ID(1)]);
+    });
+
     it('carries the status and reason the verdict left', async () => {
       await enqueue(db, visit(1, SITE_A), T0);
       await claimBatch(db, USER_A, T0);

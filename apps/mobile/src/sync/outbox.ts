@@ -363,14 +363,22 @@ export interface OutboxRecord {
  * One user's records of one entity, newest first, for a capture screen to read
  * back what it saved (#79). `synced` rows are included: they stay until a cleanup
  * rule is decided (ADR-016), and a restarted app finds its open visit through them.
- * `siteId` keeps the rows whose payload names that `site_id`. Without an author
- * there is no list: this never falls back to every user's records (ADR-020).
+ * `siteId` keeps the rows whose payload names that `site_id`. `workerId` (any
+ * letter case) and `month` (YYYY-MM, checked by the caller) keep one worker's
+ * `attendance_date` rows, so a screen parses a few rows, not the whole site.
+ * Without an author there is no list: this never falls back to every user's
+ * records (ADR-020).
  */
 export async function listRecords(
   db: DeviceDb,
   authorId: string,
   entity: SyncEntity,
-  { siteId, limit = 200 }: { siteId?: string; limit?: number } = {},
+  {
+    siteId,
+    workerId,
+    month,
+    limit = 200,
+  }: { siteId?: string; workerId?: string; month?: string; limit?: number } = {},
 ): Promise<OutboxRecord[]> {
   if (!authorId) return [];
   const rows = await db.all<{
@@ -384,9 +392,21 @@ export async function listRecords(
     `select entity, record_id, payload, status, reason, updated_at from outbox
       where author_id = ? and entity = ?
         and (? is null or json_extract(payload, '$.site_id') = ?)
+        and (? is null or lower(json_extract(payload, '$.worker_id')) = ?)
+        and (? is null or json_extract(payload, '$.attendance_date') like ?)
       order by seq desc
       limit ?`,
-    [authorId.toLowerCase(), entity, siteId ?? null, siteId ?? null, Math.max(1, limit)],
+    [
+      authorId.toLowerCase(),
+      entity,
+      siteId ?? null,
+      siteId ?? null,
+      workerId?.toLowerCase() ?? null,
+      workerId?.toLowerCase() ?? null,
+      month ?? null,
+      month ? `${month}-%` : null,
+      Math.max(1, limit),
+    ],
   );
   return rows.map((r) => ({
     entity: r.entity,
