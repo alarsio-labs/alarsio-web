@@ -161,6 +161,12 @@ pulled. `pull.test.ts`, `register-store.test.ts` and `DayRegisterScreen.test.tsx
 `attendance_views_test.sql` covers the new column. No row changes: "Mark everyone present in one tap" and
 "Manager approves or rejects a day" stay **unticked** until smoke tests S8 and S9 (`docs/DEPLOY.md`) pass
 against the team project (#58), after the `entry_id` migration is pushed.*
+*The worker month is #234 (ADR-053, PR #235): a supervisor opens one worker's month on the phone with no signal,
+sees each day's mark and a summary (present, half days, leave, absent, not marked, payable days, overtime), and
+marks or changes a day through the day register's save path. The phone copies this and last month from the view
+`attendance_month_entries` (device migration 9). `month.test.ts`, `month-store.test.ts`, `pull-month.test.ts` and
+`WorkerMonthScreen.test.tsx` cover it on a test database. No row changes: it is not one of the rows above, and it
+has not run on a device or against the team project (#58).*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
