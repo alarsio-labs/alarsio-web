@@ -4,17 +4,18 @@
 // phone knows is approved is read-only here: its change is a correction in the day register.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { shiftMonth, type DayMark } from '../attendance/month';
 import { readWorkerMonth, type MonthDay, type WorkerMonth } from '../attendance/month-store';
-import { cleanMark, ENTRY_STATUSES, entryStatusText, type EntryStatus, type Mark } from '../attendance/register';
+import { cleanMark, entryStatusText, type EntryStatus, type Mark } from '../attendance/register';
 import { saveMark } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
 import { istDate, readSites, readSiteWorkers, type MirrorSite, type RosterWorker } from '../sync/pull';
-import { Button, errorText, STATUS_LABEL } from './DayRegisterScreen';
+import { Button, errorText } from './DayRegisterScreen';
 import { LoadFailed } from './LoadFailed';
+import { MarkFields, STATUS_LABEL } from './MarkFields';
 import { ScreenTitle } from './ScreenTitle';
 import { colors, radius, tone } from '../theme';
 
@@ -278,36 +279,13 @@ export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date
 
                       {editing === day.date && (
                         <View style={styles.panel}>
-                          <View style={styles.row}>
-                            {ENTRY_STATUSES.map((s) => (
-                              <Pressable
-                                key={s}
-                                accessibilityRole="button"
-                                accessibilityLabel={STATUS_LABEL[s]}
-                                accessibilityState={{ selected: status === s }}
-                                onPress={() => setStatus(s)}
-                                style={[styles.chip, status === s && styles.chipOn]}
-                              >
-                                <Text style={status === s ? styles.chipTextOn : styles.chipText}>{STATUS_LABEL[s]}</Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                          <TextInput
-                            accessibilityLabel="Overtime hours"
-                            style={styles.input}
-                            value={overtime}
-                            onChangeText={setOvertime}
-                            keyboardType="decimal-pad"
-                            placeholder="Overtime hours (0 to 8)"
-                          />
-                          <TextInput
-                            accessibilityLabel="Note"
-                            style={[styles.input, styles.tall]}
-                            value={note}
-                            onChangeText={setNote}
-                            maxLength={500}
-                            multiline
-                            placeholder="Note (optional)"
+                          <MarkFields
+                            status={status}
+                            onStatus={setStatus}
+                            overtime={overtime}
+                            onOvertime={setOvertime}
+                            note={note}
+                            onNote={setNote}
                           />
                           <Button label="Save" onPress={() => void saveDay(day.date, () => cleanMark({ status, overtime, note }))} />
                           <Button label="Cancel" secondary onPress={closeEditor} />
@@ -343,10 +321,4 @@ const styles = StyleSheet.create({
   row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
   card: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
   panel: { gap: 12 },
-  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, fontSize: 16, backgroundColor: colors.paper },
-  tall: { minHeight: 70, textAlignVertical: 'top' },
-  chip: { minHeight: 44, paddingHorizontal: 14, borderRadius: radius.pill, borderWidth: 1, borderColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  chipOn: { backgroundColor: colors.ink },
-  chipText: { color: colors.ink, fontSize: 15 },
-  chipTextOn: { color: colors.white, fontSize: 15 },
 });

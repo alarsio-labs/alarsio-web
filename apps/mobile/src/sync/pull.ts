@@ -252,11 +252,13 @@ export async function runPull(
           [r.id, r.siteId, r.reportDate, r.status, r.reviewNote, r.reviewedAt],
         );
       }
-      for (const m of months) {
+      // Up to thousands of rows: one statement per 100 rows, not one per row. 700 values stay under SQLite's 999 limit.
+      for (let i = 0; i < months.length; i += 100) {
+        const chunk = months.slice(i, i + 100);
         await db.run(
           `insert into mirror_month_entries (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, day_status)
-           values (?, ?, ?, ?, ?, ?, ?)`,
-          [m.entryId, m.siteId, m.workerId, m.workDate, m.status, m.overtimeHundredths, m.dayStatus],
+           values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+          chunk.flatMap((m) => [m.entryId, m.siteId, m.workerId, m.workDate, m.status, m.overtimeHundredths, m.dayStatus]),
         );
       }
       await db.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [
