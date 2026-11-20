@@ -201,4 +201,14 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index mirror_month_entries_day on mirror_month_entries (site_id, work_date);
     `,
   },
+  {
+    // The month rows can be older than the rest: a pull whose month fetch failed keeps them
+    // (ADR-053). This is when they were last replaced; a phone on version 9 had them as old as the pull.
+    version: 10,
+    name: 'month mirror refresh time',
+    sql: `
+      alter table mirror_state add column month_refreshed_at text;
+      update mirror_state set month_refreshed_at = refreshed_at;
+    `,
+  },
 ];
