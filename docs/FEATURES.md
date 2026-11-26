@@ -165,7 +165,9 @@ against the team project (#58), after the `entry_id` migration is pushed.*
 sees each day's mark and a summary (present, half days, leave, absent, not marked, payable days, overtime), and
 marks or changes a day through the day register's save path. The phone copies this and last month from the view
 `attendance_month_entries` (device migration 9). `month.test.ts`, `month-store.test.ts`, `pull-month.test.ts` and
-`WorkerMonthScreen.test.tsx` cover it on a test database. No row changes: it is not one of the rows above, and it
+`WorkerMonthScreen.test.tsx` cover it on a test database. The view itself is PR #245 (migration
+`20261126100000_attendance_month_entries_view.sql`, `attendance_month_view_test.sql`): it has `note` last, and must be
+pushed to the team project before a phone has month rows. No row changes: it is not one of the rows above, and it
 has not run on a device or against the team project (#58).*
 
 ### 5 · Daily Reporting
