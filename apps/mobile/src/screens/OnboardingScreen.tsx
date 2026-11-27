@@ -2,11 +2,12 @@
 // bottom. Before sign-in the action is "Sign in"; opened again from Help it is "Done".
 
 import { useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import {
   Pressable,
   ScrollView,
   StyleSheet,
-  Text,
+  Text as RNText,
   useWindowDimensions,
   View,
   type NativeScrollEvent,
@@ -15,9 +16,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { SLIDES } from '../onboarding/slides';
-import { colors, fonts, minTarget, radius, space } from '../theme';
+import { brand, fonts, lineHeight, maxFontScale, minTarget, radius, space } from '../theme';
+import { Button } from '../ui/Button';
 import { Icon } from '../ui/Icon';
-import { Pill } from '../ui/Pill';
+import { Text } from '../ui/Text';
 import { Wordmark } from '../ui/Wordmark';
 
 export interface OnboardingScreenProps {
@@ -27,7 +29,11 @@ export interface OnboardingScreenProps {
   doneLabel?: string;
 }
 
-export function OnboardingScreen({ onDone, doneLabel = 'Sign in' }: OnboardingScreenProps) {
+const TITLE_SIZE = 40;
+
+export function OnboardingScreen({ onDone, doneLabel }: OnboardingScreenProps) {
+  const { t, i18n } = useTranslation();
+  const hindi = i18n.language === 'hi';
   const { width } = useWindowDimensions();
   const [page, setPage] = useState(0);
   const scroller = useRef<ScrollView>(null);
@@ -48,11 +54,13 @@ export function OnboardingScreen({ onDone, doneLabel = 'Sign in' }: OnboardingSc
         <Wordmark size={24} onDark />
         <Pressable
           accessibilityRole="button"
-          accessibilityLabel="Skip the tutorial"
+          accessibilityLabel={t('onboarding.skipLabel')}
           onPress={onDone}
           style={styles.skip}
         >
-          <Text style={styles.skipText}>Skip</Text>
+          <Text color={brand.cream} style={styles.skipText}>
+            {t('onboarding.skip')}
+          </Text>
         </Pressable>
       </View>
 
@@ -64,33 +72,54 @@ export function OnboardingScreen({ onDone, doneLabel = 'Sign in' }: OnboardingSc
         onMomentumScrollEnd={onScrollEnd}
         style={styles.pages}
       >
-        {SLIDES.map((s, i) => (
-          <View
-            key={s.title}
-            style={[styles.slide, { width }]}
-            accessible
-            accessibilityLabel={`${i + 1} of ${SLIDES.length}. ${s.title}. ${s.body}`}
-          >
-            <View style={styles.badge}>
-              <Icon name={s.icon} size={64} color={colors.ink} />
+        {SLIDES.map((s, i) => {
+          const title = t(s.titleKey);
+          const body = t(s.bodyKey);
+          return (
+            <View
+              key={s.titleKey}
+              style={[styles.slide, { width }]}
+              accessible
+              accessibilityLabel={t('onboarding.slideLabel', { index: i + 1, total: SLIDES.length, title, body })}
+            >
+              <View style={styles.badge}>
+                <Icon name={s.icon} size={64} color={brand.ink} />
+              </View>
+              <Text color={brand.red} style={styles.step}>{`${String(i + 1).padStart(2, '0')} / ${String(SLIDES.length).padStart(2, '0')}`}</Text>
+              <RNText
+                maxFontSizeMultiplier={maxFontScale}
+                style={[
+                  styles.title,
+                  // Anton has no Devanagari glyphs, so Hindi uses the bundled Noto bold.
+                  hindi ? { fontFamily: fonts.hindiBold, lineHeight: lineHeight(TITLE_SIZE) } : null,
+                ]}
+              >
+                {title}
+              </RNText>
+              <Text variant="heading" color={brand.creamMuted}>
+                {body}
+              </Text>
             </View>
-            <Text style={styles.step}>{`${String(i + 1).padStart(2, '0')} / ${String(SLIDES.length).padStart(2, '0')}`}</Text>
-            <Text style={styles.title}>{s.title}</Text>
-            <Text style={styles.body}>{s.body}</Text>
-          </View>
-        ))}
+          );
+        })}
       </ScrollView>
 
       <View style={styles.dots} accessibilityElementsHidden importantForAccessibility="no-hide-descendants">
         {SLIDES.map((s, i) => (
-          <View key={s.title} style={[styles.dot, i === page && styles.dotOn]} />
+          <View key={s.titleKey} style={[styles.dot, i === page && styles.dotOn]} />
         ))}
       </View>
 
       <View style={styles.bar}>
-        <Pill label={doneLabel} kind="red" onPress={onDone} style={styles.main} />
+        <Button label={doneLabel ?? t('onboarding.signIn')} onPress={onDone} style={styles.main} />
         {page < last && (
-          <Pill label="Next" kind="cream" icon="next" accessibilityLabel="Next slide" onPress={() => goTo(page + 1)} />
+          <Button
+            label={t('onboarding.next')}
+            kind="secondary"
+            icon="next"
+            accessibilityLabel={t('onboarding.nextLabel')}
+            onPress={() => goTo(page + 1)}
+          />
         )}
       </View>
     </SafeAreaView>
@@ -98,27 +127,26 @@ export function OnboardingScreen({ onDone, doneLabel = 'Sign in' }: OnboardingSc
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.loam },
+  safe: { flex: 1, backgroundColor: brand.loam },
   top: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: space.xl, paddingTop: space.sm },
   skip: { minHeight: minTarget, minWidth: minTarget, alignItems: 'flex-end', justifyContent: 'center' },
-  skipText: { color: colors.cream, fontSize: 16, textDecorationLine: 'underline' },
+  skipText: { textDecorationLine: 'underline' },
   pages: { flex: 1 },
   slide: { flex: 1, justifyContent: 'center', paddingHorizontal: space.xl * 1.5, gap: space.md },
   badge: {
     width: 128,
     height: 128,
     borderRadius: radius.pill,
-    backgroundColor: colors.cream,
+    backgroundColor: brand.cream,
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: space.lg,
   },
-  step: { color: colors.red, fontSize: 14, letterSpacing: 2 },
-  title: { color: colors.cream, fontFamily: fonts.display, fontSize: 40, lineHeight: 44, textTransform: 'uppercase' },
-  body: { color: colors.creamMuted, fontSize: 18, lineHeight: 27 },
+  step: { letterSpacing: 2 },
+  title: { color: brand.cream, fontFamily: fonts.display, fontSize: TITLE_SIZE, lineHeight: 44, textTransform: 'uppercase' },
   dots: { flexDirection: 'row', justifyContent: 'center', gap: space.sm, paddingVertical: space.md },
   dot: { width: 8, height: 8, borderRadius: 4, backgroundColor: 'rgba(231, 226, 216, 0.3)' },
-  dotOn: { width: 24, backgroundColor: colors.red },
+  dotOn: { width: 24, backgroundColor: brand.red },
   bar: { flexDirection: 'row', gap: space.md, paddingHorizontal: space.xl, paddingBottom: space.xl },
   main: { flex: 1 },
 });

@@ -3,6 +3,7 @@
 // screen readers; the word carries the meaning.
 
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import type { ColorValue } from 'react-native';
 
 import { colors } from '../theme';
 
@@ -17,11 +18,20 @@ const GLYPHS = {
   materials: 'package-variant-closed',
   next: 'arrow-right',
   help: 'help-circle-outline',
+  ok: 'check-circle-outline',
+  wait: 'clock-outline',
+  chevron: 'chevron-right',
+  back: 'arrow-left',
+  today: 'calendar-today',
+  sites: 'office-building-marker-outline',
+  more: 'dots-horizontal',
+  language: 'translate',
+  empty: 'tray-remove',
 } as const;
 
 export type IconName = keyof typeof GLYPHS;
 
-export function Icon({ name, size = 20, color = colors.ink }: { name: IconName; size?: number; color?: string }) {
+export function Icon({ name, size = 20, color = colors.text }: { name: IconName; size?: number; color?: ColorValue }) {
   return (
     <MaterialCommunityIcons
       name={GLYPHS[name]}

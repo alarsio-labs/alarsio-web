@@ -3,10 +3,11 @@
 
 import DateTimePicker, { DateTimePickerAndroid, type DateTimePickerEvent } from '@react-native-community/datetimepicker';
 import { useState } from 'react';
-import { Platform, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Platform, View } from 'react-native';
 
 import { dayToPickerDate, pickerDateToDay, pickerDayLabel } from '../lib/day-picker';
-import { colors, minTarget, radius, type } from '../theme';
+import { Button } from '../ui/Button';
 
 /** How a picker is opened. Tests pass their own; the default is the native one. */
 export type OpenDatePicker = (options: { value: Date; maximumDate: Date; onPick: (picked: Date) => void }) => void;
@@ -32,6 +33,7 @@ export interface DatePickerFieldProps {
 }
 
 export function DatePickerField({ value, max, onChange, openPicker }: DatePickerFieldProps) {
+  const { t } = useTranslation();
   const [iosOpen, setIosOpen] = useState(false);
   const useInline = !openPicker && Platform.OS !== 'android';
 
@@ -45,16 +47,15 @@ export function DatePickerField({ value, max, onChange, openPicker }: DatePicker
     else (openPicker ?? openNativePicker)({ value: dayToPickerDate(value), maximumDate: dayToPickerDate(max), onPick: pick });
   };
 
+  const day = pickerDayLabel(value);
   return (
     <View>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Date: ${pickerDayLabel(value)}. Opens a calendar`}
+      <Button
+        kind="secondary"
+        label={t('fields.date', { day })}
+        accessibilityLabel={t('fields.dateOpens', { day })}
         onPress={onPress}
-        style={styles.button}
-      >
-        <Text style={styles.text}>{`Date: ${pickerDayLabel(value)}`}</Text>
-      </Pressable>
+      />
       {useInline && iosOpen && (
         <DateTimePicker
           value={dayToPickerDate(value)}
@@ -66,15 +67,3 @@ export function DatePickerField({ value, max, onChange, openPicker }: DatePicker
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  button: {
-    minHeight: minTarget,
-    borderWidth: 1,
-    borderColor: colors.fieldLine,
-    borderRadius: radius.pill,
-    paddingHorizontal: 12,
-    justifyContent: 'center',
-  },
-  text: { fontSize: type.body, color: colors.ink },
-});

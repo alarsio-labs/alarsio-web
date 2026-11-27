@@ -1,32 +1,33 @@
-// Who is signed in, and sign-out, in the screen header (which handles the
-// status bar and notch). Owner: Identity (Ishant). Issue #56.
+// Who is signed in, and sign-out. Owner: Identity (Ishant). Issue #56.
 // Sign-out warns about unsent records but never blocks (ADR-020).
 
 import { useRef } from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Alert, StyleSheet, View } from 'react-native';
 
 import type { SignedInUser } from '../auth/auth-client';
 import { signOutWarning, type UnsentCounts } from '../auth/sign-out-warning';
-import { colors } from '../theme';
+import { colors, space } from '../theme';
+import { Button } from '../ui/Button';
+import { Text } from '../ui/Text';
 
 export interface AccountMenuProps {
   user: SignedInUser;
   /** This user's unsent records, split by whether they will resend. */
   unsentCounts: (userId: string) => Promise<UnsentCounts>;
   signOut: () => Promise<void>;
-  /** Opens Help and about. Absent where the screen has no router (the "use the web" screen). */
-  onOpenAbout?: () => void;
 }
 
-/** Sign-out with the unsent-records warning; never blocks (ADR-020). Shared by the header and the About screen. */
+/** Sign-out with the unsent-records warning; never blocks (ADR-020). Shared by this menu and the More tab. */
 export function useSignOutFlow({ user, unsentCounts, signOut }: AccountMenuProps): () => Promise<void> {
+  const { t } = useTranslation();
   const busy = useRef(false);
 
   const doSignOut = async () => {
     try {
       await signOut();
     } catch {
-      Alert.alert('Sign out failed', 'Close the app and open it again, then try once more.');
+      Alert.alert(t('account.failedTitle'), t('account.failedBody'));
     } finally {
       busy.current = false;
     }
@@ -41,48 +42,33 @@ export function useSignOutFlow({ user, unsentCounts, signOut }: AccountMenuProps
       await doSignOut();
       return;
     }
-    Alert.alert('Sign out?', warning, [
-      { text: 'Stay signed in', style: 'cancel', onPress: () => { busy.current = false; } },
-      { text: 'Sign out', style: 'destructive', onPress: () => void doSignOut() },
+    Alert.alert(t('account.confirmTitle'), warning, [
+      { text: t('account.stay'), style: 'cancel', onPress: () => { busy.current = false; } },
+      { text: t('common.signOut'), style: 'destructive', onPress: () => void doSignOut() },
     ]);
   };
 }
 
-export function AccountMenu({ user, unsentCounts, signOut, onOpenAbout }: AccountMenuProps) {
+export function AccountMenu({ user, unsentCounts, signOut }: AccountMenuProps) {
+  const { t } = useTranslation();
   const onSignOut = useSignOutFlow({ user, unsentCounts, signOut });
 
   return (
     <View style={styles.row}>
-      <Text style={styles.email} numberOfLines={1}>
+      <Text variant="small" color={colors.muted} numberOfLines={1} style={styles.email}>
         {user.email}
       </Text>
-      {onOpenAbout && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Help and about"
-          hitSlop={8}
-          onPress={onOpenAbout}
-          style={styles.target}
-        >
-          <Text style={styles.link}>Help</Text>
-        </Pressable>
-      )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={`Sign out ${user.email}`}
-        hitSlop={12}
+      <Button
+        kind="secondary"
+        label={t('common.signOut')}
+        accessibilityLabel={t('account.signOutLabel', { email: user.email })}
         onPress={() => void onSignOut()}
-        style={styles.target}
-      >
-        <Text style={styles.link}>Sign out</Text>
-      </Pressable>
+      />
     </View>
   );
 }
 
 const styles = StyleSheet.create({
-  row: { flexDirection: 'row', alignItems: 'center', gap: 8, maxWidth: 300 },
-  email: { flexShrink: 1, color: colors.muted, fontSize: 13 },
-  target: { minHeight: 44, minWidth: 44, justifyContent: 'center' },
-  link: { color: colors.ink, fontSize: 15, textDecorationLine: 'underline' },
+  row: { flexDirection: 'row', flexWrap: 'wrap', alignItems: 'center', gap: space.sm },
+  email: { flexShrink: 1 },
 });

@@ -5,10 +5,11 @@
 // geofence figure is the phone's estimate: the database decides (ADR-021).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { Linking, View } from 'react-native';
 
 import { estimateGeofence, type GeofenceEstimate } from '../attendance/geofence';
+import { dayLabel } from '../attendance/labels';
 import type { LocationProvider, PermissionState, UnavailableCause } from '../attendance/location';
 import { locationProblemText, opensSettings } from '../attendance/location-text';
 import {
@@ -19,14 +20,21 @@ import {
   visitStatusText,
   VisitError,
   type Placement,
-  type StatusTone,
+  type VisitErrorCode,
 } from '../attendance/visit';
 import { listVisits, resendWithReason, saveCheckIn, saveCheckOut, type StoredVisit } from '../attendance/visit-store';
 import type { DeviceDb } from '../db/device-db';
+import i18n from '../i18n';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface SiteAttendanceScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -64,36 +72,20 @@ type Step =
 
 type SiteLoad = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { kind: 'ready'; site: MirrorSite };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-
-/** "2026-10-19" as "19 Oct". */
-function dayLabel(day: string): string {
-  const month = MONTHS[Number(day.slice(5, 7)) - 1] ?? '';
-  return `${Number(day.slice(8, 10))} ${month}`;
-}
-
 // A fixed sentence per failure, never the error's own text (it can name files or places).
+const ERRORS = {
+  no_org: 'attendance.error.noOrg',
+  bad_coordinates: 'attendance.error.badCoordinates',
+  reason_required: 'attendance.error.reasonRequired',
+  reason_too_long: 'attendance.error.reasonTooLong',
+  before_check_in: 'attendance.error.beforeCheckIn',
+  already_checked_out: 'attendance.error.alreadyCheckedOut',
+  not_found: 'attendance.error.cannotChange',
+  not_refused: 'attendance.error.cannotChange',
+} as const satisfies Record<VisitErrorCode, string>;
+
 function errorText(error: unknown): string {
-  if (error instanceof VisitError) {
-    switch (error.code) {
-      case 'reason_required':
-        return 'Say why, in a few words.';
-      case 'reason_too_long':
-        return 'Keep the reason under 500 characters.';
-      case 'before_check_in':
-        return "This phone's clock is earlier than the check-in. Fix the time on this phone and try again.";
-      case 'no_org':
-        return 'Connect once to refresh your sites, then try again.';
-      case 'bad_coordinates':
-        return 'The location was not valid. Try again.';
-      case 'already_checked_out':
-        return 'This visit is already checked out.';
-      case 'not_found':
-      case 'not_refused':
-        return 'This visit cannot be changed any more.';
-    }
-  }
-  return 'Could not save on this phone. Try again.';
+  return i18n.t(error instanceof VisitError ? ERRORS[error.code] : 'attendance.error.saveFailed');
 }
 
 export function SiteAttendanceScreen({
@@ -106,6 +98,7 @@ export function SiteAttendanceScreen({
   onOpenRegister,
   onOpenWorkers,
 }: SiteAttendanceScreenProps) {
+  const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [siteLoad, setSiteLoad] = useState<SiteLoad>({ kind: 'loading' });
   const [visits, setVisits] = useState<StoredVisit[]>([]);
@@ -303,185 +296,141 @@ export function SiteAttendanceScreen({
       }
     });
 
-  const verb = (action: Action) => (action.kind === 'in' ? 'Check in' : 'Check out');
+  const submitLabel = (s: Extract<Step, { kind: 'reason' }>) => {
+    const out = s.action.kind === 'out';
+    if (s.cause === 'outside') return out ? t('attendance.checkOutAnyway') : t('attendance.checkInAnyway');
+    return out ? t('attendance.checkOutWithout') : t('attendance.checkInWithout');
+  };
+
+  const reasonField = (
+    <TextField label={t('attendance.reason')} value={reasonText} onChangeText={setReasonText} maxLength={500} multiline />
+  );
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {siteLoad.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {siteLoad.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
-        {siteLoad.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
+    <Screen>
+      {siteLoad.kind === 'loading' && <Text color={colors.muted}>{t('common.loading')}</Text>}
+      {siteLoad.kind === 'failed' && <LoadFailed message={t('attendance.sitesReadFailed')} onRetry={retry} />}
+      {siteLoad.kind === 'missing' && <Text>{t('attendance.siteMissing')}</Text>}
 
-        {site && (
-          <>
-            <ScreenTitle screen="check_in" siteName={site.name} />
-            <Text style={styles.title} accessibilityRole="header">
-              {site.name}
-            </Text>
-            <Text style={styles.sub}>{site.address}</Text>
+      {site && (
+        <>
+          <ScreenTitle screen="check_in" siteName={site.name} />
+          <Text color={colors.muted}>{site.address}</Text>
 
-            {site.orgId === null && (
-              <Text style={styles.error}>Connect once to refresh your sites, then check in.</Text>
-            )}
+          {site.orgId === null && <Text color={tone.attention.text}>{t('attendance.connectToCheckIn')}</Text>}
 
-            {step.kind === 'explain' && (
-              <View style={styles.panel}>
-                <Text style={styles.line}>
-                  Alarsio reads your location once, when you tap Check in or Check out, to record that you are at this
-                  site.
-                </Text>
-                <Text style={styles.sub}>It does not track you in the background.</Text>
-                <Button label="Continue" onPress={() => void continueAfterExplanation(step.action)} />
-                <Button label="Not now" secondary onPress={finish} />
-              </View>
-            )}
-
-            {step.kind === 'locating' && <Text style={styles.line}>Getting your location…</Text>}
-
-            {step.kind === 'reason' && (
-              <View style={styles.panel}>
-                {step.cause === 'outside' && step.estimate ? (
-                  <>
-                    <Text style={styles.line}>
-                      {`You seem to be about ${Math.round(step.estimate.distanceM)} m from this site (limit ${step.estimate.radiusM} m).`}
-                    </Text>
-                    {step.accuracyM !== null && (
-                      <Text style={styles.sub}>{`GPS accuracy about ${Math.round(step.accuracyM)} m.`}</Text>
-                    )}
-                    <Text style={styles.line}>Say why you are {step.action.kind === 'in' ? 'checking in' : 'checking out'} here.</Text>
-                  </>
-                ) : (
-                  <>
-                    <Text style={styles.line}>{locationProblemText(step.unavailable ?? 'error', step.action.kind)}</Text>
-                    <Button label="Try location again" secondary onPress={() => void retryLocation(step.action)} />
-                    {opensSettings(step.unavailable ?? 'error') && (
-                      <Button label="Open settings" secondary onPress={() => void Linking.openSettings().catch(() => undefined)} />
-                    )}
-                  </>
-                )}
-                <TextInput
-                  accessibilityLabel="Reason"
-                  style={styles.input}
-                  value={reasonText}
-                  onChangeText={setReasonText}
-                  maxLength={500}
-                  multiline
-                />
-                <Button
-                  label={step.cause === 'outside' ? `${verb(step.action)} anyway` : `${verb(step.action)} without location`}
-                  onPress={() => void submitReason(step)}
-                />
-                <Button label="Cancel" secondary onPress={finish} />
-              </View>
-            )}
-
-            {step.kind === 'resend' && (
-              <View style={styles.panel}>
-                <Text style={styles.line}>Say why, and the visit is sent again.</Text>
-                <TextInput
-                  accessibilityLabel="Reason"
-                  style={styles.input}
-                  value={reasonText}
-                  onChangeText={setReasonText}
-                  maxLength={500}
-                  multiline
-                />
-                <Button label="Send again" onPress={() => void submitResend(step.recordId)} />
-                <Button label="Cancel" secondary onPress={finish} />
-              </View>
-            )}
-
-            {message && (
-              <Text style={styles.error} accessibilityLiveRegion="polite">
-                {message}
+          {step.kind === 'explain' && (
+            <Card>
+              <Text>{t('attendance.explain')}</Text>
+              <Text variant="small" color={colors.muted}>
+                {t('attendance.noTracking')}
               </Text>
-            )}
+              <Button label={t('attendance.continue')} onPress={() => void continueAfterExplanation(step.action)} />
+              <Button label={t('attendance.notNow')} kind="secondary" onPress={finish} />
+            </Card>
+          )}
 
-            {step.kind === 'idle' && site.orgId !== null && !openToday && (
-              <Button label="Check in" onPress={() => void begin({ kind: 'in' })} />
-            )}
+          {step.kind === 'locating' && <Text color={colors.muted}>{t('attendance.locating')}</Text>}
 
-            {step.kind === 'idle' && site.orgId !== null && onOpenRegister && (
-              <Button label="Day register" secondary onPress={onOpenRegister} />
-            )}
-
-            {step.kind === 'idle' && site.orgId !== null && onOpenWorkers && (
-              <Button label="Workers" secondary onPress={onOpenWorkers} />
-            )}
-
-            {shown.map((v) => {
-              const day = istDay(v.visit);
-              const status = visitStatusText(v.status, v.reason);
-              const open = v.visit.checkOut === null;
-              const line =
-                `${day === today ? '' : `${dayLabel(day)} · `}Checked in ${istTime(v.visit.checkIn.at)}` +
-                (v.visit.checkOut ? ` · Checked out ${istTime(v.visit.checkOut.at)}` : '');
-              return (
-                <View key={v.recordId} style={styles.visit}>
-                  <Text style={styles.visitLine}>{line}</Text>
-                  <Text style={[styles.status, toneStyle[status.tone]]} accessibilityLiveRegion="polite">
-                    {status.text}
+          {step.kind === 'reason' && (
+            <Card>
+              {step.cause === 'outside' && step.estimate ? (
+                <>
+                  <Text>
+                    {t('attendance.outside', { distance: Math.round(step.estimate.distanceM), limit: step.estimate.radiusM })}
                   </Text>
-                  {step.kind === 'idle' && open && (
+                  {step.accuracyM !== null && (
+                    <Text variant="small" color={colors.muted}>
+                      {t('attendance.accuracy', { accuracy: Math.round(step.accuracyM) })}
+                    </Text>
+                  )}
+                  <Text>{step.action.kind === 'in' ? t('attendance.sayWhyIn') : t('attendance.sayWhyOut')}</Text>
+                </>
+              ) : (
+                <>
+                  <Text>{locationProblemText(step.unavailable ?? 'error', step.action.kind)}</Text>
+                  <Button label={t('attendance.tryLocationAgain')} kind="secondary" onPress={() => void retryLocation(step.action)} />
+                  {opensSettings(step.unavailable ?? 'error') && (
                     <Button
-                      label={day === today ? 'Check out' : `Check out (${dayLabel(day)})`}
-                      onPress={() => void begin({ kind: 'out', recordId: v.recordId })}
+                      label={t('attendance.openSettings')}
+                      kind="secondary"
+                      onPress={() => void Linking.openSettings().catch(() => undefined)}
                     />
                   )}
-                  {step.kind === 'idle' && v.status === 'rejected' && (
-                    <Button
-                      label="Add a reason and send again"
-                      secondary
-                      onPress={() => {
-                        setMessage(null);
-                        setReasonText('');
-                        setStep({ kind: 'resend', recordId: v.recordId });
-                      }}
-                    />
-                  )}
+                </>
+              )}
+              {reasonField}
+              <Button label={submitLabel(step)} onPress={() => void submitReason(step)} />
+              <Button label={t('fields.cancel')} kind="secondary" onPress={finish} />
+            </Card>
+          )}
+
+          {step.kind === 'resend' && (
+            <Card>
+              <Text>{t('attendance.resendPrompt')}</Text>
+              {reasonField}
+              <Button label={t('attendance.sendAgain')} onPress={() => void submitResend(step.recordId)} />
+              <Button label={t('fields.cancel')} kind="secondary" onPress={finish} />
+            </Card>
+          )}
+
+          {message && (
+            <Text color={tone.attention.text} accessibilityLiveRegion="polite">
+              {message}
+            </Text>
+          )}
+
+          {step.kind === 'idle' && site.orgId !== null && !openToday && (
+            <Button label={t('attendance.checkIn')} onPress={() => void begin({ kind: 'in' })} />
+          )}
+
+          {step.kind === 'idle' && site.orgId !== null && onOpenRegister && (
+            <Button label={t('attendance.dayRegister')} kind="secondary" onPress={onOpenRegister} />
+          )}
+
+          {step.kind === 'idle' && site.orgId !== null && onOpenWorkers && (
+            <Button label={t('attendance.workers')} kind="secondary" onPress={onOpenWorkers} />
+          )}
+
+          {shown.map((v) => {
+            const day = istDay(v.visit);
+            const status = visitStatusText(v.status, v.reason);
+            const open = v.visit.checkOut === null;
+            const line = [
+              day === today ? null : dayLabel(day),
+              t('attendance.checkedIn', { time: istTime(v.visit.checkIn.at) }),
+              v.visit.checkOut ? t('attendance.checkedOut', { time: istTime(v.visit.checkOut.at) }) : null,
+            ]
+              .filter((part) => part !== null)
+              .join(' · ');
+            return (
+              <Card key={v.recordId}>
+                <Text bold>{line}</Text>
+                <View accessibilityLiveRegion="polite">
+                  <StatusBadge tone={status.tone} label={status.text} />
                 </View>
-              );
-            })}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                {step.kind === 'idle' && open && (
+                  <Button
+                    label={day === today ? t('attendance.checkOut') : t('attendance.checkOutDay', { day: dayLabel(day) })}
+                    onPress={() => void begin({ kind: 'out', recordId: v.recordId })}
+                  />
+                )}
+                {step.kind === 'idle' && v.status === 'rejected' && (
+                  <Button
+                    label={t('attendance.addReasonResend')}
+                    kind="secondary"
+                    onPress={() => {
+                      setMessage(null);
+                      setReasonText('');
+                      setStep({ kind: 'resend', recordId: v.recordId });
+                    }}
+                  />
+                )}
+              </Card>
+            );
+          })}
+        </>
+      )}
+    </Screen>
   );
 }
-
-function Button({ label, onPress, secondary = false }: { label: string; onPress: () => void; secondary?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={[styles.button, secondary && styles.buttonSecondary]}
-    >
-      <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const toneStyle: Record<StatusTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  sub: { fontSize: 14, color: colors.muted },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  panel: { gap: 12, backgroundColor: colors.paper },
-  input: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, minHeight: 80, fontSize: 16, textAlignVertical: 'top', backgroundColor: colors.paper },
-  visit: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
-  visitLine: { fontSize: 16, fontWeight: '500' },
-  status: { fontSize: 14 },
-  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
-  buttonText: { color: colors.white, fontSize: 16 },
-  buttonTextSecondary: { color: colors.ink },
-});

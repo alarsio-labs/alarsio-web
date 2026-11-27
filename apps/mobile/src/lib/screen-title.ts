@@ -1,6 +1,8 @@
 // The header title of each screen: what it is, and which site it is for.
 // A long site name is cut so the title and the header buttons both fit.
 
+import i18n from '../i18n';
+
 export type ScreenKey =
   | 'attendance_sites'
   | 'check_in'
@@ -12,18 +14,6 @@ export type ScreenKey =
   | 'site_materials'
   | 'help';
 
-const NAMES: Record<ScreenKey, string> = {
-  attendance_sites: 'Attendance',
-  check_in: 'Check in',
-  day_register: 'Day register',
-  worker_month: 'Worker month',
-  report_sites: 'Daily reports',
-  daily_report: 'Daily report',
-  materials_sites: 'Materials',
-  site_materials: 'Materials',
-  help: 'Help',
-};
-
 export const MAX_SITE_NAME = 22;
 
 export function shortSiteName(name: string): string {
@@ -32,7 +22,7 @@ export function shortSiteName(name: string): string {
 }
 
 export function screenTitle(screen: ScreenKey, siteName?: string): string {
-  const base = NAMES[screen];
+  const base = i18n.t(`titles.${screen}`);
   const site = siteName ? shortSiteName(siteName) : '';
   return site ? `${base} · ${site}` : base;
 }

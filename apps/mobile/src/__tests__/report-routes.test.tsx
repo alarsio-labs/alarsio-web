@@ -1,7 +1,7 @@
 import { render } from '@testing-library/react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 
-import ReportsRoute from '../app/reports/index';
+import ReportsRoute from '../app/(tabs)/reports';
 import DailyReportRoute from '../app/reports/[siteId]';
 import { SessionUserContext } from '../auth/session-user';
 import { DailyReportScreen } from '../screens/DailyReportScreen';

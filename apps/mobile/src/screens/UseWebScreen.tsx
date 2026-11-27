@@ -1,13 +1,18 @@
 // Shown to owners and accountants (and to accounts with no company yet): the
 // phone is the site capture app; their work is on the web. Owner: Identity.
 
-import { Linking, Pressable, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import type { SignedInUser } from '../auth/auth-client';
 import { WEB_URL } from '../config/support';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Screen } from '../ui/Screen';
+import { ScreenHeader } from '../ui/ScreenHeader';
+import { Text } from '../ui/Text';
+import { colors } from '../theme';
 import { AccountMenu, type AccountMenuProps } from './AccountMenu';
-import { colors, primaryTarget, radius, space, type } from '../theme';
 
 export interface UseWebScreenProps {
   kind: 'web' | 'none';
@@ -17,44 +22,27 @@ export interface UseWebScreenProps {
 }
 
 export function UseWebScreen({ kind, user, unsentCounts, signOut }: UseWebScreenProps) {
+  const { t } = useTranslation();
   return (
-    <SafeAreaView style={styles.container}>
-      <Text accessibilityRole="header" style={styles.title}>
-        Alarsio
-      </Text>
-      {kind === 'web' ? (
-        <>
-          <Text style={styles.text}>Reviews, wages and the overview are on the web at alarsio.com.</Text>
-          <Pressable
-            accessibilityRole="link"
-            accessibilityLabel="Open alarsio.com"
-            onPress={() => void Linking.openURL(WEB_URL).catch(() => undefined)}
-            style={styles.button}
-          >
-            <Text style={styles.buttonText}>Open alarsio.com</Text>
-          </Pressable>
-        </>
-      ) : (
-        <Text style={styles.text}>Your account is not part of a company yet. Ask your manager for an invite link.</Text>
-      )}
-      <View style={styles.signOut}>
+    <View style={styles.fill}>
+      <ScreenHeader title="Alarsio" />
+      <Screen>
+        <Card>
+          <Text>{kind === 'web' ? t('useWeb.onWeb') : t('useWeb.noCompany')}</Text>
+          {kind === 'web' && (
+            <Button
+              accessibilityRole="link"
+              label={t('useWeb.open')}
+              onPress={() => void Linking.openURL(WEB_URL).catch(() => undefined)}
+            />
+          )}
+        </Card>
         <AccountMenu user={user} unsentCounts={unsentCounts} signOut={signOut} />
-      </View>
-    </SafeAreaView>
+      </Screen>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream, justifyContent: 'center', padding: space.xl, gap: space.lg },
-  title: { fontSize: type.title, fontWeight: '600', color: colors.ink },
-  text: { fontSize: type.body, color: colors.ink },
-  button: {
-    minHeight: primaryTarget,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  buttonText: { color: colors.white, fontSize: type.body },
-  signOut: { alignItems: 'flex-start' },
+  fill: { flex: 1, backgroundColor: colors.ground },
 });

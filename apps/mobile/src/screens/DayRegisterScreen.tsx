@@ -1,4 +1,4 @@
-// The day register at one site: mark everyone present in one tap, change one worker,
+// The day register at one site: mark everyone present in one tap, mark or change one worker,
 // or propose a correction on an approved day, all with no signal. Owner: Attendance
 // (Manish). Issue #79, ADR-048. Every save goes to the outbox first, under the signed-in
 // user; the screen reads it back and says "On the server" only once the server accepted it.
@@ -6,16 +6,17 @@
 // days or from a `locked` answer (ADR-049).
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet, View } from 'react-native';
 
+import { dayLabel, markParts } from '../attendance/labels';
 import {
   cleanMark,
   entryStatusText,
   RegisterError,
   type EntryStatus,
   type Mark,
-  type StatusTone,
+  type RegisterErrorCode,
 } from '../attendance/register';
 import {
   markAllPresent,
@@ -26,11 +27,18 @@ import {
   type RegisterRow,
 } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
+import i18n from '../i18n';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, minTarget, radius, space, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 import { LoadFailed } from './LoadFailed';
-import { fieldStyles, MarkFields, STATUS_LABEL } from './MarkFields';
+import { MarkFields } from './MarkFields';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface DayRegisterScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -50,54 +58,46 @@ type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'missing' } | { k
 
 type Editing = { workerId: string; correction: boolean };
 
-const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
-const dayLabel = (day: string) => `${Number(day.slice(8, 10))} ${MONTHS[Number(day.slice(5, 7)) - 1] ?? ''}`;
+// One tap: Present, Half day, Absent. Selected is solid in the status colour; colour is never the only signal (the letter and the label).
+const QUICK = [
+  { status: 'present', short: 'register.shortPresent', label: 'register.markPresent', tone: 'ok' },
+  { status: 'half_day', short: 'register.shortHalf', label: 'register.markHalf', tone: 'wait' },
+  { status: 'absent', short: 'register.shortAbsent', label: 'register.markAbsent', tone: 'attention' },
+] as const;
 
 function shiftDay(day: string, by: number): string {
   return new Date(Date.parse(`${day}T00:00:00Z`) + by * 86_400_000).toISOString().slice(0, 10);
 }
 
 // A fixed sentence per failure, never the error's own text.
+const ERRORS = {
+  status: 'register.error.status',
+  overtime: 'register.error.overtime',
+  overtime_needs_work: 'register.error.overtimeNeedsWork',
+  note: 'register.error.note',
+  reason_required: 'register.error.reasonRequired',
+  reason_too_long: 'register.error.reasonTooLong',
+  no_org: 'attendance.error.noOrg',
+  locked: 'register.error.locked',
+  not_locked: 'register.error.notLocked',
+  no_change: 'register.error.noChange',
+  no_entry: 'register.error.cannotChange',
+  not_on_roster: 'register.error.cannotChange',
+  bad_date: 'register.error.cannotChange',
+} as const satisfies Record<RegisterErrorCode, string>;
+
 export function errorText(error: unknown): string {
-  if (error instanceof RegisterError) {
-    switch (error.code) {
-      case 'status':
-        return 'Choose present, absent, half day or leave.';
-      case 'overtime':
-        return 'Overtime is a number of hours from 0 to 8, with up to 2 decimals.';
-      case 'overtime_needs_work':
-        return 'Overtime can only be added for a present or half day.';
-      case 'note':
-        return 'Keep the note under 500 characters.';
-      case 'reason_required':
-        return 'Say why the entry should change.';
-      case 'reason_too_long':
-        return 'Keep the reason under 500 characters.';
-      case 'no_org':
-        return 'Connect once to refresh your sites, then try again.';
-      case 'locked':
-        return 'This day is approved. Propose a correction instead.';
-      case 'not_locked':
-        return 'This day is not known to be approved, so use Change.';
-      case 'no_change':
-        return 'That is what the server already has. Change something first.';
-      case 'no_entry':
-      case 'not_on_roster':
-      case 'bad_date':
-        return 'This worker cannot be changed on this day.';
-    }
-  }
-  return 'Could not save on this phone. Try again.';
+  return i18n.t(error instanceof RegisterError ? ERRORS[error.code] : 'attendance.error.saveFailed');
 }
 
-function describe(mark: Mark): string {
-  const parts = [STATUS_LABEL[mark.status]];
-  if (mark.overtimeHours > 0) parts.push(`${mark.overtimeHours} h overtime`);
-  if (mark.note) parts.push(mark.note);
-  return parts.join(' · ');
-}
+const describe = (mark: Mark): string => [...markParts(mark), ...(mark.note ? [mark.note] : [])].join(' · ');
+
+/** What the register says about a worker today, whoever said it: a correction, the phone's entry or the approved day. */
+const statusOf = (row: RegisterRow): EntryStatus | null =>
+  row.correction?.mark.status ?? row.entry?.mark.status ?? row.approved?.status ?? null;
 
 export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date(), pollMs = 3000 }: DayRegisterScreenProps) {
+  const { t } = useTranslation();
   const today = istDate(now().toISOString());
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
@@ -207,6 +207,17 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
       await refresh();
     });
 
+  // A tap on P, ½ or A keeps the overtime and note already saved, unless the status cannot carry overtime.
+  const quickMark = (row: RegisterRow, next: EntryStatus) =>
+    once(async () => {
+      if (!db || !site) return;
+      const kept = row.entry?.mark;
+      const hours = kept && next !== 'absent' && kept.overtimeHours > 0 ? String(kept.overtimeHours) : '';
+      await saveMark(db, userId, site, date, row.worker.workerId, cleanMark({ status: next, overtime: hours, note: kept?.note ?? '' }), now());
+      setMessage(null);
+      await refresh();
+    });
+
   const save = (e: Editing) =>
     once(async () => {
       if (!db || !site) return;
@@ -220,181 +231,195 @@ export function DayRegisterScreen({ openDb, userId, siteId, now = () => new Date
   const register = ready?.register ?? null;
   const unmarked = register ? register.rows.filter((r) => r.entry === null).length : 0;
   const dayStatus = register?.day ? entryStatusText(register.day.status, register.day.verdictReason) : null;
+  const statuses = register ? register.rows.map(statusOf) : [];
+  const counters = [
+    { label: t('register.countPresent'), count: statuses.filter((s) => s === 'present' || s === 'half_day').length, tone: 'ok' },
+    { label: t('register.countAbsent'), count: statuses.filter((s) => s === 'absent' || s === 'leave').length, tone: 'attention' },
+    { label: t('register.countLeft'), count: statuses.filter((s) => s === null).length, tone: 'neutral' },
+  ] as const;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <LoadFailed message="Could not read the records on this phone." onRetry={retry} />}
-        {load.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
+    <Screen>
+      {load.kind === 'loading' && <Text color={colors.muted}>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('register.readFailed')} onRetry={retry} />}
+      {load.kind === 'missing' && <Text>{t('attendance.siteMissing')}</Text>}
 
-        {site && register && (
-          <>
-            <ScreenTitle screen="day_register" siteName={site.name} />
-            <Text style={styles.title} accessibilityRole="header">
-              {site.name}
+      {site && register && (
+        <>
+          <ScreenTitle screen="day_register" siteName={site.name} />
+          <Text bold>{t('register.forDay', { day: date === today ? t('register.today') : dayLabel(date) })}</Text>
+
+          <View style={styles.row}>
+            <Button
+              label={t('register.earlierDay')}
+              kind="secondary"
+              style={styles.grow}
+              disabled={date <= shiftDay(today, -DAYS_BACK)}
+              onPress={() => {
+                closeEditor();
+                setDate(shiftDay(date, -1));
+              }}
+            />
+            <Button
+              label={t('register.laterDay')}
+              kind="secondary"
+              style={styles.grow}
+              disabled={date >= today}
+              onPress={() => {
+                closeEditor();
+                setDate(shiftDay(date, 1));
+              }}
+            />
+          </View>
+
+          <View style={styles.row}>
+            {counters.map((c) => (
+              <Card key={c.label} accessible accessibilityLabel={`${c.label} ${c.count}`} style={styles.counter}>
+                <Text variant="counter" bold color={tone[c.tone].text}>
+                  {c.count}
+                </Text>
+                <Text variant="small" color={colors.muted}>
+                  {c.label}
+                </Text>
+              </Card>
+            ))}
+          </View>
+
+          {site.orgId === null && <Text color={tone.attention.text}>{t('register.connectToMark')}</Text>}
+
+          {register.locked && (
+            <Card style={styles.notice}>
+              <Text>{t('register.locked')}</Text>
+            </Card>
+          )}
+          {dayStatus && dayStatus.tone === 'attention' && (
+            <StatusBadge tone="attention" label={t('register.dayStatus', { text: dayStatus.text })} />
+          )}
+
+          {message && (
+            <Text color={tone.attention.text} accessibilityLiveRegion="polite">
+              {message}
             </Text>
-            <Text style={styles.sub}>{`Attendance for ${date === today ? 'today' : dayLabel(date)}`}</Text>
+          )}
 
-            <View style={styles.row}>
-              <Button
-                label="Earlier day"
-                secondary
-                disabled={date <= shiftDay(today, -DAYS_BACK)}
-                onPress={() => {
-                  closeEditor();
-                  setDate(shiftDay(date, -1));
-                }}
-              />
-              <Button
-                label="Later day"
-                secondary
-                disabled={date >= today}
-                onPress={() => {
-                  closeEditor();
-                  setDate(shiftDay(date, 1));
-                }}
-              />
-            </View>
+          {!register.locked && site.orgId !== null && unmarked > 0 && !editing && (
+            <Button label={t('register.markAll', { count: unmarked })} onPress={() => void markAll()} />
+          )}
+          {register.rows.length === 0 && <Text>{t('register.noWorkers')}</Text>}
 
-            {site.orgId === null && <Text style={styles.error}>Connect once to refresh your sites, then mark attendance.</Text>}
+          {register.rows.map((row) => {
+            const id = row.worker.workerId;
+            const shown = row.correction ? row.correction.mark : row.entry?.mark ?? null;
+            const text = row.correction
+              ? entryStatusText(row.correction.status, row.correction.verdictReason)
+              : row.entry
+                ? entryStatusText(row.entry.status, row.entry.verdictReason)
+                : null;
+            const open = editing?.workerId === id ? editing : null;
+            const canMark = !open && !editing && site.orgId !== null && !register.locked;
+            const line = shown
+              ? row.correction
+                ? t('register.correction', { text: describe(shown) })
+                : describe(shown)
+              : row.approved
+                ? t('register.approved', { text: describe({ ...row.approved, note: null }) })
+                : t('register.notMarked');
+            return (
+              <Card key={id}>
+                <Text bold>{row.worker.name}</Text>
+                <Text variant="small" color={colors.muted}>{`${row.worker.code} · ${row.worker.trade}`}</Text>
+                <Text>{line}</Text>
+                {text && (
+                  <View accessibilityLiveRegion="polite">
+                    <StatusBadge tone={text.tone} label={text.text} />
+                  </View>
+                )}
 
-            {register.locked && (
-              <Text style={styles.error}>
-                A manager approved this day. It is read-only here. To change a worker, propose a correction.
-              </Text>
-            )}
-            {dayStatus && dayStatus.tone === 'attention' && (
-              <Text style={[styles.status, toneStyle.attention]}>{`Day: ${dayStatus.text}`}</Text>
-            )}
+                {canMark && (
+                  <View style={styles.row}>
+                    {QUICK.map((q) => {
+                      const on = shown?.status === q.status;
+                      const color = tone[q.tone].text;
+                      return (
+                        <Pressable
+                          key={q.status}
+                          accessibilityRole="button"
+                          accessibilityLabel={t(q.label, { name: row.worker.name })}
+                          accessibilityState={{ selected: on }}
+                          onPress={() => void quickMark(row, q.status)}
+                          style={[styles.quick, { borderColor: on ? color : colors.field, backgroundColor: on ? color : colors.white }]}
+                        >
+                          <Text bold color={on ? colors.white : colors.text}>
+                            {t(q.short)}
+                          </Text>
+                        </Pressable>
+                      );
+                    })}
+                    <Button
+                      label={t('register.change')}
+                      accessibilityLabel={t('register.changeLabel', { name: row.worker.name })}
+                      kind="secondary"
+                      style={styles.change}
+                      onPress={() => openEditor(row, false)}
+                    />
+                  </View>
+                )}
+                {!open && !editing && site.orgId !== null && register.locked && (row.entry || row.approved) && (
+                  <Button
+                    label={t('register.propose')}
+                    accessibilityLabel={t('register.proposeLabel', { name: row.worker.name })}
+                    kind="secondary"
+                    onPress={() => openEditor(row, true)}
+                  />
+                )}
 
-            {message && (
-              <Text style={styles.error} accessibilityLiveRegion="polite">
-                {message}
-              </Text>
-            )}
-
-            {!register.locked && site.orgId !== null && unmarked > 0 && !editing && (
-              <Button label={`Mark everyone present (${unmarked})`} onPress={() => void markAll()} />
-            )}
-            {register.rows.length === 0 && (
-              <Text style={styles.line}>No workers are rostered at this site for this day on this phone.</Text>
-            )}
-
-            {register.rows.map((row) => {
-              const id = row.worker.workerId;
-              const shown = row.correction ? row.correction.mark : row.entry?.mark ?? null;
-              const text = row.correction
-                ? entryStatusText(row.correction.status, row.correction.verdictReason)
-                : row.entry
-                  ? entryStatusText(row.entry.status, row.entry.verdictReason)
-                  : null;
-              const open = editing?.workerId === id ? editing : null;
-              return (
-                <View key={id} style={styles.card}>
-                  <Text style={styles.name}>{row.worker.name}</Text>
-                  <Text style={styles.sub}>{`${row.worker.code} · ${row.worker.trade}`}</Text>
-                  <Text style={styles.line}>
-                    {shown
-                      ? `${row.correction ? 'Correction: ' : ''}${describe(shown)}`
-                      : row.approved
-                        ? `Approved · ${describe({ ...row.approved, note: null })}`
-                        : 'Not marked'}
-                  </Text>
-                  {text && (
-                    <Text style={[styles.status, toneStyle[text.tone]]} accessibilityLiveRegion="polite">
-                      {text.text}
-                    </Text>
-                  )}
-
-                  {!open && !editing && site.orgId !== null && !register.locked && (
-                    <Button label={`Change ${row.worker.name}`} secondary onPress={() => openEditor(row, false)} />
-                  )}
-                  {!open && !editing && site.orgId !== null && register.locked && (row.entry || row.approved) && (
-                    <Button label={`Propose correction for ${row.worker.name}`} secondary onPress={() => openEditor(row, true)} />
-                  )}
-
-                  {open && (
-                    <View style={styles.panel}>
-                      <MarkFields
-                        status={status}
-                        onStatus={setStatus}
-                        overtime={overtime}
-                        onOvertime={setOvertime}
-                        note={note}
-                        onNote={setNote}
+                {open && (
+                  <View style={styles.panel}>
+                    <MarkFields
+                      status={status}
+                      onStatus={setStatus}
+                      overtime={overtime}
+                      onOvertime={setOvertime}
+                      note={note}
+                      onNote={setNote}
+                    />
+                    {open.correction && (
+                      <TextField
+                        label={t('register.reasonLabel')}
+                        placeholder={t('register.reasonPlaceholder')}
+                        value={reason}
+                        onChangeText={setReason}
+                        maxLength={500}
+                        multiline
                       />
-                      {open.correction && (
-                        <TextInput
-                          accessibilityLabel="Reason for the correction"
-                          style={[fieldStyles.input, fieldStyles.tall]}
-                          value={reason}
-                          onChangeText={setReason}
-                          maxLength={500}
-                          multiline
-                          placeholder="Why should this change?"
-                        />
-                      )}
-                      <Button label={open.correction ? 'Propose correction' : 'Save'} onPress={() => void save(open)} />
-                      <Button label="Cancel" secondary onPress={closeEditor} />
-                    </View>
-                  )}
-                </View>
-              );
-            })}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                    )}
+                    <Button label={open.correction ? t('register.propose') : t('fields.save')} onPress={() => void save(open)} />
+                    <Button label={t('fields.cancel')} kind="secondary" onPress={closeEditor} />
+                  </View>
+                )}
+              </Card>
+            );
+          })}
+        </>
+      )}
+    </Screen>
   );
 }
-
-export function Button({
-  label,
-  onPress,
-  secondary = false,
-  disabled = false,
-}: {
-  label: string;
-  onPress: () => void;
-  secondary?: boolean;
-  disabled?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={{ disabled }}
-      disabled={disabled}
-      onPress={onPress}
-      style={[styles.button, secondary && styles.buttonSecondary, disabled && styles.buttonDisabled]}
-    >
-      <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const toneStyle: Record<StatusTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  sub: { fontSize: 14, color: colors.muted },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  name: { fontSize: 18, fontWeight: '500' },
-  status: { fontSize: 14 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
-  panel: { gap: 12 },
-  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
-  buttonDisabled: { opacity: 0.4 },
-  buttonText: { color: colors.white, fontSize: 16 },
-  buttonTextSecondary: { color: colors.ink },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  grow: { flex: 1 },
+  counter: { flex: 1, alignItems: 'center', gap: 0, padding: space.md },
+  notice: { backgroundColor: tone.wait.tint },
+  quick: {
+    flex: 1,
+    minWidth: minTarget,
+    minHeight: minTarget,
+    borderWidth: 1.5,
+    borderRadius: radius.button,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  change: { flex: 1.6, minWidth: 96, paddingHorizontal: space.sm },
+  panel: { gap: space.md },
 });

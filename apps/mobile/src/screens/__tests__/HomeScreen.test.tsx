@@ -1,9 +1,12 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { PublicConfigResult } from '../../config/public-config';
 import type { DeviceDb } from '../../db/device-db';
 import type { SyncHandle, SyncStatus } from '../../sync/engine';
 import { HomeScreen } from '../HomeScreen';
+
+// Waits for the screen to read the phone; with no user there is nothing to find by text.
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 50)); });
 
 const goodConfig: PublicConfigResult = {
   ok: true,
@@ -45,7 +48,7 @@ describe('HomeScreen', () => {
   it('shows no developer text once the database opens', async () => {
     await render(<HomeScreen openDb={openFakeDb} config={goodConfig} />);
 
-    expect(await screen.findByText('Today')).toBeTruthy();
+    await settle();
     expect(screen.queryByText(/Device database/)).toBeNull();
     expect(screen.queryByText(/Configuration missing/)).toBeNull();
     expect(screen.queryByText(/The app could not start/)).toBeNull();
@@ -99,7 +102,7 @@ describe('HomeScreen', () => {
 
     await render(<HomeScreen openDb={openFakeDb} startSync={startSync} config={goodConfig} />);
 
-    expect(await screen.findByText('Today')).toBeTruthy();
+    await settle();
     expect(startSync).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
     expect(screen.queryByText(/waiting to send|need attention/)).toBeNull();

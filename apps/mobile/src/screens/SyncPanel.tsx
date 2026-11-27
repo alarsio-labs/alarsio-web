@@ -6,12 +6,17 @@
 // is tappable and opens it; a row with none (a photo) stays plain. The list scrolls inside a
 // bounded box, so a long one cannot push Sync now off the screen.
 
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { ScrollView, StyleSheet, View } from 'react-native';
 
 import type { SyncStatus } from '../sync/engine';
 import { attentionRoute } from '../sync/attention-route';
 import { entityLabel, pullLine, reasonText, syncLine } from '../sync/status-text';
-import { colors, radius } from '../theme';
+import { colors, space, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { ListRow } from '../ui/ListRow';
+import { Text } from '../ui/Text';
 
 export interface SyncPanelProps {
   status: SyncStatus;
@@ -21,97 +26,59 @@ export interface SyncPanelProps {
 }
 
 export function SyncPanel({ status, onSyncNow, openRoute }: SyncPanelProps) {
+  const { t } = useTranslation();
   const needAttention = status.counts.conflict + status.counts.rejected;
   const notListed = Math.max(0, needAttention - status.attention.length);
-  const label = status.running ? 'Sending…' : 'Sync now';
+  const label = status.running ? t('syncPanel.sending') : t('syncPanel.syncNow');
   const offline = pullLine(status.mirror, status.lastPull, new Date());
 
   return (
-    <View style={styles.panel}>
-      <Text style={styles.line} accessibilityLiveRegion="polite">
-        {syncLine(status)}
-      </Text>
-      {offline && <Text style={styles.subline}>{offline}</Text>}
+    <Card>
+      <Text accessibilityLiveRegion="polite">{syncLine(status)}</Text>
+      {offline && (
+        <Text variant="small" color={colors.muted}>
+          {offline}
+        </Text>
+      )}
 
       {status.attention.length > 0 && (
         <View style={styles.listBox}>
-          <Text style={styles.heading}>Needs attention</Text>
-          <ScrollView testID="attention-list" style={styles.list}>
-            {status.attention.map((row) => {
-              const title = `${entityLabel(row.entity)} · ${row.status === 'conflict' ? 'Conflict' : 'Refused'}`;
-              const body = (
-                <>
-                  <Text style={styles.itemTitle}>{title}</Text>
-                  <Text style={styles.itemReason}>{reasonText(row.reason)}</Text>
-                </>
-              );
-              const route = openRoute ? attentionRoute(row) : null;
-              return route && openRoute ? (
-                <Pressable
-                  key={`${row.entity}:${row.recordId}`}
-                  accessibilityRole="button"
-                  accessibilityLabel={`${title}. ${reasonText(row.reason)} Opens the record`}
-                  onPress={() => openRoute(route)}
-                  style={[styles.item, styles.itemTappable]}
-                >
-                  {body}
-                </Pressable>
-              ) : (
-                <View key={`${row.entity}:${row.recordId}`} style={styles.item}>
-                  {body}
-                </View>
-              );
-            })}
+          <Text variant="small" bold color={tone.attention.text}>
+            {t('syncPanel.needsAttention')}
+          </Text>
+          <ScrollView testID="attention-list" style={styles.list} nestedScrollEnabled>
+            <View style={styles.items}>
+              {status.attention.map((row) => {
+                const title = `${entityLabel(row.entity)} · ${row.status === 'conflict' ? t('syncPanel.conflict') : t('syncPanel.refused')}`;
+                const reason = reasonText(row.reason);
+                const route = openRoute ? attentionRoute(row) : null;
+                return (
+                  <ListRow
+                    key={`${row.entity}:${row.recordId}`}
+                    title={title}
+                    hint={reason}
+                    accessibilityLabel={route ? t('syncPanel.opensRecord', { title, reason }) : `${title}. ${reason}`}
+                    onPress={route && openRoute ? () => openRoute(route) : undefined}
+                  />
+                );
+              })}
+            </View>
           </ScrollView>
-          {notListed > 0 && <Text style={styles.more}>{`and ${notListed} more`}</Text>}
+          {notListed > 0 && (
+            <Text variant="small" color={colors.muted}>
+              {t('syncPanel.more', { count: notListed })}
+            </Text>
+          )}
         </View>
       )}
 
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={label}
-        accessibilityState={{ disabled: status.running }}
-        disabled={status.running}
-        onPress={onSyncNow}
-        style={[styles.button, status.running && styles.buttonDisabled]}
-      >
-        <Text style={styles.buttonText}>{label}</Text>
-      </Pressable>
-    </View>
+      <Button kind="secondary" label={label} disabled={status.running} onPress={onSyncNow} />
+    </Card>
   );
 }
 
 const styles = StyleSheet.create({
-  panel: {
-    alignSelf: 'stretch',
-    alignItems: 'center',
-    gap: 12,
-    padding: 16,
-    backgroundColor: colors.paper,
-    borderWidth: 1,
-    borderColor: colors.hair,
-    borderRadius: radius.md,
-  },
-  line: { fontSize: 16, textAlign: 'center' },
-  subline: { fontSize: 14, color: colors.muted, textAlign: 'center' },
-  listBox: { alignSelf: 'stretch', gap: 8 },
+  listBox: { gap: space.sm },
   list: { maxHeight: 240 },
-  heading: { fontSize: 14, fontWeight: '600', color: colors.redDeep },
-  item: { borderLeftWidth: 3, borderLeftColor: colors.redDeep, paddingLeft: 8, marginBottom: 8 },
-  itemTitle: { fontSize: 14, fontWeight: '500' },
-  itemTappable: { minHeight: 44, justifyContent: 'center' },
-  itemReason: { fontSize: 14, color: colors.muted },
-  more: { fontSize: 14, color: colors.muted },
-  button: {
-    minHeight: 48,
-    minWidth: 120,
-    paddingHorizontal: 16,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  // White on #767676 is 4.54:1, the WCAG AA minimum for normal text.
-  buttonDisabled: { backgroundColor: colors.disabled },
-  buttonText: { color: colors.white, fontSize: 16 },
+  items: { gap: space.sm },
 });

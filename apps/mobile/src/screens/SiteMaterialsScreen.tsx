@@ -5,26 +5,32 @@
 // accepted an entry (ADR-009). Below zero is a warning and never a refusal.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
 import type { DeviceDb } from '../db/device-db';
-import { KIND_LABELS, MATERIAL_KINDS, type MaterialKind } from '../materials/kinds';
+import { kindLabel, MATERIAL_KINDS, type MaterialKind } from '../materials/kinds';
 import {
   formatMilli,
-  MOVEMENT_MESSAGES,
   MovementError,
+  movementErrorText,
   movementStatusText,
   parseQuantity,
-  type MovementTone,
 } from '../materials/movement';
 import { loadSiteMaterials, saveMovement, type SiteMaterial, type SiteMaterials } from '../materials/movement-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
 import { ageText } from '../sync/status-text';
+import { colors, space, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { EmptyState } from '../ui/EmptyState';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 import { DatePickerField, type OpenDatePicker } from './DatePickerField';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface SiteMaterialsScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -53,14 +59,6 @@ interface Form {
   occurredOn: string;
 }
 
-// A fixed sentence per failure, never the error's own text (it can name files).
-function errorText(error: unknown): string {
-  if (error instanceof MovementError) return MOVEMENT_MESSAGES[error.code];
-  return 'Could not save on this phone. Try again.';
-}
-
-const STATE_LABEL = { negative: 'Below zero', low: 'Low stock', ok: null } as const;
-
 /** Whether this entry, on its own, takes the estimate below zero. */
 function takesBelowZero(material: SiteMaterial, form: Form): boolean {
   if (form.kind === null) return false;
@@ -71,6 +69,7 @@ function takesBelowZero(material: SiteMaterial, form: Form): boolean {
 }
 
 export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Date(), pollMs = 3000, openDatePicker }: SiteMaterialsScreenProps) {
+  const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [form, setForm] = useState<Form | null>(null);
@@ -136,6 +135,10 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
   const data = load.kind === 'ready' ? load.data : null;
   const selected = form && data ? (data.materials.find((m) => m.id === form.materialId) ?? null) : null;
 
+  // A fixed sentence per failure, never the error's own text (it can name files).
+  const errorText = (error: unknown) =>
+    error instanceof MovementError ? movementErrorText(error.code) : t('siteMaterials.error.generic');
+
   function open(material: SiteMaterial) {
     setMessage(null);
     setForm({ materialId: material.id, kind: null, quantity: '', reason: '', occurredOn: istDate(now().toISOString()) });
@@ -172,178 +175,142 @@ export function SiteMaterialsScreen({ openDb, userId, siteId, now = () => new Da
   const patch = (change: Partial<Form>) => setForm((f) => (f ? { ...f, ...change } : f));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <LoadFailed message="Could not read the materials on this phone." onRetry={retry} />}
-        {load.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
+    <Screen>
+      {load.kind === 'loading' && <Text>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('siteMaterials.loadFailed')} onRetry={retry} />}
+      {load.kind === 'missing' && <EmptyState title={t('siteMaterials.missing')} />}
 
-        {load.kind === 'ready' && data && (
-          <>
-            <ScreenTitle screen="site_materials" siteName={load.site.name} />
-            <Text style={styles.title} accessibilityRole="header">
-              {load.site.name}
+      {load.kind === 'ready' && data && (
+        <>
+          <ScreenTitle screen="site_materials" siteName={load.site.name} />
+          <Text variant="title" bold accessibilityRole="header">
+            {load.site.name}
+          </Text>
+          {data.serverAsOf !== null && (
+            <Text variant="small" color={colors.muted}>
+              {t('siteMaterials.serverAsOf', { age: ageText(data.serverAsOf, now()) })}
             </Text>
-            {data.serverAsOf !== null && (
-              <Text style={styles.sub}>
-                {`Server balances updated ${ageText(data.serverAsOf, now())}. Estimates add what you recorded on this phone.`}
+          )}
+
+          {data.materials.length === 0 && (
+            <EmptyState title={t('siteMaterials.empty')} hint={t('siteMaterials.emptyHint')} />
+          )}
+
+          {data.materials.map((m) => (
+            <Card key={m.id}>
+              <Text variant="heading" bold>
+                {m.name}
               </Text>
-            )}
-
-            {data.materials.length === 0 && (
-              <Text style={styles.line}>No materials on this site yet. Ask a manager to add them, then connect once.</Text>
-            )}
-
-            {data.materials.map((m) => {
-              const label = STATE_LABEL[m.state];
-              return (
-                <View key={m.id} style={styles.material}>
-                  <Text style={styles.materialName}>{m.name}</Text>
-                  <Text style={styles.estimate}>{`Estimate: ${formatMilli(m.estimateMilli)} ${m.unit}`}</Text>
-                  <Text style={styles.sub}>{`Server balance: ${formatMilli(m.serverBalanceMilli)} ${m.unit}`}</Text>
-                  {m.unsent > 0 && <Text style={styles.sub}>{`${m.unsent} not sent yet`}</Text>}
-                  {label !== null && <Text style={styles.error}>{label}</Text>}
-                  {form === null && (
-                    <Button label={`Record for ${m.name}`} onPress={() => open(m)} />
-                  )}
-                </View>
-              );
-            })}
-
-            {form && selected && (
-              <View style={styles.panel}>
-                <Text style={styles.panelTitle}>{`Record for ${selected.name}`}</Text>
-                <View style={styles.kinds}>
-                  {MATERIAL_KINDS.map((kind) => (
-                    <Button
-                      key={kind}
-                      label={KIND_LABELS[kind]}
-                      secondary={form.kind !== kind}
-                      selected={form.kind === kind}
-                      onPress={() => patch({ kind })}
-                    />
-                  ))}
-                </View>
-                <Text style={styles.sub}>{`Quantity in ${selected.unit}`}</Text>
-                <TextInput
-                  accessibilityLabel="Quantity"
-                  style={styles.field}
-                  value={form.quantity}
-                  onChangeText={(quantity) => patch({ quantity })}
-                  keyboardType="numbers-and-punctuation"
-                  autoCorrect={false}
-                />
-                <Text style={styles.sub}>
-                  {form.kind === 'adjustment' ? 'Reason (required for an adjustment)' : 'Reason (optional)'}
+              <Text bold>{t('siteMaterials.estimate', { value: formatMilli(m.estimateMilli), unit: m.unit })}</Text>
+              <Text variant="small" color={colors.muted}>
+                {t('siteMaterials.serverBalance', { value: formatMilli(m.serverBalanceMilli), unit: m.unit })}
+              </Text>
+              {m.unsent > 0 && (
+                <Text variant="small" color={colors.muted}>
+                  {t('siteMaterials.unsent', { count: m.unsent })}
                 </Text>
-                <TextInput
-                  accessibilityLabel="Reason"
-                  style={[styles.field, styles.multiline]}
-                  value={form.reason}
-                  onChangeText={(reason) => patch({ reason })}
-                  maxLength={500}
-                  multiline
-                />
-                <Text style={styles.sub}>Date</Text>
-                <DatePickerField
-                  value={form.occurredOn}
-                  max={istDate(now().toISOString())}
-                  onChange={(occurredOn) => patch({ occurredOn })}
-                  openPicker={openDatePicker}
-                />
-                {takesBelowZero(selected, form) && (
-                  <Text style={styles.warning} accessibilityLiveRegion="polite">
-                    This would take the estimate below zero. You can still save it.
-                  </Text>
-                )}
-                {message && (
-                  <Text style={styles.error} accessibilityLiveRegion="polite">
-                    {message}
-                  </Text>
-                )}
-                <Button label="Save" onPress={() => void save()} />
-                <Button label="Cancel" secondary onPress={close} />
-              </View>
-            )}
+              )}
+              {m.state === 'negative' && <StatusBadge tone="attention" label={t('siteMaterials.belowZero')} />}
+              {m.state === 'low' && <StatusBadge tone="wait" label={t('siteMaterials.lowStock')} />}
+              {form === null && (
+                <Button kind="secondary" label={t('siteMaterials.record', { name: m.name })} onPress={() => open(m)} />
+              )}
+            </Card>
+          ))}
 
-            {data.recent.length > 0 && (
-              <Text style={styles.heading} accessibilityRole="header">
-                Recent entries
+          {form && selected && (
+            <Card style={styles.panel}>
+              <Text variant="heading" bold>
+                {t('siteMaterials.record', { name: selected.name })}
               </Text>
-            )}
-            {data.recent.map((r) => {
-              const status = movementStatusText(r.status, r.reason);
-              return (
-                <View key={r.recordId} style={styles.entry}>
-                  <Text style={styles.entryLine}>
-                    {`${KIND_LABELS[r.movement.kind]} ${formatMilli(r.movement.quantityMilli)} ${r.unit} · ${r.materialName} · ${r.movement.occurredOn}`}
-                  </Text>
-                  {r.movement.reason !== null && <Text style={styles.sub}>{`Reason: ${r.movement.reason}`}</Text>}
-                  <Text style={[styles.status, toneStyle[status.tone]]} accessibilityLiveRegion="polite">
-                    {status.text}
-                  </Text>
+              <View style={styles.kinds}>
+                {MATERIAL_KINDS.map((kind) => (
+                  <Button
+                    key={kind}
+                    label={kindLabel(kind)}
+                    kind={form.kind === kind ? 'primary' : 'secondary'}
+                    icon={form.kind === kind ? 'ok' : undefined}
+                    onPress={() => patch({ kind })}
+                  />
+                ))}
+              </View>
+              <TextField
+                label={t('siteMaterials.quantityIn', { unit: selected.unit })}
+                accessibilityLabel={t('siteMaterials.quantity')}
+                value={form.quantity}
+                onChangeText={(quantity) => patch({ quantity })}
+                keyboardType="numbers-and-punctuation"
+                autoCorrect={false}
+              />
+              <TextField
+                label={form.kind === 'adjustment' ? t('siteMaterials.reasonRequired') : t('siteMaterials.reasonOptional')}
+                accessibilityLabel={t('siteMaterials.reason')}
+                value={form.reason}
+                onChangeText={(reason) => patch({ reason })}
+                maxLength={500}
+                multiline
+              />
+              <Text variant="small" bold color={colors.muted}>
+                {t('siteMaterials.date')}
+              </Text>
+              <DatePickerField
+                value={form.occurredOn}
+                max={istDate(now().toISOString())}
+                onChange={(occurredOn) => patch({ occurredOn })}
+                openPicker={openDatePicker}
+              />
+              {takesBelowZero(selected, form) && (
+                <View accessibilityLiveRegion="polite">
+                  <StatusBadge tone="wait" label={t('siteMaterials.warnBelowZero')} />
                 </View>
-              );
-            })}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+              )}
+              {message && (
+                <Text color={tone.attention.text} accessibilityLiveRegion="polite">
+                  {message}
+                </Text>
+              )}
+              <Button label={t('siteMaterials.save')} onPress={() => void save()} />
+              <Button kind="secondary" label={t('siteMaterials.cancel')} onPress={close} />
+            </Card>
+          )}
+
+          {data.recent.length > 0 && (
+            <Text variant="heading" bold accessibilityRole="header" style={styles.heading}>
+              {t('siteMaterials.recent')}
+            </Text>
+          )}
+          {data.recent.map((r) => {
+            const status = movementStatusText(r.status, r.reason);
+            return (
+              <Card key={r.recordId}>
+                <Text bold>
+                  {t('siteMaterials.entry', {
+                    kind: kindLabel(r.movement.kind),
+                    quantity: formatMilli(r.movement.quantityMilli),
+                    unit: r.unit,
+                    material: r.materialName,
+                    date: r.movement.occurredOn,
+                  })}
+                </Text>
+                {r.movement.reason !== null && (
+                  <Text variant="small" color={colors.muted}>
+                    {t('siteMaterials.entryReason', { reason: r.movement.reason })}
+                  </Text>
+                )}
+                <View accessibilityLiveRegion="polite">
+                  <StatusBadge tone={status.tone} label={status.text} />
+                </View>
+              </Card>
+            );
+          })}
+        </>
+      )}
+    </Screen>
   );
 }
-
-function Button({
-  label,
-  onPress,
-  secondary = false,
-  selected,
-}: {
-  label: string;
-  onPress: () => void;
-  secondary?: boolean;
-  selected?: boolean;
-}) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      accessibilityState={selected === undefined ? undefined : { selected }}
-      onPress={onPress}
-      style={[styles.button, secondary && styles.buttonSecondary]}
-    >
-      <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text>
-    </Pressable>
-  );
-}
-
-const toneStyle: Record<MovementTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  heading: { fontSize: 18, fontWeight: '600', marginTop: 8 },
-  sub: { fontSize: 14, color: colors.muted },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  warning: { fontSize: 16, color: tone.wait },
-  material: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 6, backgroundColor: colors.paper },
-  materialName: { fontSize: 18, fontWeight: '600' },
-  estimate: { fontSize: 16, fontWeight: '500' },
-  panel: { gap: 10, borderWidth: 1, borderColor: colors.ink, borderRadius: radius.md, padding: 12, backgroundColor: colors.paper },
-  panelTitle: { fontSize: 18, fontWeight: '600' },
-  kinds: { gap: 8 },
-  field: { borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, padding: 10, minHeight: 44, fontSize: 16, backgroundColor: colors.paper },
-  multiline: { minHeight: 80, textAlignVertical: 'top' },
-  entry: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 4, backgroundColor: colors.paper },
-  entryLine: { fontSize: 16, fontWeight: '500' },
-  status: { fontSize: 14 },
-  button: { minHeight: 48, paddingHorizontal: 16, borderRadius: radius.pill, backgroundColor: colors.ink, alignItems: 'center', justifyContent: 'center' },
-  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
-  buttonText: { color: colors.white, fontSize: 16 },
-  buttonTextSecondary: { color: colors.ink },
+  panel: { gap: space.md },
+  kinds: { gap: space.sm },
+  heading: { marginTop: space.sm },
 });

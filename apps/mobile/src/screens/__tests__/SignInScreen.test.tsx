@@ -49,6 +49,19 @@ describe('SignInScreen', () => {
     expect(await screen.findByText('Email or password is wrong.')).toBeTruthy();
   });
 
+  it('shows the language switch only when asked, and reports the choice', async () => {
+    await render(<SignInScreen signIn={jest.fn()} />);
+    expect(screen.queryByRole('button', { name: 'हिन्दी' })).toBeNull();
+    await screen.unmount();
+
+    const onChangeLanguage = jest.fn();
+    await render(<SignInScreen signIn={jest.fn()} onChangeLanguage={onChangeLanguage} />);
+    await fireEvent.press(screen.getByRole('button', { name: 'हिन्दी' }));
+    expect(onChangeLanguage).toHaveBeenCalledWith('hi');
+    await fireEvent.press(screen.getByRole('button', { name: 'English' }));
+    expect(onChangeLanguage).toHaveBeenCalledWith('en');
+  });
+
   it('opens the password reset page on alarsio.com', async () => {
     const open = jest.spyOn(Linking, 'openURL').mockResolvedValue(undefined);
     await render(<SignInScreen signIn={jest.fn()} />);

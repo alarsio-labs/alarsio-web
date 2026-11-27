@@ -3,16 +3,22 @@
 // only this user's copy of the sites and this user's reports.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { Pressable, StyleSheet, View } from 'react-native';
 
 import type { DeviceDb } from '../db/device-db';
-import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
+import { dayLabel, reportCardStatus } from '../reports/report';
 import { findReport, listUnfinished, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, space } from '../theme';
+import { Card } from '../ui/Card';
+import { EmptyState } from '../ui/EmptyState';
+import { Icon } from '../ui/Icon';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface ReportSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -35,15 +41,8 @@ type Load =
   | { kind: 'failed' }
   | { kind: 'ready'; rows: SiteRow[]; unfinished: StoredReport[] };
 
-const toneStyle: Record<ReportTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
-
-const statusOf = reportCardStatus;
-
 export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => new Date(), pollMs = 3000 }: ReportSitesScreenProps) {
+  const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const alive = useRef(true);
@@ -111,67 +110,69 @@ export function ReportSitesScreen({ openDb, userId, onOpenReport, now = () => ne
     load.kind === 'ready' ? (load.rows.find((r) => r.site.id === siteId)?.site.name ?? '') : '';
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen>
       <ScreenTitle screen="report_sites" />
-      <Text style={styles.title} accessibilityRole="header">
-        Daily report
-      </Text>
-      {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-      {load.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
+      {load.kind === 'loading' && <Text>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('reportSites.loadFailed')} onRetry={retry} />}
       {load.kind === 'ready' && load.rows.length === 0 && (
-        <Text style={styles.line}>No sites on this phone yet. Connect once to download your sites.</Text>
+        <EmptyState title={t('reportSites.empty')} hint={t('reportSites.emptyHint')} />
       )}
       {load.kind === 'ready' && load.rows.length > 0 && (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-          <Text style={styles.section}>{`Today, ${dayLabel(today)}`}</Text>
-          {load.rows.map(({ site, today: stored }) => {
-            const status = statusOf(stored);
-            return (
-              <Pressable
-                key={site.id}
-                accessibilityRole="button"
-                accessibilityLabel={`${site.name}, ${status.text}`}
-                onPress={() => onOpenReport(site.id, today)}
-                style={styles.card}
-              >
-                <Text style={styles.siteName}>{site.name}</Text>
-                <Text style={[styles.status, status.tone ? toneStyle[status.tone] : null]}>{status.text}</Text>
-              </Pressable>
-            );
-          })}
+        <>
+          <Text variant="small" bold color={colors.muted} accessibilityRole="header">
+            {t('reportSites.today', { day: dayLabel(today) })}
+          </Text>
+          {load.rows.map(({ site, today: stored }) => (
+            <ReportRow
+              key={site.id}
+              title={site.name}
+              status={reportCardStatus(stored)}
+              onPress={() => onOpenReport(site.id, today)}
+            />
+          ))}
 
-          {load.unfinished.length > 0 && <Text style={styles.section}>Not finished</Text>}
-          {load.unfinished.map((stored) => {
-            const status = statusOf(stored);
-            const label = `${siteName(stored.report.siteId)}, ${dayLabel(stored.report.reportDate)}`;
-            return (
-              <Pressable
-                key={stored.recordId}
-                accessibilityRole="button"
-                accessibilityLabel={`${label}, ${status.text}`}
-                onPress={() => onOpenReport(stored.report.siteId, stored.report.reportDate)}
-                style={styles.card}
-              >
-                <Text style={styles.siteName}>{label}</Text>
-                <Text style={[styles.status, status.tone ? toneStyle[status.tone] : null]}>{status.text}</Text>
-              </Pressable>
-            );
-          })}
-        </ScrollView>
+          {load.unfinished.length > 0 && (
+            <Text variant="small" bold color={colors.muted} accessibilityRole="header">
+              {t('reportSites.unfinished')}
+            </Text>
+          )}
+          {load.unfinished.map((stored) => (
+            <ReportRow
+              key={stored.recordId}
+              title={`${siteName(stored.report.siteId)}, ${dayLabel(stored.report.reportDate)}`}
+              status={reportCardStatus(stored)}
+              onPress={() => onOpenReport(stored.report.siteId, stored.report.reportDate)}
+            />
+          ))}
+        </>
       )}
-    </SafeAreaView>
+    </Screen>
+  );
+}
+
+// A site (or a site and day) with where its report stands. The chip sits under the name, so a long
+// status wraps instead of squeezing the name at 360 dp.
+function ReportRow({ title, status, onPress }: { title: string; status: ReturnType<typeof reportCardStatus>; onPress: () => void }) {
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={`${title}, ${status.text}`}
+      onPress={onPress}
+      style={({ pressed }) => pressed && styles.pressed}
+    >
+      <Card style={styles.row}>
+        <View style={styles.text}>
+          <Text bold>{title}</Text>
+          <StatusBadge tone={status.tone ?? 'neutral'} label={status.text} icon={status.tone ? undefined : 'report'} />
+        </View>
+        <Icon name="chevron" size={24} color={colors.muted} />
+      </Card>
+    </Pressable>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  section: { fontSize: 14, fontWeight: '600', color: colors.muted, marginTop: 8 },
-  list: { flex: 1 },
-  listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 2, backgroundColor: colors.paper },
-  siteName: { fontSize: 18, fontWeight: '600' },
-  status: { fontSize: 14, color: colors.ink },
+  row: { minHeight: 56, flexDirection: 'row', alignItems: 'center', gap: space.md },
+  text: { flex: 1, gap: space.xs },
+  pressed: { opacity: 0.85 },
 });

@@ -59,7 +59,8 @@
       ],
       "@react-native-community/datetimepicker",
       "expo-font",
-      "./plugins/with-arm-only.js"
+      "./plugins/with-arm-only.js",
+      "expo-localization"
     ],
     "extra": {
       "router": {},

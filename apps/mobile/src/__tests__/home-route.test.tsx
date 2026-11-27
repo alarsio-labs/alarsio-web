@@ -1,7 +1,7 @@
-import { fireEvent, render, screen } from '@testing-library/react-native';
+import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import { router } from 'expo-router';
 
-import Index from '../app/index';
+import Index from '../app/(tabs)/index';
 import { deviceMigrations } from '../db/migrations';
 import { prepareDeviceDb } from '../db/prepare-device-db';
 import { openTestDeviceDb } from '../db/test-support/sqljs-device-db';
@@ -9,6 +9,9 @@ import { SessionUserContext } from '../auth/session-user';
 import type { DeviceDb } from '../db/device-db';
 import { runPhotoUploads } from '../reports/photo-upload';
 import { startSyncEngine, type SyncHandle } from '../sync/engine';
+
+// Waits for the screen to read the phone; with no user there is nothing to find by text.
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 50)); });
 
 jest.setTimeout(30_000);
 
@@ -149,7 +152,7 @@ describe('home route wiring', () => {
   it('starts no engine when no user is signed in', async () => {
     await render(<Index />);
 
-    expect(await screen.findByText('Today')).toBeTruthy();
+    await settle();
     expect(startSyncEngine).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
   });

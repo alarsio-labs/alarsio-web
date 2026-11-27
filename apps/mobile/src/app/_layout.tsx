@@ -1,12 +1,11 @@
 // The sign-in gate for every route, so a deep link (scheme "alarsio") cannot
 // reach a screen while signed out. Owner of the gate: Identity (#56, ADR-031).
 
-import { router, Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
+import { Stack, type ErrorBoundaryProps } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
 import { StatusBar } from 'expo-status-bar';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useEffect, useState } from 'react';
-import { View } from 'react-native';
 
 import {
   accessStore,
@@ -17,17 +16,16 @@ import {
 } from '../auth/app-auth';
 import { SessionUserContext } from '../auth/session-user';
 import { useSession } from '../auth/use-session';
-import { openAppDb } from '../lib/app-db';
-import { SyncBar } from '../sync/SyncBar';
+import { changeLanguage, startLanguage } from '../lib/app-language';
 import { AccessGate } from '../screens/AccessGate';
-import { AccountMenu } from '../screens/AccountMenu';
+import { AppHeader } from '../screens/AppHeader';
 import { BrandSplash } from '../screens/BrandSplash';
 import { SignedOutFlow } from '../screens/SignedOutFlow';
 import { StartupError } from '../screens/StartupError';
-import { colors, fonts } from '../theme';
+import { colors } from '../theme';
 import { useBrandFonts } from '../ui/fonts';
 
-// Keep the loam splash up until the session is known, so there is no white flash.
+// Keep the native splash up until the session is known, so there is no white flash.
 SplashScreen.preventAutoHideAsync().catch(() => undefined);
 
 // Expo Router renders this when any screen throws, instead of a red error screen.
@@ -35,31 +33,20 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
   return <StartupError detail={error.message} onRetry={retry} />;
 }
 
-// Home already shows the sync panel, so the bar sits on every other screen.
-function SyncBarOnOtherScreens({ userId }: { userId: string }) {
-  const pathname = usePathname();
-  if (pathname === '/') return null;
-  return <SyncBar openDb={openAppDb} userId={userId} onOpen={() => router.navigate('/')} />;
-}
-
-// The header on every signed-in screen (docs/DESIGN.md, phone app v2.1).
-const HEADER = {
-  headerStyle: { backgroundColor: colors.cream },
-  headerTintColor: colors.ink,
-  headerTitleStyle: { fontFamily: fonts.display, fontSize: 22 },
-  headerShadowVisible: false,
-  contentStyle: { backgroundColor: colors.cream },
-} as const;
-
 export default function RootLayout() {
   const session = useSession(auth);
   const fontsReady = useBrandFonts();
+  const [languageReady, setLanguageReady] = useState(false);
   // The brand splash (logo and one line) follows the native one on every cold start.
   const [splashDone, setSplashDone] = useState(false);
 
-  // Hide the native splash once the auth state is known (signed in, signed out, or no
-  // config) and the display font is in, so the brand splash takes over with no flash.
-  const ready = (!auth || session.kind !== 'loading') && fontsReady;
+  useEffect(() => {
+    void startLanguage().then(() => setLanguageReady(true));
+  }, []);
+
+  // Hide the native splash once the auth state, the fonts and the saved language are in,
+  // so the brand splash takes over with no flash and in the right language.
+  const ready = (!auth || session.kind !== 'loading') && fontsReady && languageReady;
   useEffect(() => {
     if (ready) SplashScreen.hideAsync().catch(() => undefined);
   }, [ready]);
@@ -94,7 +81,7 @@ export default function RootLayout() {
   if (session.kind === 'signed_out') {
     return (
       <>
-        <SignedOutFlow signIn={auth.signIn} store={AsyncStorage} />
+        <SignedOutFlow signIn={auth.signIn} store={AsyncStorage} onChangeLanguage={changeLanguage} />
         <StatusBar style="light" />
       </>
     );
@@ -114,25 +101,18 @@ export default function RootLayout() {
         unsentCounts={unsentCounts}
         signOut={signOutKeepingNothingBehind}
       >
-        <View style={{ flex: 1 }}>
-          <Stack
-            screenOptions={{
-              ...HEADER,
-              title: 'Alarsio',
-              headerRight: () => (
-                <AccountMenu
-                  user={session.user}
-                  unsentCounts={unsentCounts}
-                  signOut={signOutKeepingNothingBehind}
-                  onOpenAbout={() => router.push('/about')}
-                />
-              ),
-            }}
-          />
-          <SyncBarOnOtherScreens userId={session.user.id} />
-        </View>
+        <Stack
+          screenOptions={{
+            header: ({ options, back, navigation }) => (
+              <AppHeader title={options.title ?? ''} onBack={back ? navigation.goBack : undefined} />
+            ),
+            contentStyle: { backgroundColor: colors.ground },
+          }}
+        >
+          <Stack.Screen name="(tabs)" options={{ headerShown: false }} />
+        </Stack>
       </AccessGate>
-      <StatusBar style="dark" />
+      <StatusBar style="light" />
     </SessionUserContext.Provider>
   );
 }

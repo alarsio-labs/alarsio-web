@@ -287,6 +287,7 @@ describe('SiteMaterialsScreen (#82)', () => {
   it('says what to do when the site has no materials', async () => {
     await db.run('delete from mirror_materials');
     await show();
-    expect(await screen.findByText('No materials on this site yet. Ask a manager to add them, then connect once.')).toBeTruthy();
+    expect(await screen.findByText('No materials on this site yet.')).toBeTruthy();
+    expect(screen.getByText('Ask a manager to add them, then connect once.')).toBeTruthy();
   });
 });

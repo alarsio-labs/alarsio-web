@@ -3,6 +3,7 @@
 // it never waits on the network to open the capture app (ADR-020).
 
 import type { ReactNode } from 'react';
+import { useTranslation } from 'react-i18next';
 import { ActivityIndicator, View } from 'react-native';
 
 import type { SignedInUser } from '../auth/auth-client';
@@ -22,12 +23,13 @@ export interface AccessGateProps {
 }
 
 export function AccessGate({ user, fetchAccess, store, unsentCounts, signOut, children }: AccessGateProps) {
+  const { t } = useTranslation();
   const access = useCaptureAccess(user.id, fetchAccess, store);
 
   if (access === null) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.cream }}>
-        <ActivityIndicator accessibilityLabel="Loading" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.ground }}>
+        <ActivityIndicator accessibilityLabel={t('common.loading')} />
       </View>
     );
   }

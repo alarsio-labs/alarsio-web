@@ -2,7 +2,8 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 
 import type { SignInResult } from '../../auth/auth-client';
 import { SEEN_KEY, type SeenStore } from '../../onboarding/seen-store';
-import { SLIDES, SPLASH_LINE } from '../../onboarding/slides';
+import i18n from '../../i18n';
+import { SLIDES, SPLASH_LINE_KEY } from '../../onboarding/slides';
 import { BrandSplash } from '../BrandSplash';
 import { OnboardingScreen } from '../OnboardingScreen';
 import { SignedOutFlow } from '../SignedOutFlow';
@@ -27,7 +28,8 @@ describe('BrandSplash', () => {
     jest.useFakeTimers();
     const onDone = jest.fn();
     await render(<BrandSplash onDone={onDone} durationMs={1000} />);
-    expect(screen.getByText(SPLASH_LINE)).toBeTruthy();
+    expect(screen.getByText('Site records with no signal. Attendance, reports and materials, even offline.')).toBeTruthy();
+    expect(i18n.t(SPLASH_LINE_KEY)).toBe('Site records with no signal. Attendance, reports and materials, even offline.');
     expect(onDone).not.toHaveBeenCalled();
     await act(async () => {
       jest.advanceTimersByTime(1000);
@@ -52,8 +54,17 @@ describe('OnboardingScreen', () => {
     await render(<OnboardingScreen onDone={jest.fn()} />);
     expect(SLIDES).toHaveLength(4);
     for (const [i, s] of SLIDES.entries()) {
-      expect(screen.getByLabelText(`${i + 1} of 4. ${s.title}. ${s.body}`)).toBeTruthy();
+      expect(screen.getByLabelText(`${i + 1} of 4. ${i18n.t(s.titleKey)}. ${i18n.t(s.bodyKey)}`)).toBeTruthy();
     }
+  });
+
+  it('reads the slides in Hindi when the language is Hindi', async () => {
+    await i18n.changeLanguage('hi');
+    await render(<OnboardingScreen onDone={jest.fn()} />);
+    expect(screen.getByRole('button', { name: 'ट्यूटोरियल छोड़ें' })).toBeTruthy();
+    expect(screen.getByText('बिना सिग्नल भी चलता है')).toBeTruthy();
+    await screen.unmount();
+    await i18n.changeLanguage('en');
   });
 
   it('leaves through Sign in or Skip, and Next stops on the last slide', async () => {

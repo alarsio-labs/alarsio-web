@@ -2,14 +2,16 @@
 // Owner: Materials (Nikhil). Issue #82. Reads only this user's mirror.
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
 
 import type { DeviceDb } from '../db/device-db';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { EmptyState } from '../ui/EmptyState';
+import { ListRow } from '../ui/ListRow';
+import { Screen } from '../ui/Screen';
+import { Text } from '../ui/Text';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius } from '../theme';
 
 export interface MaterialsSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -21,6 +23,7 @@ export interface MaterialsSitesScreenProps {
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; sites: MirrorSite[] };
 
 export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSitesScreenProps) {
+  const { t } = useTranslation();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   // Bumped by Try again, which reads the sites again.
   const [attempt, setAttempt] = useState(0);
@@ -49,44 +52,17 @@ export function MaterialsSitesScreen({ openDb, userId, onOpenSite }: MaterialsSi
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen>
       <ScreenTitle screen="materials_sites" />
-      <Text style={styles.title} accessibilityRole="header">
-        Materials
-      </Text>
-      {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-      {load.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
+      {load.kind === 'loading' && <Text>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('materialsSites.loadFailed')} onRetry={retry} />}
       {load.kind === 'ready' && load.sites.length === 0 && (
-        <Text style={styles.line}>No sites on this phone yet. Connect once to download your sites.</Text>
+        <EmptyState title={t('materialsSites.empty')} hint={t('materialsSites.emptyHint')} />
       )}
-      {load.kind === 'ready' && load.sites.length > 0 && (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-          {load.sites.map((site) => (
-            <Pressable
-              key={site.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${site.name}, ${site.address}`}
-              onPress={() => onOpenSite(site.id)}
-              style={styles.card}
-            >
-              <Text style={styles.siteName}>{site.name}</Text>
-              <Text style={styles.siteAddress}>{site.address}</Text>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+      {load.kind === 'ready' &&
+        load.sites.map((site) => (
+          <ListRow key={site.id} title={site.name} hint={site.address} onPress={() => onOpenSite(site.id)} />
+        ))}
+    </Screen>
   );
 }
-
-const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  list: { flex: 1 },
-  listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 2, backgroundColor: colors.paper },
-  siteName: { fontSize: 18, fontWeight: '600' },
-  siteAddress: { fontSize: 14, color: colors.muted },
-});
