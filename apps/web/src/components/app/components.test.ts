@@ -11,7 +11,7 @@ vi.mock("next/link", () => ({
 
 const { Button, ButtonLink } = await import("./button");
 const { DataTable } = await import("./data-table");
-const { SidebarNav } = await import("./sidebar-nav");
+const { PageStrip, SectionTabs } = await import("./sidebar-nav");
 const { AppTopBar } = await import("./app-top-bar");
 const { StatCard, progressPercent } = await import("./stat-card");
 const { StatusTag } = await import("./status-tag");
@@ -35,6 +35,7 @@ describe("StatCard", () => {
 describe("StatusTag", () => {
   it("takes its tone from the word", () => {
     expect(html(h(StatusTag, { children: "Sent back" }))).toContain("ax-tag-action");
+    expect(html(h(StatusTag, { children: "Low stock" }))).toContain("ax-tag-attention");
     expect(html(h(StatusTag, { children: "Approved" }))).toContain("ax-tag-ink");
     expect(html(h(StatusTag, { children: "Draft" }))).toContain("ax-tag-muted");
   });
@@ -57,25 +58,51 @@ describe("Button", () => {
   });
 });
 
-describe("SidebarNav", () => {
+describe("SectionTabs", () => {
   const links = orgLinks("owner", "org-1");
-  const current = links.find((l) => l.label === "Sites")?.path ?? null;
+  const current = links.find((l) => l.label === "Materials")?.path ?? null;
 
-  it("marks only the current module", () => {
-    const out = html(h(SidebarNav, { links, current }));
+  it("draws the four tabs and marks the section of the current page", () => {
+    const out = html(h(SectionTabs, { links, current, className: "cx-tabs-top" }));
+    for (const word of ["Today", "Sites", "Reports", "More"]) expect(out).toContain(`>${word}<`);
     expect(out.match(/aria-current="page"/g)).toHaveLength(1);
+    expect(out).toMatch(/aria-current="page"[^>]*>(<svg.*?<\/svg>)<span>Sites</);
   });
 
-  it("draws one link per page the role may open, each with its icon", () => {
-    const out = html(h(SidebarNav, { links: orgLinks("accountant", "org-1"), current: null }));
-    expect(out).toContain(">Workers<");
-    expect(out).toContain(">Wages<");
-    expect(out).not.toContain(">Overview<");
-    expect(out.match(/<svg/g)).toHaveLength(2);
+  it("opens the first page of each section", () => {
+    const out = html(h(SectionTabs, { links, current, className: "cx-tabs-top" }));
+    expect(out).toContain('href="/overview?org=org-1"');
+    expect(out).toContain('href="/reports?org=org-1"');
+    expect(out).toContain('href="/team?org=org-1"');
+  });
+
+  it("shows a role only the tabs it can use", () => {
+    const out = html(h(SectionTabs, { links: orgLinks("accountant", "org-1"), current: null, className: "x" }));
+    expect(out).toContain(">Sites<");
+    expect(out).toContain(">Reports<");
+    expect(out).not.toContain(">Today<");
+    expect(out).not.toContain(">More<");
   });
 
   it("draws nothing when there are no links", () => {
-    expect(html(h(SidebarNav, { links: [], current: null }))).toBe("");
+    expect(html(h(SectionTabs, { links: [], current: null, className: "x" }))).toBe("");
+  });
+});
+
+describe("PageStrip", () => {
+  const links = orgLinks("owner", "org-1");
+
+  it("lists the pages of the current section and marks the current one", () => {
+    const out = html(h(PageStrip, { links, current: links.find((l) => l.label === "Workers")?.path ?? null }));
+    expect(out).toContain(">Sites<");
+    expect(out).toContain(">Materials<");
+    expect(out).toContain(">Workers<");
+    expect(out).not.toContain(">Wages<");
+    expect(out.match(/aria-current="page"/g)).toHaveLength(1);
+  });
+
+  it("draws nothing for a section with one page", () => {
+    expect(html(h(PageStrip, { links: orgLinks("supervisor", "org-1"), current: "/reports?org=org-1" }))).toBe("");
   });
 });
 
@@ -84,29 +111,20 @@ describe("AppTopBar", () => {
   const links = orgLinks("owner", "org-1");
   const current = links.find((l) => l.label === "Sites")?.path ?? null;
 
-  it("draws the modules as pills and again in the Menu, with the current one marked in each", () => {
+  it("draws the tabs in the bar and at the bottom, with the current section marked in each", () => {
     const out = html(h(AppTopBar, { orgName: "Shree Builders", roleLabel: "Owner", links, current, signOut }));
-    expect(out).toContain('class="cx-pills"');
-    expect(out).toContain('aria-label="Menu"');
-    expect(out.match(/aria-current="page"/g)).toHaveLength(2);
+    expect(out).toContain("cx-tabs-top");
+    expect(out).toContain("cx-tabs-bottom");
+    expect(out.match(/aria-current="page"/g)).toHaveLength(3);
     expect(out).toContain(">Shree Builders<");
   });
 
   it("keeps Sign out in the account menu, with or without an organisation", () => {
     const out = html(h(AppTopBar, { email: "owner@example.com", signOut }));
-    expect(out).not.toContain('aria-label="Menu"');
+    expect(out).not.toContain("cx-tabs-top");
     expect(out).toContain('aria-label="Account"');
     expect(out).toContain("Sign out");
     expect(out).toContain("owner@example.com");
-  });
-});
-
-describe("SidebarNav pills", () => {
-  it("marks only the current module and draws no icons", () => {
-    const links = orgLinks("owner", "org-1");
-    const out = html(h(SidebarNav, { links, current: links[0]?.path ?? null, variant: "pills" }));
-    expect(out.match(/aria-current="page"/g)).toHaveLength(1);
-    expect(out).not.toContain("<svg");
   });
 });
 

@@ -107,8 +107,8 @@ export default async function ReportPage({
         <PageHead eyebrow={eyebrowFor(report.report_date)} title={site?.name ?? "Site"} />
         <p className="at-meta">
           <StatusTag tone={tag.tone}>{tag.word}</StatusTag>
-          {report.serious_blocker && <StatusTag tone="action">Serious blocker</StatusTag>}
-          {report.safety_incident && <StatusTag tone="action">Safety incident</StatusTag>}
+          {report.serious_blocker && <StatusTag tone="attention">Serious blocker</StatusTag>}
+          {report.safety_incident && <StatusTag tone="attention">Safety incident</StatusTag>}
           <span>{report.headcount ?? "–"} workers</span>
           {report.author_id === user.id && <span className="ax-empty">Filed by you</span>}
         </p>
