@@ -19,7 +19,8 @@ upload, or anything a supervisor can reach.
 ## Data access
 
 - [ ] A `supervisor` can reach **only** sites assigned to them — tested, not assumed.
-- [ ] A `supervisor` cannot read wage amounts.
+- [ ] A `supervisor` cannot read wage amounts. The one exception is advances on a site they
+      are assigned to, which they hand over themselves (ADR-054).
 - [ ] Only an `owner` can reopen a locked wage period.
 - [ ] A view is `security_invoker`, so it never shows more than its tables allow.
 - [ ] The query cannot be made to return another organisation's rows by changing

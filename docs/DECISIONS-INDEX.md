@@ -63,3 +63,4 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-051 | The phone holds its author's report statuses, so a send-back reaches the supervisor | Proposed | Offline Sync |
 | ADR-052 | Staff usage: a database allowlist, two definer functions, counts only | Proposed | Audit, Retention & Guards |
 | ADR-053 | The phone holds a mirror of the last two months of attendance entries, for a worker's month screen | Proposed | Offline Sync |
+| ADR-054 | Worker advances: an append-only ledger, written through one function, readable by owner, accountant and the site's supervisor | Proposed | Worker advances (Nikhil) |
