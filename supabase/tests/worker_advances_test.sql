@@ -248,6 +248,39 @@ begin
   perform test_assert(n = 0, 'a supervisor of another site reads no total');
 end $$;
 
+-- ------------------------------------------------------------------- lines
+
+do $$
+declare n bigint;
+begin
+  perform test_assert(
+    (select reloptions @> array['security_invoker=true'] from pg_class
+      where oid = 'public.worker_advance_lines'::regclass),
+    'the lines view is security_invoker');
+  perform test_assert(
+    not has_table_privilege('anon', 'public.worker_advance_lines', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.worker_advance_lines', 'INSERT'),
+    'anon cannot read the lines view and no client can write through it');
+
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = (select count(*) from public.worker_advances), 'the owner reads every line');
+
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n >= 1, 'the supervisor of the site reads its lines');
+
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'a supervisor of another site reads no line');
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'a project manager reads no line');
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'another organisation reads no line');
+end $$;
+
 -- ------------------------------------------------------------- append-only
 
 do $$
