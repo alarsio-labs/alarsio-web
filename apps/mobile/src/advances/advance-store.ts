@@ -3,13 +3,13 @@
 //
 // An advance is append-only, like the ledger it feeds: a mistake is cancelled by a second
 // record that points at the first, never by an edit. Every save and read is under the
-// signed-in user, so another user on a shared phone sees none of it. The phone holds no
-// copy of the server's advances, so this list is what this user saved here (ADR-054).
+// signed-in user, so another user on a shared phone sees none of it. The list joins what this
+// user saved here with the advances the pull mirror holds for the last two months (ADR-054).
 
 import type { DeviceDb } from '../db/device-db';
 import { enqueue, listRecords, newRecordId } from '../sync/outbox';
 import type { OutboxStatus } from '../sync/entities';
-import { istDate, readRosterOn, readSiteWorkers } from '../sync/pull';
+import { istDate, readRosterOn, readSiteAdvances, readSiteWorkers } from '../sync/pull';
 import { AdvanceError, buildAdvance, buildPayload, parsePayload, type AdvanceInput, type StoredAdvance } from './advance';
 
 /** Records read back for one site. The outbox keeps synced rows, so this is a cap, not a filter. */
@@ -57,29 +57,42 @@ export interface SiteAdvance extends StoredAdvance {
   canCancel: boolean;
 }
 
-/** This user's advances and cancellations at one site, newest first. A row that is not one is skipped. */
+/**
+ * The advances and cancellations at one site, newest day first: what this user saved here, plus
+ * what the mirror holds that is not in the outbox. A row that is not an advance is skipped.
+ */
 export async function loadSiteAdvances(db: DeviceDb, userId: string, siteId: string): Promise<SiteAdvance[]> {
-  const [rows, workers] = await Promise.all([
+  const [rows, workers, mirrored] = await Promise.all([
     listRecords(db, userId, 'worker_advances', { siteId, limit: READ_LIMIT }),
     readSiteWorkers(db, userId, siteId),
+    readSiteAdvances(db, userId, siteId),
   ]);
   const names = new Map(workers.map((w) => [w.workerId, w.name]));
   const parsed = rows.flatMap((row) => {
     const advance = parsePayload(row.payload);
-    return advance === null ? [] : [{ row, advance }];
+    return advance === null ? [] : [{ recordId: row.recordId, status: row.status, reason: row.reason, updatedAt: row.updatedAt, advance }];
   });
+  // The outbox keeps a synced row under the server's id, so the same advance is not shown twice.
+  const saved = new Set(parsed.map((p) => p.recordId));
+  const fromMirror = mirrored
+    .filter((m) => !saved.has(m.id))
+    .map((m) => ({
+      recordId: m.id,
+      status: 'synced' as const,
+      reason: null,
+      updatedAt: '',
+      advance: { siteId: m.siteId, workerId: m.workerId, paidOn: m.paidOn, amountPaise: m.amountPaise, note: m.note, reversesId: m.reversesId },
+    }));
+  const all = [...parsed, ...fromMirror].sort((a, b) => b.advance.paidOn.localeCompare(a.advance.paidOn));
   // A rejected cancellation did not happen, so the advance can be cancelled again.
   const cancelledIds = new Set(
-    parsed.filter((p) => p.advance.reversesId !== null && p.row.status !== 'rejected').map((p) => p.advance.reversesId),
+    all.filter((p) => p.advance.reversesId !== null && p.status !== 'rejected').map((p) => p.advance.reversesId),
   );
-  return parsed.map(({ row, advance }): SiteAdvance => {
+  return all.map(({ advance, ...row }): SiteAdvance => {
     const cancelled = cancelledIds.has(row.recordId);
     return {
       ...advance,
-      recordId: row.recordId,
-      status: row.status,
-      reason: row.reason,
-      updatedAt: row.updatedAt,
+      ...row,
       workerName: names.get(advance.workerId.toLowerCase()) ?? '',
       cancelled,
       canCancel: advance.reversesId === null && row.status === 'synced' && !cancelled,

@@ -247,4 +247,23 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index outbox_author_status_seq on outbox (author_id, status, seq);
     `,
   },
+  {
+    // Issue #239, ADR-054. The seventh pull mirror: the advances of this and the last month on the
+    // sites the user sees, from worker_advances under RLS, so advances recorded elsewhere show here.
+    // Replaced whole by each pull and owned by one user through mirror_state (ADR-023).
+    version: 12,
+    name: 'mirror advances',
+    sql: `
+      create table mirror_advances (
+        id           text primary key check (length(id) = 36),
+        site_id      text not null check (length(site_id) = 36),
+        worker_id    text not null check (length(worker_id) = 36),
+        paid_on      text not null check (length(paid_on) = 10),
+        amount_paise integer not null check (amount_paise > 0),
+        note         text,
+        reverses_id  text check (reverses_id is null or length(reverses_id) = 36)
+      );
+      create index mirror_advances_site on mirror_advances (site_id, paid_on);
+    `,
+  },
 ];

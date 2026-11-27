@@ -82,8 +82,8 @@ describe('SiteAdvancesScreen (#239)', () => {
 
     expect(await screen.findByText('Kothrud')).toBeTruthy();
     expect(headerTitles()).toContain('Advances · Kothrud');
-    expect(screen.getByText('This list shows the advances you saved on this phone.')).toBeTruthy();
-    expect(screen.getByText('No advances saved on this phone yet.')).toBeTruthy();
+    expect(screen.getByText(/This list shows this month's and last month's advances/)).toBeTruthy();
+    expect(screen.getByText('No advances at this site yet.')).toBeTruthy();
   });
 
   it('records an advance with no signal: saved to the outbox, waiting to send, never "on the server"', async () => {

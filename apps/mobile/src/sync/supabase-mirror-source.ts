@@ -64,6 +64,12 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, day_status',
     key: 'entry_id',
   },
+  // Advances and their cancellations (ADR-054), under RLS: owner and accountant see all, a supervisor their sites.
+  advances: {
+    table: 'worker_advances',
+    columns: 'id, site_id, worker_id, paid_on, amount_paise, note, reverses_id',
+    key: 'id',
+  },
   // Daily Reporting's published view (ADR-025, ADR-042), never daily_reports: ARCHITECTURE rule 4.
   // Only the columns the phone shows; the author's own rows only (filtered below, RLS beneath).
   report_status: {
@@ -125,6 +131,7 @@ export function supabaseMirrorSource(
       // Approved days of the same window, so the phone holds the days its register can open (ADR-049).
       if (kind === 'approved_days') query = query.gte('work_date', windowFirstDay(now()));
       if (kind === 'month_entries') query = query.gte('work_date', monthWindowFirstDay(now()));
+      if (kind === 'advances') query = query.gte('paid_on', monthWindowFirstDay(now()));
       // The signed-in author's own reports of the last two weeks (ADR-051); RLS also lets a
       // manager see others', which the phone has no use for.
       if (kind === 'report_status') {

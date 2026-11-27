@@ -17,7 +17,7 @@ export const PULL_PAGE_SIZE = 1000;
 /** A safety stop, far above any real size, so a misbehaving server cannot loop a pull forever. */
 const MAX_PAGES = 1000;
 
-export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status' | 'month_entries';
+export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status' | 'month_entries' | 'advances';
 
 /** The column each source is ordered and paged by. */
 const KEY_FIELD: Record<MirrorKind, string> = {
@@ -27,6 +27,7 @@ const KEY_FIELD: Record<MirrorKind, string> = {
   approved_days: 'entry_id',
   report_status: 'id',
   month_entries: 'entry_id',
+  advances: 'id',
 };
 
 export interface MirrorSource {
@@ -138,6 +139,18 @@ interface MonthRow extends MonthEntry {
   overtimeHundredths: number;
 }
 
+/** An advance, or its cancellation (reversesId set), as the server holds it. */
+export interface MirroredAdvance {
+  id: string;
+  siteId: string;
+  workerId: string;
+  /** Asia/Kolkata calendar day. */
+  paidOn: string;
+  amountPaise: number;
+  note: string | null;
+  reversesId: string | null;
+}
+
 /** What the phone holds for its owner, and when it was refreshed. */
 export interface MirrorSummary {
   refreshedAt: string;
@@ -184,6 +197,7 @@ export async function runPull(
   let approved: ApprovedRow[];
   let reports: ReportStatus[];
   let months: MonthRow[] | null;
+  let advances: MirroredAdvance[] | null;
   try {
     userId = await source.currentUserId();
     if (userId === null) return { kind: 'signed_out' };
@@ -192,7 +206,8 @@ export async function runPull(
     roster = await fetchAll(source, 'roster', userId, pageSize, toAssignment);
     approved = await fetchAll(source, 'approved_days', userId, pageSize, toApprovedDay);
     reports = await fetchAll(source, 'report_status', userId, pageSize, toReportStatus);
-    months = await fetchMonths(source, userId, pageSize);
+    months = await fetchOptional(source, 'month_entries', userId, pageSize, toMonthEntry);
+    advances = await fetchOptional(source, 'advances', userId, pageSize, toMirroredAdvance);
 
     // Still the same user? A sign-out that landed while the pages were coming in
     // must not be undone by a write of that user's data afterwards. This narrows
@@ -213,15 +228,17 @@ export async function runPull(
   approved = approved.filter((a) => siteIds.has(a.siteId));
   reports = reports.filter((r) => siteIds.has(r.siteId));
   months = months?.filter((m) => siteIds.has(m.siteId)) ?? null;
+  advances = advances?.filter((a) => siteIds.has(a.siteId)) ?? null;
 
   const owner = userId.toLowerCase();
   try {
-    // Old month rows are kept only when they are this user's own.
+    // Old month and advance rows are kept only when they are this user's own.
     const before = await mirrorInfo(db);
     const keepMonth = months === null && before?.userId === owner;
+    const keepAdvances = advances === null && before?.userId === owner;
     const refreshedAt = now().toISOString();
     await db.transaction(async () => {
-      await deleteMirrors(db, keepMonth);
+      await deleteMirrors(db, keepMonth, keepAdvances);
       for (const s of sites) {
         await db.run(
           `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
@@ -266,6 +283,16 @@ export async function runPull(
           `insert into mirror_month_entries (entry_id, site_id, worker_id, work_date, status, overtime_hundredths, day_status)
            values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
           chunk.flatMap((m) => [m.entryId, m.siteId, m.workerId, m.workDate, m.status, m.overtimeHundredths, m.dayStatus]),
+        );
+      }
+      if (keepAdvances) await db.run(`delete from mirror_advances where site_id not in (select id from mirror_sites)`);
+      const freshAdvances = advances ?? [];
+      for (let i = 0; i < freshAdvances.length; i += 100) {
+        const chunk = freshAdvances.slice(i, i + 100);
+        await db.run(
+          `insert into mirror_advances (id, site_id, worker_id, paid_on, amount_paise, note, reverses_id)
+           values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+          chunk.flatMap((a) => [a.id, a.siteId, a.workerId, a.paidOn, a.amountPaise, a.note, a.reversesId]),
         );
       }
       await db.run(`insert into mirror_state (id, user_id, refreshed_at, month_refreshed_at) values (1, ?, ?, ?)`, [
@@ -534,6 +561,33 @@ export async function readApprovedDates(db: DeviceDb, userId: string, siteId: st
   return rows.map((r) => r.work_date);
 }
 
+/** The advances the mirror holds for a site, newest day first. Empty for anyone but the mirror's owner. */
+export async function readSiteAdvances(db: DeviceDb, userId: string, siteId: string): Promise<MirroredAdvance[]> {
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{
+    id: string;
+    site_id: string;
+    worker_id: string;
+    paid_on: string;
+    amount_paise: number;
+    note: string | null;
+    reverses_id: string | null;
+  }>(
+    `select id, site_id, worker_id, paid_on, amount_paise, note, reverses_id from mirror_advances
+      where site_id = ? order by paid_on desc, id`,
+    [siteId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    siteId: r.site_id,
+    workerId: r.worker_id,
+    paidOn: r.paid_on,
+    amountPaise: r.amount_paise,
+    note: r.note,
+    reversesId: r.reverses_id,
+  }));
+}
+
 /** Every worker the roster mirror holds for a site, once each, by name. */
 export async function readSiteWorkers(db: DeviceDb, userId: string, siteId: string): Promise<RosterWorker[]> {
   if (!(await ownedBy(db, userId))) return [];
@@ -597,26 +651,33 @@ async function ownedBy(db: DeviceDb, userId: string): Promise<boolean> {
 }
 
 /**
- * The month view is the newest source and the only one a missing view can break, so it must not
- * block the others: if it fails, the pull goes on without it and keeps the old month rows (ADR-053).
- * A changed session still stops the whole pull.
+ * The month view and the advances are the newest sources and the only ones a missing view or table
+ * can break, so they must not block the others: if one fails, the pull goes on without it and keeps
+ * the old rows (ADR-053). A changed session still stops the whole pull.
  */
-async function fetchMonths(source: MirrorSource, userId: string, pageSize: number): Promise<MonthRow[] | null> {
+async function fetchOptional<T>(
+  source: MirrorSource,
+  kind: MirrorKind,
+  userId: string,
+  pageSize: number,
+  parse: (row: unknown) => T,
+): Promise<T[] | null> {
   try {
-    return await fetchAll(source, 'month_entries', userId, pageSize, toMonthEntry);
+    return await fetchAll(source, kind, userId, pageSize, parse);
   } catch (error) {
     if (reasonOf(error) === SESSION_CHANGED) throw error;
     return null;
   }
 }
 
-async function deleteMirrors(db: DeviceDb, keepMonth = false): Promise<void> {
+async function deleteMirrors(db: DeviceDb, keepMonth = false, keepAdvances = false): Promise<void> {
   await db.run(`delete from mirror_sites`);
   await db.run(`delete from mirror_materials`);
   await db.run(`delete from mirror_roster`);
   await db.run(`delete from mirror_approved_days`);
   await db.run(`delete from mirror_report_status`);
   if (!keepMonth) await db.run(`delete from mirror_month_entries`);
+  if (!keepAdvances) await db.run(`delete from mirror_advances`);
   await db.run(`delete from mirror_state`);
 }
 
@@ -805,6 +866,33 @@ function toMonthEntry(v: unknown): MonthRow {
     overtimeHours: overtimeHundredths / 100,
     overtimeHundredths,
     dayStatus: v.day_status,
+  };
+}
+
+function toMirroredAdvance(v: unknown): MirroredAdvance {
+  if (
+    !isRow(v) ||
+    !isId(v.id) ||
+    !isId(v.site_id) ||
+    !isId(v.worker_id) ||
+    !isText(v.paid_on) ||
+    !isCalendarDay(v.paid_on) ||
+    !isNum(v.amount_paise) ||
+    !Number.isSafeInteger(v.amount_paise) ||
+    v.amount_paise <= 0 ||
+    !(v.note === null || isText(v.note)) ||
+    !(v.reverses_id === null || isId(v.reverses_id))
+  ) {
+    return bad('advances');
+  }
+  return {
+    id: v.id.toLowerCase(),
+    siteId: v.site_id.toLowerCase(),
+    workerId: v.worker_id.toLowerCase(),
+    paidOn: v.paid_on,
+    amountPaise: v.amount_paise,
+    note: v.note,
+    reversesId: v.reverses_id === null ? null : v.reverses_id.toLowerCase(),
   };
 }
 
