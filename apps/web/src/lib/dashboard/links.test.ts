@@ -6,7 +6,7 @@ const labels = (role: Parameters<typeof orgLinks>[0]) => orgLinks(role, "org-1")
 // The same rules the dashboard drew before the v2 restyle, role by role.
 describe("orgLinks", () => {
   it("gives the owner every page, Team and Export included", () => {
-    expect(labels("owner")).toEqual(["Overview", "Daily reports", "Attendance", "Sites", "Materials", "Workers", "Wages", "Team", "Export"]);
+    expect(labels("owner")).toEqual(["Overview", "Daily reports", "Attendance", "Sites", "Materials", "Workers", "Wages", "Advances", "Team", "Export"]);
   });
 
   it("shows Export to the owner only (#135)", () => {
@@ -17,12 +17,16 @@ describe("orgLinks", () => {
     expect(labels("project_manager")).toEqual(["Overview", "Daily reports", "Attendance", "Sites", "Materials", "Workers"]);
   });
 
-  it("gives a supervisor only Daily reports on the web", () => {
-    expect(labels("supervisor")).toEqual(["Daily reports"]);
+  it("gives a supervisor Daily reports and Advances on the web", () => {
+    expect(labels("supervisor")).toEqual(["Daily reports", "Advances"]);
   });
 
-  it("gives an accountant Workers and Wages, and no reports", () => {
-    expect(labels("accountant")).toEqual(["Workers", "Wages"]);
+  it("gives an accountant Workers, Wages and Advances, and no reports", () => {
+    expect(labels("accountant")).toEqual(["Workers", "Wages", "Advances"]);
+  });
+
+  it("keeps Advances from a project manager, who cannot read them", () => {
+    expect(labels("project_manager")).not.toContain("Advances");
   });
 
   it("puts the organisation on every link", () => {
