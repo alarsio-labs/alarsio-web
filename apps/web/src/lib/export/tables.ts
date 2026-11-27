@@ -129,6 +129,12 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
     orgColumn: "org_id",
     columns: ["id", "org_id", "site_id", "material_id", "kind", "quantity", "reason", "occurred_on", "recorded_by", "created_at"]
   },
+  // Worker advances (ADR-054)
+  {
+    table: "worker_advances",
+    orgColumn: "org_id",
+    columns: ["id", "org_id", "site_id", "worker_id", "paid_on", "amount_paise", "note", "reverses_id", "recorded_by", "created_at"]
+  },
   // Wage Summaries
   {
     table: "wage_periods",
