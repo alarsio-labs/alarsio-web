@@ -50,6 +50,8 @@ export interface SiteAttendanceScreenProps {
   onOpenRegister?: () => void;
   /** Opens one worker's month for this site (#234, ADR-053). No button without it. */
   onOpenWorkers?: () => void;
+  /** Opens the advances for this site (#239, ADR-054). No button without it. */
+  onOpenAdvances?: () => void;
 }
 
 type Action = { kind: 'in' } | { kind: 'out'; recordId: string };
@@ -97,6 +99,7 @@ export function SiteAttendanceScreen({
   pollMs = 3000,
   onOpenRegister,
   onOpenWorkers,
+  onOpenAdvances,
 }: SiteAttendanceScreenProps) {
   const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
@@ -390,6 +393,10 @@ export function SiteAttendanceScreen({
 
           {step.kind === 'idle' && site.orgId !== null && onOpenWorkers && (
             <Button label={t('attendance.workers')} kind="secondary" onPress={onOpenWorkers} />
+          )}
+
+          {step.kind === 'idle' && site.orgId !== null && onOpenAdvances && (
+            <Button label={t('attendance.advances')} kind="secondary" onPress={onOpenAdvances} />
           )}
 
           {shown.map((v) => {
