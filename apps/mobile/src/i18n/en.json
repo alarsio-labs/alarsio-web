@@ -472,6 +472,7 @@
     "addReasonResend": "Add a reason and send again",
     "dayRegister": "Day register",
     "workers": "Workers",
+    "advances": "Advances",
     "checkedIn": "Checked in {{time}}",
     "checkedOut": "Checked out {{time}}",
     "monthShort": {
