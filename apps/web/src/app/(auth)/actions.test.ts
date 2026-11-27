@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 // that records each auth call and returns what the test sets; every way out of an
 // action is a redirect, so the tests read where it went.
 
-type AuthError = { code?: string } | null;
+type AuthError = { code?: string; status?: number } | null;
 const sb = vi.hoisted(() => ({
   calls: [] as { fn: string; args: unknown[] }[],
   signIn: { data: { user: null as { id: string } | null }, error: null as AuthError },
@@ -12,6 +12,7 @@ const sb = vi.hoisted(() => ({
   getUser: { data: { user: null as { id: string } | null } },
   updateUser: { error: null as AuthError },
   resend: { error: null as AuthError },
+  reset: { error: null as AuthError },
   profiles: [] as string[]
 }));
 
@@ -51,7 +52,7 @@ vi.mock("@/lib/supabase/server", () => ({
     auth: {
       signInWithPassword: async (...args: unknown[]) => (sb.calls.push({ fn: "signInWithPassword", args }), sb.signIn),
       signUp: async (...args: unknown[]) => (sb.calls.push({ fn: "signUp", args }), sb.signUp),
-      resetPasswordForEmail: async (...args: unknown[]) => (sb.calls.push({ fn: "resetPasswordForEmail", args }), { error: { code: "over_email_send_rate_limit" } }),
+      resetPasswordForEmail: async (...args: unknown[]) => (sb.calls.push({ fn: "resetPasswordForEmail", args }), sb.reset),
       resend: async (...args: unknown[]) => (sb.calls.push({ fn: "resend", args }), sb.resend),
       getUser: async () => sb.getUser,
       updateUser: async (...args: unknown[]) => (sb.calls.push({ fn: "updateUser", args }), sb.updateUser),
@@ -89,6 +90,7 @@ beforeEach(() => {
   sb.getUser = { data: { user: { id: "u1" } } };
   sb.updateUser = { error: null };
   sb.resend = { error: null };
+  sb.reset = { error: null };
   jar.set.length = 0;
   jar.deleted.length = 0;
 });
@@ -178,8 +180,23 @@ describe("signUp", () => {
   });
 
   it("shows a failure for any other error", async () => {
-    sb.signUp = { error: { code: "unexpected_failure" } };
+    sb.signUp = { error: { code: "validation_failed", status: 422 } };
     expect(await target(() => signUp(form({ ...good, next: "/team" })))).toBe("/sign-up?error=sign_up_failed&next=%2Fteam");
+  });
+
+  it("asks to wait when the email limit is reached", async () => {
+    sb.signUp = { error: { code: "over_email_send_rate_limit", status: 429 } };
+    expect(await target(() => signUp(form(good)))).toBe("/sign-up?error=resend_rate");
+  });
+
+  it("says the email could not be sent when the mail server fails", async () => {
+    sb.signUp = { error: { code: "unexpected_failure", status: 500 } };
+    expect(await target(() => signUp(form(good)))).toBe("/sign-up?error=email_failed");
+  });
+
+  it("says the password is not accepted when the server rejects it", async () => {
+    sb.signUp = { error: { code: "weak_password", status: 422 } };
+    expect(await target(() => signUp(form(good)))).toBe("/sign-up?error=password_rejected");
   });
 
   it("signs up with the name and a verification link that keeps a safe next", async () => {
@@ -216,9 +233,14 @@ describe("resendConfirmation", () => {
     expect(sentTo().options.emailRedirectTo).toBe("https://app.test/auth/confirm?next=%2Fdashboard");
   });
 
-  it("says the same for an unknown address or any other failure", async () => {
+  it("says the same for an unknown address", async () => {
     sb.resend = { error: { code: "user_not_found" } };
     expect(await target(() => resendConfirmation(form({ email: "a@b.co" })))).toBe("/check-email?sent=1");
+  });
+
+  it("says the email could not be sent when sending fails", async () => {
+    sb.resend = { error: { code: "unexpected_failure", status: 500 } };
+    expect(await target(() => resendConfirmation(form({ email: "a@b.co" })))).toBe("/check-email?error=email_failed");
   });
 
   it("asks to wait when Supabase limits how often it sends", async () => {
@@ -233,7 +255,17 @@ describe("requestPasswordReset", () => {
     expect(called("resetPasswordForEmail")).toHaveLength(0);
   });
 
-  it("shows the same page even when sending fails, and links to /update-password", async () => {
+  it("asks to wait when the email limit is reached", async () => {
+    sb.reset = { error: { code: "over_email_send_rate_limit", status: 429 } };
+    expect(await target(() => requestPasswordReset(form({ email: "a@b.co" })))).toBe("/forgot-password?error=resend_rate");
+  });
+
+  it("says the email could not be sent when sending fails", async () => {
+    sb.reset = { error: { code: "unexpected_failure", status: 500 } };
+    expect(await target(() => requestPasswordReset(form({ email: "a@b.co" })))).toBe("/forgot-password?error=email_failed");
+  });
+
+  it("shows the same page for any address, and links to /update-password", async () => {
     expect(await target(() => requestPasswordReset(form({ email: "A@B.co" })))).toBe("/check-email?for=reset");
     const [email, opts] = called("resetPasswordForEmail")[0]?.args as [string, { redirectTo: string }];
     expect(email).toBe("a@b.co");

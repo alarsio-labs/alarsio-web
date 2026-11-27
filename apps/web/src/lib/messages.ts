@@ -12,6 +12,8 @@ const MESSAGES = {
   sign_up_failed: "Could not create the account. Try again, or sign in if you already have one.",
   link_invalid: "That link is invalid or has expired. Request a new one.",
   resend_rate: "We sent an email very recently. Wait a minute, then ask again.",
+  email_failed: "We could not send the email. Try again in a few minutes. If it keeps failing, write to us from the Contact page.",
+  password_rejected: "That password is not accepted. Choose a longer or less common one.",
   org_name: "Enter an organisation name of 1 to 120 characters.",
   org_failed: "Could not create the organisation. Try again.",
   review_forbidden: "You cannot review this report.",
