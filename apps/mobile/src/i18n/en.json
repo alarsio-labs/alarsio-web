@@ -8,6 +8,7 @@
     "daily_report": "Daily report",
     "materials_sites": "Materials",
     "site_materials": "Materials",
+    "site_advances": "Advances",
     "help": "Help"
   },
   "sites": {
@@ -263,6 +264,46 @@
       "date_future": "The date cannot be in the future.",
       "kind_invalid": "Choose what kind of entry this is.",
       "material_not_found": "This material is not on this phone. Refresh and try again.",
+      "generic": "Could not save on this phone. Try again."
+    }
+  },
+  "siteAdvances": {
+    "loadFailed": "Could not read the advances on this phone.",
+    "missing": "This site is not on this phone.",
+    "scopeNote": "This list shows the advances you saved on this phone.",
+    "noWorkers": "No workers on this site yet.",
+    "noWorkersHint": "Connect once to refresh the roster.",
+    "empty": "No advances saved on this phone yet.",
+    "record": "Record an advance",
+    "worker": "Worker",
+    "amount": "Amount (₹)",
+    "noteOptional": "Note (optional)",
+    "date": "Date",
+    "save": "Save",
+    "cancel": "Cancel",
+    "recent": "Advances from this phone",
+    "entry": "{{amount}} · {{worker}} · {{date}}",
+    "entryNote": "Note: {{note}}",
+    "cancelAdvance": "Cancel this advance",
+    "cancelled": "Cancelled",
+    "cancellation": "Cancels an advance of {{amount}}",
+    "status": {
+      "waiting": "Saved on this phone, waiting to send",
+      "failed": "Could not send yet. Will retry.",
+      "onServer": "On the server",
+      "attention": "Needs attention · {{reason}}"
+    },
+    "error": {
+      "amount_required": "Enter the amount.",
+      "amount_invalid": "Enter the amount in rupees, with up to two decimals.",
+      "amount_zero": "The amount must be more than zero.",
+      "amount_too_large": "One advance can be at most ₹10,00,000.",
+      "note_too_long": "Keep the note within {{max}} characters.",
+      "date_invalid": "Enter the date as YYYY-MM-DD.",
+      "date_future": "The date cannot be in the future.",
+      "worker_not_found": "This worker was not on this site's roster on that date.",
+      "advance_not_found": "This advance can't be cancelled from this phone.",
+      "already_cancelled": "This advance is already cancelled.",
       "generic": "Could not save on this phone. Try again."
     }
   },
