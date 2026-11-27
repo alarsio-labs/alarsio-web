@@ -426,6 +426,13 @@
     "addReasonResend": "कारण जोड़ें और फिर भेजें",
     "dayRegister": "दिन की हाज़िरी",
     "workers": "कामगार",
+    "shareSlip": "दिन की पर्ची भेजें",
+    "slipFailed": "दिन की पर्ची नहीं भेजी जा सकी। फिर कोशिश करें।",
+    "slipNoCheckIn": "चेक-इन नहीं हुआ",
+    "slipOnSite": "साइट पर: {{count}}",
+    "slipHalfDay": "{{count}} आधे दिन पर",
+    "slipNoAttendance": "हाज़िरी नहीं लगी",
+    "slipReport": "दैनिक रिपोर्ट: {{status}}",
     "checkedIn": "चेक-इन {{time}}",
     "checkedOut": "चेक-आउट {{time}}",
     "monthShort": {
