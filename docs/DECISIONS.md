@@ -2285,12 +2285,13 @@ stays `Proposed` until its module owner has reviewed it.
 the cost — a decision with no downside is usually a decision not yet understood.
 ```
 
-## ADR-054 · Worker advances: an append-only ledger, written through one function, readable by owner and accountant only
+## ADR-054 · Worker advances: an append-only ledger, written through one function, readable by owner, accountant and the site's supervisor
 **Date:** 2026-11-27 · **Status:** Proposed · **By:** Nikhil (spec #239, option A of #237, PR 1 of Phase 2; review: Ishant for wages, Manish for the roster)
 
 **Context.** A supervisor's paper book records money paid to a worker before pay day. No MVP module records it, and
 Wage Summaries only computes pay from approved attendance (ADR-035). #239 proposes a small module for it. SECURITY.md
-says a supervisor cannot read wage amounts, and `worker_effective_rates` is not readable by one.
+says a supervisor cannot read wage amounts, and `worker_effective_rates` is not readable by one. ADR-050 sends owners
+and accountants to the web, so the phone is for supervisors, who hand the money over.
 
 **Decision.**
 - A1. **Table `worker_advances`**, append-only (rule 5): `block_worker_advance_mutation` refuses update, delete and
@@ -2299,14 +2300,17 @@ says a supervisor cannot read wage amounts, and `worker_effective_rates` is not 
   site (a composite foreign key), cannot itself be reversed, and an advance is reversed once (a unique key).
 - A3. **Only `apply_worker_advance` writes** (`SECURITY DEFINER`, same shape as `apply_material_transaction`). No client
   has an insert grant. `sync_worker_advances` is a thin handler over it, and `worker_advances` joins sync_push's list.
-- A4. **Who:** `can_view_wages(org)` reads and records, so owner and accountant only. This follows SECURITY.md with no
-  rule change. A worker not on that site, another organisation's worker and the wrong role all get the same 42501.
+- A4. **Who:** `can_view_wages(org)` (owner, accountant) reads and records for the whole organisation. A supervisor
+  (`can_record_on_site(site)`) reads and records for the sites they are assigned to, and only while the site is not
+  archived. A project manager does neither. An advance is money handed over, not a rate or pay, so this is the one
+  place a supervisor reads an amount; SECURITY.md says so. A worker not on that site, another organisation's worker
+  and any other role all get the same 42501.
 - A5. **Rules at write time:** a date is at most tomorrow in India (as ADR-017), and a new advance needs the worker
   on the site's roster on that date (ADR-021 D10, read through `worker_roster`). A reversal needs no roster check.
 - A6. **A replay** of the author's own record is answered "done" before any permission check. The same id with other
   content is a conflict (23505, `conflict / duplicate`).
 - A7. **View `worker_advance_totals`** (`security_invoker`): per worker and month, advances minus reversals.
 
-**Consequence, open.** ADR-050 sends owners and accountants to the web, so no one on the phone can record or read an
-advance under A4. The phone screen of #239 (PR 2) needs a decision: let a supervisor record and read advances on their
-own sites (a change to A4, and SECURITY.md must say an advance is not a wage amount), or build the screen on the web.
+**Consequence.** The phone screen of #239 (PR 2) can be built for the supervisor. It shows no rate and no pay: the
+balance line that needs `worker_effective_rates` stays with the owner and accountant on the web. Decided by Nikhil on
+2026-11-27 over the web-only option; Ishant (wages) and Manish (roster) to confirm in review.
