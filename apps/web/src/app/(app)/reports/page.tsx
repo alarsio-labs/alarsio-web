@@ -125,8 +125,8 @@ export default async function ReportsPage({
                 return (
                   <span className="ov-tags">
                     <StatusTag tone={t.tone}>{t.word}</StatusTag>
-                    {r.serious_blocker && <StatusTag tone="action">Serious blocker</StatusTag>}
-                    {r.safety_incident && <StatusTag tone="action">Safety incident</StatusTag>}
+                    {r.serious_blocker && <StatusTag tone="attention">Serious blocker</StatusTag>}
+                    {r.safety_incident && <StatusTag tone="attention">Safety incident</StatusTag>}
                   </span>
                 );
               }

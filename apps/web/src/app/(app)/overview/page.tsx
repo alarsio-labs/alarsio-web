@@ -224,8 +224,8 @@ export default async function OverviewPage({
                     render: (r) => (
                       <span className="ov-tags">
                         <StatusTag>{reportWord(r)}</StatusTag>
-                        {r.report?.seriousBlocker && <StatusTag tone="action">Serious blocker</StatusTag>}
-                        {r.report?.safetyIncident && <StatusTag tone="action">Safety incident</StatusTag>}
+                        {r.report?.seriousBlocker && <StatusTag tone="attention">Serious blocker</StatusTag>}
+                        {r.report?.safetyIncident && <StatusTag tone="attention">Safety incident</StatusTag>}
                         {r.report?.flagged && !r.report.seriousBlocker && !r.report.safetyIncident && <StatusTag>Flagged</StatusTag>}
                       </span>
                     )
