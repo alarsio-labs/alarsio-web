@@ -2,13 +2,15 @@ import { describe, expect, it } from "vitest";
 import { toneFor } from "./status";
 
 describe("toneFor", () => {
-  it("marks states that ask someone to act in red-deep", () => {
-    for (const s of ["Needs approval", "Sent back", "Rejected", "Flagged", "Needs attention", "No rate", "Low stock"]) {
-      expect(toneFor(s)).toBe("action");
-    }
+  it("marks states that wait for someone in amber", () => {
+    for (const s of ["Needs approval", "Sent back", "Waiting for a review"]) expect(toneFor(s)).toBe("action");
   });
 
-  it("keeps settled states in ink", () => {
+  it("marks problems in red", () => {
+    for (const s of ["Rejected", "Flagged", "Needs attention", "No rate", "Low stock", "Below zero"]) expect(toneFor(s)).toBe("attention");
+  });
+
+  it("keeps settled states green", () => {
     for (const s of ["Approved", "Filed", "Reviewed", "Active", "On the server"]) expect(toneFor(s)).toBe("ink");
   });
 

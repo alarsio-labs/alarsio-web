@@ -1,14 +1,16 @@
 import Link from "next/link";
+import type { ReactNode } from "react";
 import type { OrgLink } from "@/lib/dashboard/links";
 import type { NameState } from "@/app/(app)/account-actions";
 import { NameForm } from "./name-form";
 import { Icon } from "./nav-icon";
-import { SidebarNav } from "./sidebar-nav";
+import { PageStrip, SectionTabs } from "./sidebar-nav";
 
-// The console's top bar (docs/DESIGN.md section 4): the wordmark, the modules as pills,
-// the organisation switcher and an account menu. The caller passes the sign-out
-// server action, so these stay plain components. Both menus are native <details>,
-// so they open without JavaScript.
+// The console's top bar (docs/DESIGN.md section 5): the wordmark on a slate bar, the
+// section tabs, the organisation switcher and an account menu, then the pages of the
+// current section. On a phone the tabs move to a bottom bar. The caller passes the
+// sign-out server action, so these stay plain components. The account menu is a native
+// <details>, so it opens without JavaScript.
 
 type SignOut = (form: FormData) => void | Promise<void>;
 type UpdateName = (prev: NameState, form: FormData) => Promise<NameState>;
@@ -55,12 +57,15 @@ export function AccountMenu({
   email,
   name,
   updateName,
-  signOut
+  signOut,
+  org
 }: {
   email?: string;
   name?: string | null;
   updateName?: UpdateName;
   signOut: SignOut;
+  /** The organisation switcher; shown here on a phone, where the bar has no room for it. */
+  org?: ReactNode;
 }) {
   const label = name || email;
   return (
@@ -69,6 +74,7 @@ export function AccountMenu({
         {label ? initial(label) : <Icon name="workers" size={18} />}
       </summary>
       <div className="cx-pop cx-account-panel">
+        {org && <div className="cx-org-narrow">{org}</div>}
         {email && (
           <p className="cx-account-email">
             <span className="cx-account-label">Signed in as</span>
@@ -102,33 +108,22 @@ export function AppTopBar({
   current?: string | null;
   signOut: SignOut;
 }) {
-  const withNav = links.length > 0;
-  const here = links.find((l) => l.path === current);
+  const org = orgName ? <OrgSwitch orgName={orgName} roleLabel={roleLabel} /> : null;
   return (
-    <header className={`cx-top${withNav ? " cx-top-nav" : ""}`}>
-      <Brand />
-      {withNav && (
-        <nav className="cx-pill-track" aria-label="Modules">
-          <SidebarNav links={links} current={current} variant="pills" />
-        </nav>
-      )}
-      <div className="cx-top-end">
-        {orgName && <OrgSwitch orgName={orgName} roleLabel={roleLabel} />}
-        {withNav && (
-          <details className="cx-menu">
-            <summary className="cx-menu-button" aria-label="Menu">
-              <Icon name="menu" size={18} />
-              <span className="cx-menu-here">{here?.label ?? "Menu"}</span>
-            </summary>
-            <div className="cx-pop cx-menu-panel">
-              {orgName && <OrgSwitch orgName={orgName} roleLabel={roleLabel} />}
-              <SidebarNav links={links} current={current} />
-            </div>
-          </details>
-        )}
-        <AccountMenu email={email} name={name} updateName={updateName} signOut={signOut} />
-      </div>
-    </header>
+    <>
+      <header className="cx-top">
+        <div className="cx-bar">
+          <Brand />
+          <SectionTabs links={links} current={current} className="cx-tabs-top" />
+          <div className="cx-top-end">
+            <div className="cx-org-wide">{org}</div>
+            <AccountMenu email={email} name={name} updateName={updateName} signOut={signOut} org={org} />
+          </div>
+        </div>
+        <PageStrip links={links} current={current} />
+      </header>
+      <SectionTabs links={links} current={current} className="cx-tabs-bottom" />
+    </>
   );
 }
 
