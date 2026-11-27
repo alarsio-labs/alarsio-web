@@ -1,6 +1,6 @@
 import { Stack } from 'expo-router';
 import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
-import { Linking } from 'react-native';
+import { Linking, Share } from 'react-native';
 
 import type { LocationProvider, PermissionState, PositionResult } from '../../attendance/location';
 import type { DeviceDb } from '../../db/device-db';
@@ -604,6 +604,34 @@ describe('SiteAttendanceScreen (#79)', () => {
       await show(fakeLocation({}), USER_A, 0);
       await screen.findByRole('button', { name: 'Check in' });
       expect(screen.queryByRole('button', { name: 'Workers' })).toBeNull();
+    });
+  });
+
+  describe('the day slip (#183)', () => {
+    afterEach(() => jest.restoreAllMocks());
+
+    it('opens the share sheet with the day as text', async () => {
+      await seedSite(db, USER_A);
+      const share = jest.spyOn(Share, 'share').mockResolvedValue({ action: 'sharedAction' });
+      await show(fakeLocation({}), USER_A, 0);
+      await press('Check in');
+      await screen.findByText(/Checked in 09:10/);
+
+      await press('Share day slip');
+
+      await waitFor(() => expect(share).toHaveBeenCalledTimes(1));
+      expect(share.mock.calls[0]?.[0].message).toMatch(/^Kothrud · 20 Oct\nChecked in 09:10\n/);
+    });
+
+    it('says so when the share sheet cannot open, and keeps the button', async () => {
+      await seedSite(db, USER_A);
+      jest.spyOn(Share, 'share').mockRejectedValue(new Error('no share target'));
+      await show(fakeLocation({}), USER_A, 0);
+
+      await press('Share day slip');
+
+      await screen.findByText('The day slip could not be shared. Try again.');
+      expect(screen.getByRole('button', { name: 'Share day slip' })).toBeTruthy();
     });
   });
 });
