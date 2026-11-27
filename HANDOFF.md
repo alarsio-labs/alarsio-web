@@ -1,9 +1,9 @@
 # HANDOFF
-**Goal:** Labour Book-style attendance on the phone. Phase 1 = worker month view (issue #234).
-**Completed:** PR #235 merged and approved (month screen, device mirror v9, ADR-053). `/code-review` run (5 of 10 fixed). `/security-review` run, no findings.
-**Next step:** `git switch main; git pull origin main`. Then check #234 for Manish's answers (`note` column, ex-workers, failing-view policy) and whether his PR1 (view `attendance_month_entries`) is merged and deployed.
-**Open items:** review items 3 (bad view fails whole pull, needs ADR-023 decision), 5 (3 s polling), 8 (editor/styles copied), 9 (6000 one-by-one inserts), 10 (stale month past midnight). `docs/FEATURES.md` not updated.
-**Not done:** test on a real phone offline, `docs/SECURITY.md` line-by-line pass, Phase 2 (advance + balance, write the issue first), Phase 3 (WhatsApp share), Phase 4 (Cash book, needs team decision).
-**Key files:** `apps/mobile/src/attendance/month-store.ts`, `sync/pull.ts`, `screens/WorkerMonthScreen.tsx`, `db/migrations.ts` (v9), `docs/DECISIONS.md` (ADR-053).
-**Commands:** `gh issue view 234 --repo alarsio-labs/alarsio-web --comments`, `pnpm typecheck`, `pnpm lint`, `pnpm test`, `bash scripts/preflight.sh` (Git Bash).
+**Goal:** Labour Book-style attendance on the phone. Phase 3 = text day slip for WhatsApp (issue #183).
+**Completed:** Phase 1 (worker month, #234, #244) merged; phone offline test passed. Phase 3 built on `feat/attendance-day-slip` and pushed. PR #247 is open: 5 of 5 checks pass, review required. Auto-fix could not be turned on (app could not match the repo).
+**Next step:** Try "Share day slip" on the phone (Expo Go). Then get a review on PR #247 (`gh pr view 247 --repo alarsio-labs/alarsio-web --comments`).
+**Open items:** Phase 3 scope is not confirmed by the team (FEATURES.md lists WhatsApp/SMS as not in MVP). Phase 2 (advance + balance) waits on replies in #237 and #239.
+**Not done:** image slip (needs `expo install expo-sharing react-native-view-shot`), Phase 4 Cash book, `docs/SECURITY.md` line-by-line pass, FEATURES.md update. Branch `docs/handoff-after-244` has 3 unpushed HANDOFF commits.
+**Key files:** `apps/mobile/src/attendance/day-slip.ts`, `screens/SiteAttendanceScreen.tsx`, `i18n/en.json`, `i18n/hi.json`.
+**Commands:** `pnpm --filter mobile test -- SiteAttendanceScreen day-slip`, `pnpm typecheck`, `pnpm lint`, `gh issue view 183 --repo alarsio-labs/alarsio-web --comments`.
 **Rules:** No GitHub write without approval of the exact command. Stage files by name; one commit per file. Branch from `main` for new work.
