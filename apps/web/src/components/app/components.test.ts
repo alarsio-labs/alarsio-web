@@ -102,7 +102,7 @@ describe("PageStrip", () => {
   });
 
   it("draws nothing for a section with one page", () => {
-    expect(html(h(PageStrip, { links: orgLinks("supervisor", "org-1"), current: "/reports?org=org-1" }))).toBe("");
+    expect(html(h(PageStrip, { links: orgLinks("accountant", "org-1"), current: "/workers?org=org-1" }))).toBe("");
   });
 });
 
