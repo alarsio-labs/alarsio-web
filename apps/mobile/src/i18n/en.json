@@ -110,7 +110,8 @@
       "attendance_corrections": "Attendance correction",
       "daily_reports": "Daily report",
       "report_photos": "Report photo",
-      "material_transactions": "Material entry"
+      "material_transactions": "Material entry",
+      "worker_advances": "Advance"
     },
     "reason": {
       "appBug": "The app sent this wrongly. Please report it.",
