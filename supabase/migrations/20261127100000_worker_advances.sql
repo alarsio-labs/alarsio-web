@@ -1,8 +1,10 @@
 -- Worker advances: money paid to a worker before pay day, as an append-only ledger.
 -- Owner: Nikhil. Spec: #239 (Phase 2 of #234). Pattern: material_transactions.
 --
--- Only an owner or accountant (can_view_wages) reads or records an advance: an
--- advance is a wage amount, and a supervisor never reads wage amounts (SECURITY.md).
+-- An owner or accountant (can_view_wages) reads and records advances for the whole
+-- organisation. A supervisor (can_record_on_site) reads and records them for the sites
+-- they are assigned to: they hand the money over, so the amount is theirs to know. This
+-- is money paid, not a rate or pay (ADR-054). A project manager does neither.
 -- A mistake is cancelled by a reversal row, never by an edit (rule 5). Only
 -- apply_worker_advance() writes, for the phone (through sync_worker_advances) and,
 -- later, the web.
@@ -77,7 +79,7 @@ grant select on public.worker_advances to authenticated;
 
 create policy worker_advances_select on public.worker_advances
   for select to authenticated
-  using (public.can_view_wages(org_id));
+  using (public.can_view_wages(org_id) or public.can_record_on_site(site_id));
 
 create trigger worker_advances_audit
   after insert or update or delete on public.worker_advances
@@ -85,9 +87,9 @@ create trigger worker_advances_audit
 
 -- -------------------------------------------------------- apply_worker_advance
 -- SECURITY DEFINER so it can read the roster whatever the caller's site access, but
--- it checks the caller itself: can_view_wages for the worker's organisation. Every
--- refusal for a missing worker, a foreign one and the wrong role is the same 42501,
--- so a caller cannot probe for ids.
+-- it checks the caller itself: can_view_wages for the worker's organisation, or
+-- can_record_on_site for the site. Every refusal for a missing worker, a foreign one
+-- and the wrong role is the same 42501, so a caller cannot probe for ids.
 
 create function public.apply_worker_advance(
   p_id           uuid,
@@ -130,7 +132,8 @@ begin
     from public.worker_roster r
    where r.worker_id = p_worker_id and r.site_id = p_site_id
    limit 1;
-  if v_org_id is null or not public.can_view_wages(v_org_id) then
+  if v_org_id is null
+     or not (public.can_view_wages(v_org_id) or public.can_record_on_site(p_site_id)) then
     raise exception 'not permitted to record an advance for this worker' using errcode = '42501';
   end if;
 
@@ -227,7 +230,7 @@ revoke all on function public.worker_advance_matches(public.worker_advances, uui
 
 -- ----------------------------------------------------------------- view
 -- Per worker and month: advances minus reversals. security_invoker, so it reads with
--- the caller's RLS and a supervisor sees nothing. Published for the web later.
+-- the caller's RLS, so a supervisor sees only their own sites. Published for the web later.
 
 create view public.worker_advance_totals
 with (security_invoker = true) as
