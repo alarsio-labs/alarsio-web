@@ -74,9 +74,6 @@ export default async function WorkersPage({
           <Card title="Add a worker" id="wk-add">
             <form action={addWorker} className="space-y-3">
               <input type="hidden" name="org_id" value={org} />
-              <Field label="Worker code">
-                <input name="code" required maxLength={40} className={inputClass} />
-              </Field>
               <Field label="Name">
                 <input name="full_name" required maxLength={120} className={inputClass} />
               </Field>
