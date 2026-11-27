@@ -2,65 +2,47 @@
 // us. The raw error sits behind "Show details" so support can ask for it.
 
 import { useState } from 'react';
-import { Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Linking, ScrollView, StyleSheet, View } from 'react-native';
 
 import {
   SUPPORT_EMAIL,
   SUPPORT_WHATSAPP_DISPLAY,
   SUPPORT_WHATSAPP_URL,
 } from '../config/support';
-import { colors, primaryTarget, radius, space, type } from '../theme';
+import { colors, space } from '../theme';
+import { Button } from '../ui/Button';
+import { Text } from '../ui/Text';
 
 export function StartupError({ detail, onRetry }: { detail: string; onRetry?: () => void | Promise<void> }) {
+  const { t } = useTranslation();
   const [showDetails, setShowDetails] = useState(false);
   const open = (url: string) => void Linking.openURL(url).catch(() => undefined);
+  const what = onRetry ? t('startup.wentWrong') : t('startup.couldNotStart');
+  const contact = t('startup.contact', { email: SUPPORT_EMAIL, whatsapp: SUPPORT_WHATSAPP_DISPLAY });
 
   return (
     <ScrollView contentContainerStyle={styles.box}>
-      <Text style={styles.text}>
-        {`${onRetry ? 'Something went wrong on this screen. Tap Try again, or close the app and open it again.' : 'The app could not start. Close it and open it again.'} If this keeps happening, contact support: ${SUPPORT_EMAIL} or WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}.`}
-      </Text>
+      <Text>{`${what} ${contact}`}</Text>
       {onRetry && (
-        <Pressable
-          accessibilityRole="button"
-          accessibilityLabel="Try again"
-          onPress={() => void Promise.resolve(onRetry()).catch(() => undefined)}
-          style={[styles.button, styles.primary]}
-        >
-          <Text style={[styles.buttonText, styles.primaryText]}>Try again</Text>
-        </Pressable>
+        <Button label={t('common.retry')} onPress={() => void Promise.resolve(onRetry()).catch(() => undefined)} />
       )}
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Email support"
-        onPress={() => open(`mailto:${SUPPORT_EMAIL}`)}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>Email support</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="WhatsApp support"
-        onPress={() => open(SUPPORT_WHATSAPP_URL)}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>WhatsApp support</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel={showDetails ? 'Hide details' : 'Show details'}
+      <Button kind="secondary" label={t('startup.emailSupport')} onPress={() => open(`mailto:${SUPPORT_EMAIL}`)} />
+      <Button kind="secondary" label={t('startup.whatsappSupport')} onPress={() => open(SUPPORT_WHATSAPP_URL)} />
+      <Button
+        kind="ghost"
+        label={showDetails ? t('startup.hideDetails') : t('startup.showDetails')}
         onPress={() => setShowDetails((v) => !v)}
-        style={styles.link}
-      >
-        <Text style={styles.linkText}>{showDetails ? 'Hide details' : 'Show details'}</Text>
-      </Pressable>
+      />
       {showDetails && (
-        <View>
-          <Text selectable style={styles.detail}>
+        <View style={styles.details}>
+          <Text variant="small" color={colors.muted} selectable>
             {detail}
           </Text>
           {__DEV__ && (
-            <Text style={styles.detail}>Developers: add missing settings to apps/mobile/.env.local and restart Expo.</Text>
+            <Text variant="small" color={colors.muted}>
+              {t('startup.developers')}
+            </Text>
           )}
         </View>
       )}
@@ -69,20 +51,6 @@ export function StartupError({ detail, onRetry }: { detail: string; onRetry?: ()
 }
 
 const styles = StyleSheet.create({
-  box: { padding: space.xl, gap: space.md, alignItems: 'stretch', justifyContent: 'center', flexGrow: 1 },
-  text: { fontSize: type.body, color: colors.ink },
-  button: {
-    minHeight: primaryTarget,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-  },
-  buttonText: { color: colors.white, fontSize: type.body },
-  primary: { backgroundColor: colors.red },
-  primaryText: { color: colors.ink, fontWeight: '600' },
-  link: { minHeight: 44, justifyContent: 'center' },
-  linkText: { color: colors.ink, fontSize: type.small, textDecorationLine: 'underline' },
-  detail: { fontSize: type.small, color: colors.muted },
+  box: { padding: space.xl, gap: space.md, alignItems: 'stretch', justifyContent: 'center', flexGrow: 1, backgroundColor: colors.ground },
+  details: { gap: space.sm },
 });

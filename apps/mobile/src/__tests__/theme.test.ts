@@ -1,4 +1,4 @@
-import { colors, tone } from '../theme';
+import { brand, colors, tone, toneOnDark } from '../theme';
 
 function channel(v: number): number {
   const c = v / 255;
@@ -20,25 +20,45 @@ function contrast(a: string, b: string): number {
 }
 
 describe('theme contrast (WCAG AA, 4.5:1 for normal text)', () => {
-  const text: [string, string][] = [
-    ['ink', colors.ink],
+  const onLight: [string, string][] = [
+    ['text', colors.text],
     ['muted', colors.muted],
-    ['redDeep', colors.redDeep],
-    ['tone.wait', tone.wait],
-    ['tone.ok', tone.ok],
-    ['tone.attention', tone.attention],
+    ['actionText', colors.actionText],
+    ['field', colors.field],
   ];
 
-  it.each(text)('%s reads on paper and on white', (_name, hex) => {
-    expect(contrast(hex, colors.paper)).toBeGreaterThanOrEqual(4.5);
-    expect(contrast(hex, colors.white)).toBeGreaterThanOrEqual(4.5);
+  it.each(onLight)('%s reads on the card and the ground', (_name, hex) => {
+    expect(contrast(hex, colors.card)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(hex, colors.ground)).toBeGreaterThanOrEqual(4.5);
   });
 
-  it('white text on an ink button reads', () => {
-    expect(contrast(colors.white, colors.ink)).toBeGreaterThanOrEqual(4.5);
+  it.each(Object.entries(tone))('%s chip text reads on its tint', (_name, t) => {
+    expect(contrast(t.text, t.tint)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(Object.entries(tone))('white text reads on the solid %s button', (_name, t) => {
+    expect(contrast(colors.white, t.text)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('text reads on the orange action button', () => {
+    expect(contrast(colors.text, colors.action)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('header text reads on the header', () => {
+    expect(contrast(colors.white, colors.header)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(colors.headerMuted, colors.header)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it.each(Object.entries(toneOnDark))('%s status text reads on the header', (_name, hex) => {
+    expect(contrast(hex, colors.header)).toBeGreaterThanOrEqual(4.5);
   });
 
   it('white text on a disabled button reads', () => {
     expect(contrast(colors.white, colors.disabled)).toBeGreaterThanOrEqual(4.5);
+  });
+
+  it('brand text reads on the splash and sign-in grounds', () => {
+    expect(contrast(brand.ink, brand.cream)).toBeGreaterThanOrEqual(4.5);
+    expect(contrast(brand.cream, brand.loam)).toBeGreaterThanOrEqual(4.5);
   });
 });

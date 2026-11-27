@@ -6,21 +6,27 @@
 // Every figure is read from the device database, so it works with no signal.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { Pressable, RefreshControl, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { RefreshControl, StyleSheet, View } from 'react-native';
 
 import type { PublicConfigResult } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
-import { dayLabel, reportCardStatus, type ReportTone } from '../reports/report';
+import { dayLabel, reportCardStatus } from '../reports/report';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
 import { istDate } from '../sync/pull';
-import { syncChip, type SyncChipTone } from '../sync/status-text';
+import { syncChip } from '../sync/status-text';
 import { readToday, type TodayData, type TodaySite } from '../today/read-today';
 import { StartupError } from './StartupError';
 import { SyncPanel } from './SyncPanel';
-import { colors, fonts, primaryTarget, radius, space, surface, tone, type } from '../theme';
+import { colors, space } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { EmptyState } from '../ui/EmptyState';
 import { Icon, type IconName } from '../ui/Icon';
-import { Pill } from '../ui/Pill';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { ListRow } from '../ui/ListRow';
 
 type DbStatus =
   | { kind: 'opening' }
@@ -57,12 +63,6 @@ export interface HomeScreenProps {
   pollMs?: number;
 }
 
-const toneStyle: Record<ReportTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
-
 export function HomeScreen({
   openDb,
   startSync,
@@ -77,6 +77,7 @@ export function HomeScreen({
   now = () => new Date(),
   pollMs = 3000,
 }: HomeScreenProps) {
+  const { t } = useTranslation();
   const [db, setDb] = useState<DbStatus>({ kind: 'opening' });
   const [opened, setOpened] = useState<DeviceDb | null>(null);
   const [sync, setSync] = useState<SyncStatus | null>(null);
@@ -143,73 +144,55 @@ export function HomeScreen({
   const syncNow = () => void handleRef.current?.retryNow().catch(() => undefined);
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView
-        contentContainerStyle={styles.content}
-        refreshControl={<RefreshControl refreshing={false} onRefresh={syncNow} />}
-      >
-        <Text style={styles.title} accessibilityRole="header">
-          Today
+    <Screen refreshControl={<RefreshControl refreshing={false} onRefresh={syncNow} />}>
+      {userId && (
+        <Text variant="small" color={colors.muted}>
+          {dayLabel(day)}
         </Text>
-        {userId && <Text style={styles.sub}>{dayLabel(day)}</Text>}
-        {sync && <SyncChip status={sync} />}
+      )}
+      {sync && <SyncChip status={sync} />}
 
-        {!config.ok && <StartupError detail={`Missing: ${config.missing.join(', ')}`} />}
-        {db.kind === 'failed' && <StartupError detail={db.message} />}
+      {!config.ok && <StartupError detail={`Missing: ${config.missing.join(', ')}`} />}
+      {db.kind === 'failed' && <StartupError detail={db.message} />}
 
-        {userId && today && today.sites.length === 0 && (
-          <Text style={styles.line}>No sites yet. Pull to refresh, or ask your manager to add you to a site.</Text>
-        )}
+      {userId && today && today.sites.length === 0 && <EmptyState title={t('home.noSites')} hint={t('home.noSitesHint')} />}
 
-        {userId &&
-          today?.sites.map((row) => (
-            <SiteCard
-              key={row.site.id}
-              row={row}
-              onCheckIn={() => onOpenCheckIn?.(row.site.id)}
-              onRegister={() => onOpenRegister?.(row.site.id)}
-              onReport={() => onOpenReport?.(row.site.id)}
-            />
-          ))}
-
-        {userId && today && today.unfinished.length > 0 && onOpenReports && (
-          <Pill
-            kind="line"
-            icon="report"
-            accessibilityRole="link"
-            label={`Not finished reports (${today.unfinished.length})`}
-            accessibilityLabel={`Not finished reports: ${today.unfinished.length}`}
-            onPress={onOpenReports}
+      {userId &&
+        today?.sites.map((row) => (
+          <SiteCard
+            key={row.site.id}
+            row={row}
+            onCheckIn={() => onOpenCheckIn?.(row.site.id)}
+            onRegister={() => onOpenRegister?.(row.site.id)}
+            onReport={() => onOpenReport?.(row.site.id)}
           />
-        )}
+        ))}
 
-        {userId && onOpenMaterials && <Pill kind="ink" icon="materials" label="Materials" onPress={onOpenMaterials} />}
+      {userId && today && today.unfinished.length > 0 && onOpenReports && (
+        <Button
+          kind="secondary"
+          icon="report"
+          accessibilityRole="link"
+          label={t('home.unfinished', { count: today.unfinished.length })}
+          accessibilityLabel={t('home.unfinishedLabel', { count: today.unfinished.length })}
+          onPress={onOpenReports}
+        />
+      )}
 
-        {sync && <SyncPanel status={sync} onSyncNow={syncNow} openRoute={onOpenRoute} />}
-      </ScrollView>
-    </SafeAreaView>
+      {userId && onOpenMaterials && <Button kind="secondary" icon="materials" label={t('home.materials')} onPress={onOpenMaterials} />}
+
+      {sync && <SyncPanel status={sync} onSyncNow={syncNow} openRoute={onOpenRoute} />}
+    </Screen>
   );
 }
 
-const CHIP: Record<SyncChipTone, { color: string; bg: string; icon: IconName }> = {
-  ok: { color: tone.ok, bg: '#e6f2e7', icon: 'synced' },
-  wait: { color: tone.wait, bg: '#fbefd6', icon: 'sending' },
-  attention: { color: tone.attention, bg: colors.redTint, icon: 'attention' },
-};
-
 /** Always on Today, under the date: whether this phone's records are on the server. */
 function SyncChip({ status }: { status: SyncStatus }) {
+  const { t } = useTranslation();
   const chip = syncChip(status);
-  const look = CHIP[chip.tone];
   return (
-    <View
-      accessible
-      accessibilityLabel={`Sync: ${chip.text}`}
-      accessibilityLiveRegion="polite"
-      style={[styles.chip, { backgroundColor: look.bg }]}
-    >
-      <Icon name={look.icon} color={look.color} size={18} />
-      <Text style={[styles.chipText, { color: look.color }]}>{chip.text}</Text>
+    <View accessibilityLabel={t('home.syncLabel', { text: chip.text })} accessibilityLiveRegion="polite" accessible>
+      <StatusBadge tone={chip.tone} label={chip.text} icon={chip.tone === 'ok' ? 'synced' : chip.tone === 'wait' ? 'sending' : 'attention'} />
     </View>
   );
 }
@@ -225,19 +208,20 @@ function SiteCard({
   onRegister: () => void;
   onReport: () => void;
 }) {
+  const { t } = useTranslation();
   const report = reportCardStatus(row.report);
-  const checkIn = row.checkedIn ? 'Checked in ✓' : 'Not checked in';
-  const register = `Register ${row.register.marked} / ${row.register.total}`;
+  const checkIn = row.checkedIn ? t('home.checkedIn') : t('home.notCheckedIn');
+  const register = t('home.register', { marked: row.register.marked, total: row.register.total });
 
   return (
-    <View style={styles.card}>
-      <Text style={styles.siteName} accessibilityRole="header">
+    <Card>
+      <Text variant="heading" bold accessibilityRole="header">
         {row.site.name}
       </Text>
-      <CardRow icon="checkIn" label="Check in" value={checkIn} done={row.checkedIn} site={row.site.name} onPress={onCheckIn} />
-      <CardRow icon="register" label="Register" value={register} site={row.site.name} onPress={onRegister} />
-      <CardRow icon="report" label="Report" value={report.text} tone={report.tone} site={row.site.name} onPress={onReport} />
-    </View>
+      <CardRow icon="checkIn" label={t('home.checkIn')} value={checkIn} tone={row.checkedIn ? 'ok' : undefined} site={row.site.name} onPress={onCheckIn} />
+      <CardRow icon="register" label={t('home.registerLabel')} value={register} site={row.site.name} onPress={onRegister} />
+      <CardRow icon="report" label={t('home.report')} value={report.text} tone={report.tone ?? undefined} site={row.site.name} onPress={onReport} />
+    </Card>
   );
 }
 
@@ -246,70 +230,31 @@ function CardRow({
   label,
   value,
   site,
-  done,
-  tone: rowTone,
+  tone,
   onPress,
 }: {
   icon: IconName;
   label: string;
   value: string;
   site: string;
-  done?: boolean;
-  tone?: ReportTone | null;
+  tone?: 'ok' | 'wait' | 'attention';
   onPress: () => void;
 }) {
   return (
-    <Pressable
-      accessibilityRole="button"
+    <ListRow
+      title={label}
       accessibilityLabel={`${site}. ${label}: ${value}`}
       onPress={onPress}
-      style={styles.row}
-    >
-      <View style={styles.rowHead}>
-        <Icon name={icon} color={colors.muted} />
-        <Text style={styles.rowLabel}>{label}</Text>
-      </View>
-      <Text style={[styles.rowValue, done && { color: tone.ok }, rowTone ? toneStyle[rowTone] : null]}>{value}</Text>
-    </Pressable>
+      trailing={
+        <View style={styles.value}>
+          <Icon name={icon} color={colors.muted} />
+          {tone ? <StatusBadge tone={tone} label={value} /> : <Text variant="small" color={colors.muted}>{value}</Text>}
+        </View>
+      }
+    />
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: surface.ground },
-  content: { padding: space.lg, gap: space.md },
-  title: { fontFamily: fonts.display, fontSize: 40, lineHeight: 44, color: colors.ink, textTransform: 'uppercase' },
-  sub: { fontSize: type.small, color: colors.muted },
-  line: { fontSize: type.body, color: colors.ink },
-  chip: {
-    alignSelf: 'flex-start',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: space.xs + 2,
-    paddingHorizontal: space.md,
-    paddingVertical: space.xs + 2,
-    borderRadius: radius.pill,
-  },
-  chipText: { fontSize: type.small, fontWeight: '600' },
-  card: {
-    backgroundColor: surface.card,
-    borderWidth: 1,
-    borderColor: colors.hair,
-    borderRadius: radius.md,
-    paddingHorizontal: space.lg,
-    paddingVertical: space.md,
-    gap: space.xs,
-  },
-  siteName: { fontSize: 17, fontWeight: '700', color: colors.ink, marginBottom: space.xs },
-  row: {
-    minHeight: primaryTarget,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: space.md,
-    borderTopWidth: 1,
-    borderTopColor: 'rgba(23, 23, 23, 0.08)',
-  },
-  rowHead: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  rowLabel: { fontSize: type.body, color: colors.ink },
-  rowValue: { flexShrink: 1, fontSize: type.small, color: colors.muted, textAlign: 'right' },
+  value: { flexShrink: 1, alignItems: 'flex-end', gap: space.xs },
 });

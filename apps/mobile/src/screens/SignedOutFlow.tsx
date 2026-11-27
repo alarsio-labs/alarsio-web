@@ -5,17 +5,20 @@ import { useEffect, useState } from 'react';
 import { View } from 'react-native';
 
 import type { SignInResult } from '../auth/auth-client';
+import type { Language } from '../i18n';
 import { hasSeenOnboarding, markOnboardingSeen, type SeenStore } from '../onboarding/seen-store';
-import { colors } from '../theme';
+import { brand } from '../theme';
 import { OnboardingScreen } from './OnboardingScreen';
 import { SignInScreen } from './SignInScreen';
 
 export interface SignedOutFlowProps {
   signIn: (email: string, password: string) => Promise<SignInResult>;
   store: SeenStore;
+  /** Shows the English / हिन्दी switch on Sign in. */
+  onChangeLanguage?: (language: Language) => void;
 }
 
-export function SignedOutFlow({ signIn, store }: SignedOutFlowProps) {
+export function SignedOutFlow({ signIn, store, onChangeLanguage }: SignedOutFlowProps) {
   // null while the flag is read: a plain loam ground, the same as the splash before it.
   const [tutorial, setTutorial] = useState<boolean | null>(null);
 
@@ -29,7 +32,7 @@ export function SignedOutFlow({ signIn, store }: SignedOutFlowProps) {
     };
   }, [store]);
 
-  if (tutorial === null) return <View style={{ flex: 1, backgroundColor: colors.loam }} />;
+  if (tutorial === null) return <View style={{ flex: 1, backgroundColor: brand.loam }} />;
   if (tutorial) {
     return (
       <OnboardingScreen
@@ -40,5 +43,5 @@ export function SignedOutFlow({ signIn, store }: SignedOutFlowProps) {
       />
     );
   }
-  return <SignInScreen signIn={signIn} onShowTutorial={() => setTutorial(true)} />;
+  return <SignInScreen signIn={signIn} onShowTutorial={() => setTutorial(true)} onChangeLanguage={onChangeLanguage} />;
 }

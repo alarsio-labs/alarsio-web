@@ -5,10 +5,13 @@
 // check-in always, the check-out once there is one (ADR-033 D2). Nothing here
 // touches the database or the clock: callers pass the time in.
 
+import i18n from '../i18n';
 import { istDate } from '../sync/pull';
 import type { OutboxStatus } from '../sync/entities';
 import { reasonText } from '../sync/status-text';
 import { roundCoordinate } from './geofence';
+
+const t = i18n.t.bind(i18n);
 
 /** Added to the reason of a visit sent without a location (ADR-034 D1). */
 export const LOCATION_UNAVAILABLE_PREFIX = 'Location not shared: ';
@@ -182,11 +185,14 @@ export type StatusTone = 'wait' | 'ok' | 'attention';
 
 // What a visit's refusal means to a supervisor. The codes are the handler's
 // (ADR-033); anything else falls back to the shared wording.
-const VISIT_REASONS: Record<string, string> = {
-  checked_out: 'This visit was already checked out, on another phone or with other details.',
-  different_visit: 'The server already holds a different visit under this record.',
-  invalid_input: "Something in this visit isn't valid. If you were outside the site, add a reason and send again.",
-};
+const VISIT_REASONS = {
+  checked_out: 'attendance.visitReason.checked_out',
+  different_visit: 'attendance.visitReason.different_visit',
+  invalid_input: 'attendance.visitReason.invalid_input',
+} as const;
+
+const visitReasonLine = (reason: string | null): string =>
+  reason !== null && Object.hasOwn(VISIT_REASONS, reason) ? t(VISIT_REASONS[reason as keyof typeof VISIT_REASONS]) : reasonText(reason);
 
 /**
  * What a visit says about itself. Only a synced visit is "on the server"; nothing
@@ -197,16 +203,13 @@ export function visitStatusText(status: OutboxStatus, reason: string | null): { 
   switch (status) {
     case 'pending':
     case 'syncing':
-      return { tone: 'wait', text: 'Saved on this phone, waiting to send' };
+      return { tone: 'wait', text: t('attendance.status.saved') };
     case 'failed':
-      return { tone: 'wait', text: 'Could not send yet. Will retry.' };
+      return { tone: 'wait', text: t('attendance.status.retry') };
     case 'synced':
-      return { tone: 'ok', text: 'On the server' };
+      return { tone: 'ok', text: t('attendance.status.onServer') };
     case 'conflict':
     case 'rejected':
-      return {
-        tone: 'attention',
-        text: `Needs attention · ${(reason !== null ? VISIT_REASONS[reason] : undefined) ?? reasonText(reason)}`,
-      };
+      return { tone: 'attention', text: t('attendance.status.needsAttention', { reason: visitReasonLine(reason) }) };
   }
 }

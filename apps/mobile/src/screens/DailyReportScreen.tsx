@@ -5,8 +5,8 @@
 // boundary (ADR-013): the phone's checks only say what is wrong sooner.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { AppState, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { AppState, StyleSheet, Switch, View } from 'react-native';
 
 import { readHeadcount } from '../attendance/headcount';
 import type { DeviceDb } from '../db/device-db';
@@ -28,13 +28,18 @@ import {
   type DayAttendance,
   type ReportFields,
   type ReportStatus,
-  type ReportTone,
 } from '../reports/report';
 import { findReport, saveReport, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { colors, radius, space, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { EmptyState } from '../ui/EmptyState';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { TextField } from '../ui/TextField';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface DailyReportScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -60,12 +65,6 @@ type Load =
   | { kind: 'missing' }
   | { kind: 'ready'; site: MirrorSite; stored: StoredReport | null; photoList: StoredPhoto[] };
 
-const toneStyle: Record<ReportTone, { color: string }> = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
-
 export function DailyReportScreen({
   openDb,
   userId,
@@ -75,6 +74,7 @@ export function DailyReportScreen({
   pollMs = 3000,
   photos,
 }: DailyReportScreenProps) {
+  const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   const [form, setForm] = useState<ReportFields>(fieldsOf(null));
@@ -241,7 +241,7 @@ export function DailyReportScreen({
       if (!alive.current) return;
       if (picked.kind === 'cancelled') return;
       if (picked.kind === 'denied') {
-        setMessage("Allow access in your phone's settings to add a photo.");
+        setMessage(t('dailyReport.photoDenied'));
         return;
       }
       if (picked.kind === 'failed') {
@@ -268,20 +268,14 @@ export function DailyReportScreen({
     }
   }
 
-  const title = day === today ? `Report for today, ${dayLabel(day)}` : `Report for ${dayLabel(day)}`;
-
   if (load.kind !== 'ready') {
     return (
-      <SafeAreaView style={styles.container}>
-        <Text style={styles.title} accessibilityRole="header">
-          Daily report
-        </Text>
-        {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <LoadFailed message="Could not read the records on this phone." onRetry={retry} />}
-        {load.kind === 'missing' && (
-          <Text style={styles.line}>This site is not on this phone. Connect once to refresh your sites.</Text>
-        )}
-      </SafeAreaView>
+      <Screen>
+        <ScreenTitle screen="daily_report" />
+        {load.kind === 'loading' && <Text>{t('common.loading')}</Text>}
+        {load.kind === 'failed' && <LoadFailed message={t('dailyReport.loadFailed')} onRetry={retry} />}
+        {load.kind === 'missing' && <EmptyState title={t('dailyReport.missing')} hint={t('dailyReport.missingHint')} />}
+      </Screen>
     );
   }
 
@@ -290,143 +284,135 @@ export function DailyReportScreen({
   const editing = needsReason(stored?.report ?? null);
   const editable = !reviewed;
   const status = stored ? reportStatusText(stored.report.status, stored.status, stored.reason, sentBackNote(stored)) : null;
+  const title = t(day === today ? 'dailyReport.reportForToday' : 'dailyReport.reportFor', { day: dayLabel(day) });
+  const flagged: string[] = [];
+  if (form.seriousBlocker) flagged.push(t('dailyReport.seriousBlocker'));
+  if (form.safetyIncident) flagged.push(t('dailyReport.safetyIncident'));
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        <ScreenTitle screen="daily_report" siteName={site.name} />
-        <Text style={styles.title} accessibilityRole="header">
-          {site.name}
-        </Text>
-        <Text style={styles.line}>{title}</Text>
-        {site.orgId === null && <Text style={styles.error}>Connect once to refresh your sites, then try again.</Text>}
-        {status && (
-          <Text style={[styles.status, toneStyle[status.tone]]} accessibilityLiveRegion="polite">
-            {status.text}
+    <Screen>
+      <ScreenTitle screen="daily_report" siteName={site.name} />
+      <Text variant="title" bold accessibilityRole="header">
+        {site.name}
+      </Text>
+      <Text variant="heading">{title}</Text>
+      {site.orgId === null && (
+        <Text color={tone.attention.text}>{t('dailyReport.error.no_org')}</Text>
+      )}
+      {status && (
+        <View accessibilityLiveRegion="polite">
+          <StatusBadge tone={status.tone} label={status.text} />
+        </View>
+      )}
+
+      <View style={styles.field}>
+        <TextField
+          label={t('dailyReport.headcount')}
+          value={form.headcount}
+          onChangeText={set('headcount')}
+          keyboardType="number-pad"
+          editable={editable}
+        />
+        {attendance && (
+          <Text variant="small" color={colors.muted}>
+            {headcountHint(attendance)}
           </Text>
         )}
+      </View>
+      <TextField
+        label={t('dailyReport.workDone')}
+        value={form.workDone}
+        onChangeText={set('workDone')}
+        multiline
+        editable={editable}
+      />
+      <TextField
+        label={t('dailyReport.blockers')}
+        value={form.blockers}
+        onChangeText={set('blockers')}
+        multiline
+        editable={editable}
+      />
+      <SwitchRow
+        label={t('dailyReport.seriousBlocker')}
+        value={form.seriousBlocker}
+        onChange={set('seriousBlocker')}
+        disabled={!editable}
+      />
+      <SwitchRow
+        label={t('dailyReport.safetyIncident')}
+        value={form.safetyIncident}
+        onChange={set('safetyIncident')}
+        disabled={!editable}
+      />
+      <TextField
+        label={t('dailyReport.nextDayPlan')}
+        value={form.nextDayPlan}
+        onChangeText={set('nextDayPlan')}
+        multiline
+        editable={editable}
+      />
 
-        <Field label="Headcount">
-          <TextInput
-            accessibilityLabel="Headcount"
-            value={form.headcount}
-            onChangeText={set('headcount')}
-            keyboardType="number-pad"
-            editable={editable}
-            style={styles.input}
-          />
-          {attendance && <Text style={styles.hint}>{headcountHint(attendance)}</Text>}
-        </Field>
-        <Field label="Work done">
-          <TextInput
-            accessibilityLabel="Work done"
-            value={form.workDone}
-            onChangeText={set('workDone')}
-            multiline
-            editable={editable}
-            style={[styles.input, styles.multiline]}
-          />
-        </Field>
-        <Field label="Blockers">
-          <TextInput
-            accessibilityLabel="Blockers"
-            value={form.blockers}
-            onChangeText={set('blockers')}
-            multiline
-            editable={editable}
-            style={[styles.input, styles.multiline]}
-          />
-        </Field>
-        <Toggle label="Serious blocker" value={form.seriousBlocker} onChange={set('seriousBlocker')} disabled={!editable} />
-        <Toggle label="Safety incident" value={form.safetyIncident} onChange={set('safetyIncident')} disabled={!editable} />
-        <Field label="Plan for tomorrow">
-          <TextInput
-            accessibilityLabel="Plan for tomorrow"
-            value={form.nextDayPlan}
-            onChangeText={set('nextDayPlan')}
-            multiline
-            editable={editable}
-            style={[styles.input, styles.multiline]}
-          />
-        </Field>
-
-        {isFlagged(form) && (
-          <View style={styles.flag} accessibilityLiveRegion="polite">
-            <Text style={styles.flagText}>
-              {`${[form.seriousBlocker && 'Serious blocker', form.safetyIncident && 'Safety incident']
-                .filter(Boolean)
-                .join(' and ')}: this report will be flagged to your managers.`}
-            </Text>
-          </View>
-        )}
-
-        {editing && editable && (
-          <Field label="Reason for the change">
-            <TextInput
-              accessibilityLabel="Reason for the change"
-              value={reasonText}
-              onChangeText={setReasonText}
-              multiline
-              style={[styles.input, styles.multiline]}
-            />
-          </Field>
-        )}
-
-        {photos && (
-          <View style={styles.photos}>
-            <Text style={styles.label}>Photos</Text>
-            {load.photoList.map((p, i) => {
-              const shown = photoStatusText(p.outbox ?? 'pending', p.reason, p.state);
-              return (
-                <Text key={p.recordId} style={[styles.status, toneStyle[shown.tone]]} accessibilityLiveRegion="polite">
-                  {`Photo ${i + 1} · ${shown.text}`}
-                </Text>
-              );
+      {isFlagged(form) && (
+        <View style={styles.flag} accessibilityLiveRegion="polite">
+          <Text bold color={tone.attention.text}>
+            {t('dailyReport.flag', {
+              what: flagged.length === 2 ? t('dailyReport.and', { first: flagged[0], second: flagged[1] }) : flagged[0],
             })}
-            {load.photoList.length >= PHOTO_LIMITS.perReport && (
-              <Text style={styles.line}>{photoErrorText(new PhotoError('too_many'))}</Text>
-            )}
-            {load.photoList.length < PHOTO_LIMITS.perReport && (
-              <View style={styles.buttons}>
-                <Button label="Take photo" secondary onPress={() => void addFrom('camera')} />
-                <Button label="Choose photo" secondary onPress={() => void addFrom('library')} />
-              </View>
-            )}
-          </View>
-        )}
-
-        {message && (
-          <Text style={styles.error} accessibilityLiveRegion="polite">
-            {message}
           </Text>
-        )}
+        </View>
+      )}
 
-        {editable && (
-          <View style={styles.buttons}>
-            {!editing && <Button label="Save draft" secondary onPress={() => void save('draft')} />}
-            <Button label={editing ? 'Send changes' : 'Submit'} onPress={() => void save('submitted')} />
-            <Text style={styles.note}>
-              {editing
-                ? 'Changes to a submitted report are kept only when you tap Send changes.'
-                : 'What you type is kept as a draft if you leave this screen.'}
-            </Text>
-          </View>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+      {editing && editable && (
+        <TextField label={t('dailyReport.changeReason')} value={reasonText} onChangeText={setReasonText} multiline />
+      )}
+
+      {photos && (
+        <View style={styles.section}>
+          <Text variant="small" bold color={colors.muted} accessibilityRole="header">
+            {t('dailyReport.photos')}
+          </Text>
+          {load.photoList.map((p, i) => {
+            const shown = photoStatusText(p.outbox ?? 'pending', p.reason, p.state);
+            return (
+              <View key={p.recordId} accessibilityLiveRegion="polite">
+                <StatusBadge tone={shown.tone} label={t('dailyReport.photoLine', { n: i + 1, status: shown.text })} />
+              </View>
+            );
+          })}
+          {load.photoList.length >= PHOTO_LIMITS.perReport && <Text>{photoErrorText(new PhotoError('too_many'))}</Text>}
+          {load.photoList.length < PHOTO_LIMITS.perReport && (
+            <>
+              <Button kind="secondary" label={t('dailyReport.takePhoto')} onPress={() => void addFrom('camera')} />
+              <Button kind="secondary" label={t('dailyReport.choosePhoto')} onPress={() => void addFrom('library')} />
+            </>
+          )}
+        </View>
+      )}
+
+      {message && (
+        <Text color={tone.attention.text} accessibilityLiveRegion="polite">
+          {message}
+        </Text>
+      )}
+
+      {editable && (
+        <View style={styles.section}>
+          {!editing && <Button kind="secondary" label={t('dailyReport.saveDraft')} onPress={() => void save('draft')} />}
+          <Button
+            label={editing ? t('dailyReport.sendChanges') : t('dailyReport.submit')}
+            onPress={() => void save('submitted')}
+          />
+          <Text variant="small" color={colors.muted}>
+            {editing ? t('dailyReport.noteEditing') : t('dailyReport.noteDraft')}
+          </Text>
+        </View>
+      )}
+    </Screen>
   );
 }
 
-function Field({ label, children }: { label: string; children: React.ReactNode }) {
-  return (
-    <View style={styles.field}>
-      <Text style={styles.label}>{label}</Text>
-      {children}
-    </View>
-  );
-}
-
-function Toggle({
+function SwitchRow({
   label,
   value,
   onChange,
@@ -438,54 +424,25 @@ function Toggle({
   disabled: boolean;
 }) {
   return (
-    <View style={styles.toggle}>
-      <Text style={styles.label}>{label}</Text>
+    <View style={styles.switchRow}>
+      <Text bold style={styles.switchLabel}>
+        {label}
+      </Text>
       <Switch accessibilityLabel={label} value={value} onValueChange={onChange} disabled={disabled} />
     </View>
   );
 }
 
-function Button({ label, onPress, secondary }: { label: string; onPress: () => void; secondary?: boolean }) {
-  return (
-    <Pressable
-      accessibilityRole="button"
-      accessibilityLabel={label}
-      onPress={onPress}
-      style={[styles.button, secondary && styles.buttonSecondary]}
-    >
-      <Text style={[styles.buttonText, secondary && styles.buttonTextSecondary]}>{label}</Text>
-    </Pressable>
-  );
-}
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 16, gap: 12, paddingBottom: 32 },
-  title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: colors.ink },
-  note: { fontSize: 14, color: colors.muted },
-  status: { fontSize: 16, fontWeight: '600' },
-  error: { fontSize: 16, color: colors.redDeep },
-  field: { gap: 4, backgroundColor: colors.paper },
-  photos: { gap: 8 },
-  label: { fontSize: 16, color: colors.ink },
-  hint: { fontSize: 14, color: colors.muted },
-  input: { minHeight: 44, borderWidth: 1, borderColor: colors.fieldLine, borderRadius: radius.sm, paddingHorizontal: 12, fontSize: 16, backgroundColor: colors.paper },
-  multiline: { minHeight: 88, paddingVertical: 8, textAlignVertical: 'top' },
-  toggle: { minHeight: 44, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' },
-  flag: { borderWidth: 2, borderColor: colors.redDeep, borderRadius: radius.sm, padding: 12, backgroundColor: colors.redTint },
-  flagText: { fontSize: 16, color: colors.redDeep, fontWeight: '600' },
-  buttons: { flexDirection: 'row', gap: 12, flexWrap: 'wrap' },
-  button: {
-    minHeight: 48,
-    minWidth: 140,
-    paddingHorizontal: 16,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
+  field: { gap: space.xs },
+  section: { gap: space.sm },
+  switchRow: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', gap: space.md },
+  switchLabel: { flex: 1 },
+  flag: {
+    borderWidth: 2,
+    borderColor: tone.attention.text,
+    borderRadius: radius.card,
+    padding: space.md,
+    backgroundColor: tone.attention.tint,
   },
-  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
-  buttonText: { color: colors.white, fontSize: 16 },
-  buttonTextSecondary: { color: colors.ink },
 });

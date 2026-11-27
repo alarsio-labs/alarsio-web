@@ -4,8 +4,11 @@
 // report-photos bucket only after that row exists (ADR-013 R8). The database and
 // the bucket are the boundary: these checks only say what is wrong sooner.
 
+import i18n from '../i18n';
 import type { OutboxStatus } from '../sync/entities';
 import { reasonText } from '../sync/status-text';
+
+const t = i18n.t.bind(i18n);
 
 /** ADR-013 R4: ten photos a report, 10 MB each (the table's CHECK and the bucket's limit). */
 export const PHOTO_LIMITS = {
@@ -66,11 +69,13 @@ export type UploadState = 'waiting' | 'uploaded' | 'refused';
 export type PhotoTone = 'wait' | 'ok' | 'attention';
 
 // The handler's answers (ADR-022 H7) and sync_push's mapping, said for a photo.
-const PHOTO_REASONS: Record<string, string> = {
-  permission_denied: "You can't add photos to this report any more.",
-  invalid_input: "This photo isn't valid, or the report already has ten photos.",
-  duplicate: 'The server holds a different photo under this record.',
-};
+const PHOTO_REASONS = {
+  permission_denied: 'dailyReport.photo.reason.permission_denied',
+  invalid_input: 'dailyReport.photo.reason.invalid_input',
+  duplicate: 'dailyReport.photo.reason.duplicate',
+} as const;
+
+const isPhotoReason = (reason: string): reason is keyof typeof PHOTO_REASONS => reason in PHOTO_REASONS;
 
 /**
  * Where a photo stands, from its metadata's outbox status and its file's upload
@@ -81,43 +86,29 @@ export function photoStatusText(
   reason: string | null,
   upload: UploadState,
 ): { tone: PhotoTone; text: string } {
-  if (upload === 'refused') return { tone: 'attention', text: 'Needs attention · The server would not take this photo.' };
+  if (upload === 'refused') return { tone: 'attention', text: t('dailyReport.photo.status.refused') };
   switch (outbox) {
     case 'pending':
     case 'syncing':
-      return { tone: 'wait', text: 'Saved on this phone, waiting to send' };
+      return { tone: 'wait', text: t('dailyReport.photo.status.waiting') };
     case 'failed':
       return reason === 'missing_parent'
-        ? { tone: 'wait', text: 'Waiting for its report to reach the server' }
-        : { tone: 'wait', text: 'Saved on this phone. Could not send yet, will retry.' };
+        ? { tone: 'wait', text: t('dailyReport.photo.status.waitingForReport') }
+        : { tone: 'wait', text: t('dailyReport.photo.status.failed') };
     case 'synced':
       return upload === 'uploaded'
-        ? { tone: 'ok', text: 'On the server' }
-        : { tone: 'wait', text: 'Photo waiting to upload' };
+        ? { tone: 'ok', text: t('dailyReport.photo.status.onServer') }
+        : { tone: 'wait', text: t('dailyReport.photo.status.waitingUpload') };
     case 'conflict':
-    case 'rejected':
-      return {
-        tone: 'attention',
-        text: `Needs attention · ${(reason !== null ? PHOTO_REASONS[reason] : undefined) ?? reasonText(reason)}`,
-      };
+    case 'rejected': {
+      const why = reason !== null && isPhotoReason(reason) ? t(PHOTO_REASONS[reason]) : reasonText(reason);
+      return { tone: 'attention', text: t('dailyReport.photo.status.attention', { reason: why }) };
+    }
   }
 }
 
 /** One fixed sentence per failure, never the error's own text (it can name files, ADR-029). */
 export function photoErrorText(error: unknown): string {
-  if (error instanceof PhotoError) {
-    switch (error.code) {
-      case 'report_not_saved':
-        return 'Save the report first, then add photos.';
-      case 'too_many':
-        return `A report can have ${PHOTO_LIMITS.perReport} photos at most.`;
-      case 'too_large':
-        return 'This photo is too large, even after compressing it. Try another.';
-      case 'empty_file':
-        return 'This photo could not be read. Try another.';
-      case 'not_found':
-        return 'This report cannot take photos on this phone.';
-    }
-  }
-  return 'Could not add the photo. Try again.';
+  if (error instanceof PhotoError) return t(`dailyReport.photo.error.${error.code}`, { max: PHOTO_LIMITS.perReport });
+  return t('dailyReport.photo.error.generic');
 }

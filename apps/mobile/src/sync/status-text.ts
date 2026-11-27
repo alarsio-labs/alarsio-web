@@ -1,47 +1,53 @@
 // What the phone says about sync, in one place. Owner: Offline Sync (Nikhil).
 // Issue #68. "Submitted" is never claimed here: only a synced record is on the
 // server, and the screens that capture a record say so for that record (ADR-009).
+// The words are in src/i18n (en.json, hi.json) under "sync".
 
+import i18n from '../i18n';
 import type { SyncStatus } from './engine';
 import type { SyncEntity } from './entities';
 import type { MirrorSummary, PullResult } from './pull';
 
-const ENTITY_LABELS: Record<SyncEntity, string> = {
-  site_visits: 'Site visit',
-  attendance_days: 'Attendance day',
-  attendance_entries: 'Attendance entry',
-  attendance_corrections: 'Attendance correction',
-  daily_reports: 'Daily report',
-  report_photos: 'Report photo',
-  material_transactions: 'Material entry',
-};
+const t = i18n.t.bind(i18n);
+
+const ENTITY_LABELS = {
+  site_visits: 'sync.entity.site_visits',
+  attendance_days: 'sync.entity.attendance_days',
+  attendance_entries: 'sync.entity.attendance_entries',
+  attendance_corrections: 'sync.entity.attendance_corrections',
+  daily_reports: 'sync.entity.daily_reports',
+  report_photos: 'sync.entity.report_photos',
+  material_transactions: 'sync.entity.material_transactions',
+} as const satisfies Record<SyncEntity, string>;
 
 export function entityLabel(entity: SyncEntity): string {
-  return ENTITY_LABELS[entity];
+  return t(ENTITY_LABELS[entity]);
 }
 
-const APP_BUG = 'The app sent this wrongly. Please report it.';
-const DIFFERENT_VERSION = 'The server already has a different version.';
+const APP_BUG = 'sync.reason.appBug';
+const DIFFERENT_VERSION = 'sync.reason.differentVersion';
 
 // Codes from sync_push (#33) and the module handlers (ADR-017, ADR-022).
-const REASONS: Record<string, string> = {
-  permission_denied: "You can't record on this site any more.",
-  invalid_input: "Something in this record isn't valid.",
-  invalid_state: 'The site or record is closed.',
+const REASONS = {
+  permission_denied: 'sync.reason.permission_denied',
+  invalid_input: 'sync.reason.invalid_input',
+  invalid_state: 'sync.reason.invalid_state',
   invalid_record_id: APP_BUG,
   unknown_entity: APP_BUG,
   invalid_payload: APP_BUG,
   duplicate: DIFFERENT_VERSION,
   different_report: DIFFERENT_VERSION,
-  reviewed: 'A manager already reviewed it.',
-  sent_back: 'A manager sent it back. Open it, fix it and give a reason.',
-  locked: 'A manager already approved this day, so it was not changed.',
-};
+  reviewed: 'sync.reason.reviewed',
+  sent_back: 'sync.reason.sent_back',
+  locked: 'sync.reason.locked',
+} as const;
+
+const isKnownReason = (reason: string): reason is keyof typeof REASONS => reason in REASONS;
 
 /** Why the server refused or kept its own version of a record, in plain words. */
 export function reasonText(reason: string | null): string {
-  if (reason === null) return 'Refused';
-  return REASONS[reason] ?? `Refused (${reason})`;
+  if (reason === null) return t('sync.reason.refused');
+  return isKnownReason(reason) ? t(REASONS[reason]) : t('sync.reason.refusedCode', { reason });
 }
 
 /**
@@ -54,12 +60,12 @@ export function syncLine(status: SyncStatus): string {
   const attention = counts.conflict + counts.rejected;
 
   const parts: string[] = [];
-  if (readFailed) parts.push('Could not read your records on this phone.');
-  else if (!loaded) parts.push('Checking…');
-  else if (running) parts.push(`Sending… ${waiting} waiting`);
-  else if (waiting > 0) parts.push(`${waiting} waiting to send`);
-  else if (attention === 0) parts.push(userId ? 'All your records are on the server' : 'Nothing waiting to send');
-  if (loaded && !readFailed && attention > 0) parts.push(`${attention} need attention`);
+  if (readFailed) parts.push(t('sync.line.readFailed'));
+  else if (!loaded) parts.push(t('sync.checking'));
+  else if (running) parts.push(t('sync.sending', { waiting }));
+  else if (waiting > 0) parts.push(t('sync.waiting', { count: waiting }));
+  else if (attention === 0) parts.push(userId ? t('sync.line.allOnServer') : t('sync.line.nothingWaiting'));
+  if (loaded && !readFailed && attention > 0) parts.push(t('sync.needAttention', { count: attention }));
 
   const note = lastRunNote(last, userId, loaded && !readFailed && waiting > 0);
   if (note) parts.push(note);
@@ -72,12 +78,11 @@ const SAFE_SERVER_REASON = /^server:[A-Za-z0-9]{1,8}$/;
 /** How old a timestamp is, in plain words. A clock that moved back reads as just now. */
 export function ageText(timestamp: string, now: Date): string {
   const minutes = Math.floor((now.getTime() - Date.parse(timestamp)) / 60_000);
-  if (!(minutes >= 1)) return 'just now';
-  if (minutes < 60) return `${minutes} min ago`;
+  if (!(minutes >= 1)) return t('sync.age.justNow');
+  if (minutes < 60) return t('sync.age.minutes', { count: minutes });
   const hours = Math.floor(minutes / 60);
-  if (hours < 24) return `${hours} h ago`;
-  const days = Math.floor(hours / 24);
-  return `${days} ${days === 1 ? 'day' : 'days'} ago`;
+  if (hours < 24) return t('sync.age.hours', { count: hours });
+  return t('sync.age.days', { count: Math.floor(hours / 24) });
 }
 
 /**
@@ -88,13 +93,16 @@ export function ageText(timestamp: string, now: Date): string {
  */
 export function pullLine(mirror: MirrorSummary | null, lastPull: PullResult | null, now: Date): string | null {
   const failed = lastPull?.kind === 'failed';
-  if (mirror === null) return failed ? 'Offline copy not available yet. Will retry.' : null;
-  const n = (count: number, one: string, many: string) => `${count} ${count === 1 ? one : many}`;
+  if (mirror === null) return failed ? t('sync.pull.notAvailable') : null;
   const parts = [
-    `On this phone: ${n(mirror.sites, 'site', 'sites')}, ${n(mirror.materials, 'material', 'materials')}, ${n(mirror.roster, 'worker', 'workers')}`,
-    `updated ${ageText(mirror.refreshedAt, now)}`,
+    t('sync.pull.onPhone', {
+      sites: t('sync.pull.sites', { count: mirror.sites }),
+      materials: t('sync.pull.materials', { count: mirror.materials }),
+      workers: t('sync.pull.workers', { count: mirror.roster }),
+    }),
+    t('sync.pull.updated', { age: ageText(mirror.refreshedAt, now) }),
   ];
-  if (failed) parts.push('refresh failed, will retry');
+  if (failed) parts.push(t('sync.pull.refreshFailed'));
   return parts.join(' · ');
 }
 
@@ -103,21 +111,21 @@ function lastRunNote(last: SyncStatus['last'], userId: string | null, waiting: b
     // Signed in on the phone, but the session could not be refreshed: offline
     // with an expired token (#56). Signing in again would not help. It only
     // matters when something is waiting.
-    if (!userId) return 'Sign in to sync';
-    return waiting ? 'Waiting for connection' : null;
+    if (!userId) return t('sync.note.signIn');
+    return waiting ? t('sync.note.waitingConnection') : null;
   }
   if (last?.kind !== 'failed') return null;
   const reason = last.reason;
-  if (reason === 'network') return 'No connection. Will retry.';
-  if (reason === 'server:PT429') return 'Server busy. Will retry.';
+  if (reason === 'network') return t('sync.note.network');
+  if (reason === 'server:PT429') return t('sync.note.serverBusy');
   // Another user signed in mid-run; their run follows, and nothing was lost.
   if (reason === 'session_changed') return null;
-  if (reason === 'local_error') return 'Something went wrong on this phone. Will retry.';
-  if (reason.startsWith('invalid_envelope')) return 'The app and the server disagree. Please update the app.';
-  if (reason === 'bad_response') return "The server's answer wasn't understood. Will retry.";
+  if (reason === 'local_error') return t('sync.note.localError');
+  if (reason.startsWith('invalid_envelope')) return t('sync.note.disagree');
+  if (reason === 'bad_response') return t('sync.note.badResponse');
   // Only a short server code is echoed; anything else could carry file names or data.
-  if (SAFE_SERVER_REASON.test(reason)) return `Last try failed (${reason})`;
-  return 'Last try failed. Will retry.';
+  if (SAFE_SERVER_REASON.test(reason)) return t('sync.note.lastFailedCode', { reason });
+  return t('sync.note.lastFailed');
 }
 
 export type SyncChipTone = 'ok' | 'wait' | 'attention';
@@ -130,10 +138,10 @@ export function syncChip(status: SyncStatus): { tone: SyncChipTone; text: string
   const { counts, running, loaded, readFailed } = status;
   const waiting = counts.pending + counts.syncing + counts.failed;
   const attention = counts.conflict + counts.rejected;
-  if (readFailed) return { tone: 'attention', text: 'Could not read this phone' };
-  if (attention > 0) return { tone: 'attention', text: `${attention} need attention` };
-  if (!loaded) return { tone: 'wait', text: 'Checking…' };
-  if (running) return { tone: 'wait', text: `Sending… ${waiting} waiting` };
-  if (waiting > 0) return { tone: 'wait', text: `${waiting} waiting to send` };
-  return { tone: 'ok', text: 'All sent' };
+  if (readFailed) return { tone: 'attention', text: t('sync.chip.cannotRead') };
+  if (attention > 0) return { tone: 'attention', text: t('sync.needAttention', { count: attention }) };
+  if (!loaded) return { tone: 'wait', text: t('sync.checking') };
+  if (running) return { tone: 'wait', text: t('sync.sending', { waiting }) };
+  if (waiting > 0) return { tone: 'wait', text: t('sync.waiting', { count: waiting }) };
+  return { tone: 'ok', text: t('sync.chip.allSent') };
 }

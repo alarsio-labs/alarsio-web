@@ -1,25 +1,24 @@
-// The app's button (docs/DESIGN.md, phone app v2.1): a rounded pill at least 48 px tall.
-// red: the one main action on a screen (ink text on red, 4.86:1). ink: a normal action.
-// line: a second action. cream: an action on a loam ground.
+// The app's button (docs/DESIGN.md section 5): at least 48 dp tall.
+// primary: the one main action on a screen (orange). secondary: a normal action. ghost: a quiet one.
 
-import { ActivityIndicator, Pressable, StyleSheet, Text, View, type StyleProp, type ViewStyle } from 'react-native';
+import { ActivityIndicator, Pressable, StyleSheet, View, type StyleProp, type ViewStyle } from 'react-native';
 
 import { colors, primaryTarget, radius, space } from '../theme';
 import { Icon, type IconName } from './Icon';
+import { Text } from './Text';
 
-export type PillKind = 'red' | 'ink' | 'line' | 'cream';
+export type ButtonKind = 'primary' | 'secondary' | 'ghost';
 
-const LOOK: Record<PillKind, { bg: string; fg: string; border: string }> = {
-  red: { bg: colors.red, fg: colors.ink, border: colors.red },
-  ink: { bg: colors.ink, fg: colors.white, border: colors.ink },
-  line: { bg: 'transparent', fg: colors.ink, border: colors.ink },
-  cream: { bg: colors.cream, fg: colors.ink, border: colors.cream },
+const LOOK: Record<ButtonKind, { bg: string; fg: string; border: string }> = {
+  primary: { bg: colors.action, fg: colors.text, border: colors.action },
+  secondary: { bg: colors.card, fg: colors.text, border: colors.field },
+  ghost: { bg: 'transparent', fg: colors.actionText, border: 'transparent' },
 };
 
-export interface PillProps {
+export interface ButtonProps {
   label: string;
   onPress: () => void;
-  kind?: PillKind;
+  kind?: ButtonKind;
   icon?: IconName;
   /** Read by screen readers instead of the label, when the label alone is not enough. */
   accessibilityLabel?: string;
@@ -29,18 +28,21 @@ export interface PillProps {
   style?: StyleProp<ViewStyle>;
 }
 
-export function Pill({
+export function Button({
   label,
   onPress,
-  kind = 'ink',
+  kind = 'primary',
   icon,
   accessibilityLabel,
   accessibilityRole = 'button',
   disabled = false,
   busy = false,
   style,
-}: PillProps) {
-  const look = disabled ? { bg: colors.disabled, fg: colors.white, border: colors.disabled } : LOOK[kind];
+}: ButtonProps) {
+  const base = LOOK[kind];
+  const look = disabled
+    ? { bg: kind === 'ghost' ? 'transparent' : colors.disabled, fg: kind === 'ghost' ? colors.muted : colors.white, border: kind === 'ghost' ? 'transparent' : colors.disabled }
+    : base;
   return (
     <Pressable
       accessibilityRole={accessibilityRole}
@@ -49,7 +51,7 @@ export function Pill({
       disabled={disabled || busy}
       onPress={onPress}
       style={({ pressed }) => [
-        styles.pill,
+        styles.button,
         { backgroundColor: look.bg, borderColor: look.border },
         pressed && styles.pressed,
         busy && styles.busy,
@@ -61,7 +63,9 @@ export function Pill({
       ) : (
         <View style={styles.inner}>
           {icon && <Icon name={icon} color={look.fg} size={20} />}
-          <Text style={[styles.text, { color: look.fg }]}>{label}</Text>
+          <Text bold color={look.fg} style={styles.label}>
+            {label}
+          </Text>
         </View>
       )}
     </Pressable>
@@ -69,16 +73,17 @@ export function Pill({
 }
 
 const styles = StyleSheet.create({
-  pill: {
+  button: {
     minHeight: primaryTarget,
     paddingHorizontal: space.xl,
-    borderRadius: radius.pill,
+    paddingVertical: space.sm,
+    borderRadius: radius.button,
     borderWidth: 1.5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  inner: { flexDirection: 'row', alignItems: 'center', gap: space.sm },
-  text: { fontSize: 16, fontWeight: '600' },
+  inner: { flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: space.sm },
+  label: { textAlign: 'center', flexShrink: 1 },
   pressed: { opacity: 0.85 },
   busy: { opacity: 0.7 },
 });

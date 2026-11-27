@@ -4,6 +4,9 @@ import { Linking } from 'react-native';
 import { AccessGate } from '../AccessGate';
 import { UseWebScreen } from '../UseWebScreen';
 
+// The header reads the safe-area insets, which need a native provider.
+jest.mock('react-native-safe-area-context', () => jest.requireActual('react-native-safe-area-context/jest/mock').default);
+
 const USER = { id: '11111111-0000-4000-8000-00000000000a', email: 'o@example.com' };
 const counts = async () => ({ waiting: 0, needFix: 0 });
 const memory = () => ({

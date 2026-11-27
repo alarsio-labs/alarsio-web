@@ -4,20 +4,27 @@
 // phone knows is approved is read-only here: its change is a correction in the day register.
 
 import { useCallback, useEffect, useRef, useState } from 'react';
-import { ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
-import { shiftMonth, type DayMark } from '../attendance/month';
+import { dayLabel, markParts, monthLabel } from '../attendance/labels';
+import { shiftMonth } from '../attendance/month';
 import { readWorkerMonth, type MonthDay, type WorkerMonth } from '../attendance/month-store';
 import { cleanMark, entryStatusText, type EntryStatus, type Mark } from '../attendance/register';
 import { saveMark } from '../attendance/register-store';
 import type { DeviceDb } from '../db/device-db';
+import i18n from '../i18n';
 import { istDate, readSites, readSiteWorkers, type MirrorSite, type RosterWorker } from '../sync/pull';
-import { Button, errorText } from './DayRegisterScreen';
+import { colors, space, tone } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
+import { errorText } from './DayRegisterScreen';
 import { LoadFailed } from './LoadFailed';
-import { MarkFields, STATUS_LABEL } from './MarkFields';
+import { MarkFields } from './MarkFields';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius, tone } from '../theme';
 
 export interface WorkerMonthScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -36,23 +43,18 @@ type Load =
   | { kind: 'missing' }
   | { kind: 'ready'; site: MirrorSite; workers: RosterWorker[]; month: WorkerMonth | null };
 
-const MONTH_NAMES = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
-const dayLabel = (date: string) => `${Number(date.slice(8, 10))} ${MONTH_NAMES[Number(date.slice(5, 7)) - 1]!.slice(0, 3)}`;
-const monthLabel = (month: string) => `${MONTH_NAMES[Number(month.slice(5, 7)) - 1]} ${month.slice(0, 4)}`;
-
-const markText = (m: DayMark) =>
-  [STATUS_LABEL[m.status], ...(m.overtimeHours > 0 ? [`${m.overtimeHours} h overtime`] : [])].join(' · ');
-
 function dayText(day: MonthDay): string {
+  const t = i18n.t.bind(i18n);
   const parts = [dayLabel(day.date)];
-  if (day.mark) parts.push(markText(day.mark));
-  else if (day.blocked) parts.push(day.blocked === 'future' ? 'Not yet' : 'Not on this site');
-  else if (!day.locked) parts.push('Not marked');
-  if (day.locked) parts.push('Approved · change it from the day register');
+  if (day.mark) parts.push(...markParts(day.mark));
+  else if (day.blocked) parts.push(day.blocked === 'future' ? t('workerMonth.notYet') : t('workerMonth.notOnSite'));
+  else if (!day.locked) parts.push(t('workerMonth.notMarked'));
+  if (day.locked) parts.push(t('workerMonth.approved'));
   return parts.join(' · ');
 }
 
 export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date(), pollMs = 3000 }: WorkerMonthScreenProps) {
+  const { t } = useTranslation();
   const thisMonth = istDate(now().toISOString()).slice(0, 7);
   const [db, setDb] = useState<DeviceDb | null>(null);
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
@@ -178,147 +180,162 @@ export function WorkerMonthScreen({ openDb, userId, siteId, now = () => new Date
   const summary = data?.summary;
 
   return (
-    <SafeAreaView style={styles.container}>
-      <ScrollView contentContainerStyle={styles.content} keyboardShouldPersistTaps="handled">
-        {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-        {load.kind === 'failed' && <LoadFailed message="Could not read the records on this phone." onRetry={retry} />}
-        {load.kind === 'missing' && <Text style={styles.line}>This site is not on this phone.</Text>}
+    <Screen>
+      {load.kind === 'loading' && <Text color={colors.muted}>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('attendance.sitesReadFailed')} onRetry={retry} />}
+      {load.kind === 'missing' && <Text>{t('attendance.siteMissing')}</Text>}
 
-        {site && (
-          <>
-            <ScreenTitle screen="worker_month" siteName={site.name} />
-            <Text style={styles.title} accessibilityRole="header">
-              {worker ? worker.name : site.name}
-            </Text>
+      {site && (
+        <>
+          <ScreenTitle screen="worker_month" siteName={site.name} />
+          <Text variant="heading" accessibilityRole="header">
+            {worker ? worker.name : site.name}
+          </Text>
 
-            {!workerId && (
-              <>
-                <Text style={styles.sub}>Choose a worker to see their month.</Text>
-                {ready!.workers.length === 0 && <Text style={styles.line}>No workers are on the roster at this site on this phone.</Text>}
-                {ready!.workers.map((w) => (
-                  <View key={w.workerId} style={styles.card}>
-                    <Text style={styles.name}>{w.name}</Text>
-                    <Text style={styles.sub}>{`${w.code} · ${w.trade}`}</Text>
-                    <Button label={`Open ${w.name}`} secondary onPress={() => choose(w.workerId)} />
-                  </View>
-                ))}
-              </>
-            )}
+          {!workerId && (
+            <>
+              <Text color={colors.muted}>{t('workerMonth.chooseWorker')}</Text>
+              {ready!.workers.length === 0 && <Text>{t('workerMonth.noWorkers')}</Text>}
+              {ready!.workers.map((w) => (
+                <Card key={w.workerId}>
+                  <Text bold>{w.name}</Text>
+                  <Text variant="small" color={colors.muted}>{`${w.code} · ${w.trade}`}</Text>
+                  <Button label={t('workerMonth.open', { name: w.name })} kind="secondary" onPress={() => choose(w.workerId)} />
+                </Card>
+              ))}
+            </>
+          )}
 
-            {workerId && (
-              <>
-                <Text style={styles.sub}>{worker ? `${worker.code} · ${worker.trade}` : 'This worker is not on this phone.'}</Text>
-                <Button label="Back to workers" secondary onPress={() => choose(null)} />
+          {workerId && (
+            <>
+              <Text color={colors.muted}>{worker ? `${worker.code} · ${worker.trade}` : t('workerMonth.workerMissing')}</Text>
+              <Button label={t('workerMonth.back')} kind="secondary" onPress={() => choose(null)} />
 
-                <View style={styles.row}>
-                  <Button
-                    label="Earlier month"
-                    secondary
-                    disabled={month <= shiftMonth(thisMonth, -1)}
-                    onPress={() => {
-                      closeEditor();
-                      setMonth(shiftMonth(month, -1));
-                    }}
-                  />
-                  <Button
-                    label="Later month"
-                    secondary
-                    disabled={month >= thisMonth}
-                    onPress={() => {
-                      closeEditor();
-                      setMonth(shiftMonth(month, 1));
-                    }}
-                  />
-                </View>
-                <Text style={styles.name}>{monthLabel(month)}</Text>
+              <View style={styles.row}>
+                <Button
+                  label={t('workerMonth.earlierMonth')}
+                  kind="secondary"
+                  style={styles.grow}
+                  disabled={month <= shiftMonth(thisMonth, -1)}
+                  onPress={() => {
+                    closeEditor();
+                    setMonth(shiftMonth(month, -1));
+                  }}
+                />
+                <Button
+                  label={t('workerMonth.laterMonth')}
+                  kind="secondary"
+                  style={styles.grow}
+                  disabled={month >= thisMonth}
+                  onPress={() => {
+                    closeEditor();
+                    setMonth(shiftMonth(month, 1));
+                  }}
+                />
+              </View>
+              <Text variant="heading">{monthLabel(month)}</Text>
 
-                {site.orgId === null && <Text style={styles.error}>Connect once to refresh your sites, then mark attendance.</Text>}
-                {message && (
-                  <Text style={styles.error} accessibilityLiveRegion="polite">
-                    {message}
+              {site.orgId === null && <Text color={tone.attention.text}>{t('attendance.connectToCheckIn')}</Text>}
+              {message && (
+                <Text color={tone.attention.text} accessibilityLiveRegion="polite">
+                  {message}
+                </Text>
+              )}
+
+              {data && !data.available && <Text>{t('workerMonth.tooOld')}</Text>}
+
+              {summary && data?.available && (
+                <Card>
+                  <Text>
+                    {t('workerMonth.summary', {
+                      present: summary.present,
+                      halfDays: summary.halfDays,
+                      leave: summary.leave,
+                      absent: summary.absent,
+                      notMarked: summary.notMarked,
+                    })}
                   </Text>
-                )}
+                  <Text>{t('workerMonth.pay', { days: summary.payableDays, hours: summary.overtimeHours })}</Text>
+                </Card>
+              )}
 
-                {data && !data.available && <Text style={styles.line}>This month is older than this phone keeps. Open it on the web.</Text>}
+              {data?.days.map((day) => {
+                const canMark = site.orgId !== null && !day.locked && day.blocked === null;
+                const sync = day.sync ? entryStatusText(day.sync.status, day.sync.verdictReason) : null;
+                const label = dayLabel(day.date);
+                return (
+                  <Card key={day.date}>
+                    <Text>{dayText(day)}</Text>
+                    {sync && (
+                      <View accessibilityLiveRegion="polite">
+                        <StatusBadge tone={sync.tone} label={sync.text} />
+                      </View>
+                    )}
 
-                {summary && data?.available && (
-                  <View style={styles.card}>
-                    <Text style={styles.line}>
-                      {`Present ${summary.present} · Half days ${summary.halfDays} · Leave ${summary.leave} · Absent ${summary.absent} · Not marked ${summary.notMarked}`}
-                    </Text>
-                    <Text style={styles.line}>{`Payable days ${summary.payableDays} · Overtime ${summary.overtimeHours} h`}</Text>
-                  </View>
-                )}
-
-                {data?.days.map((day) => {
-                  const canMark = site.orgId !== null && !day.locked && day.blocked === null;
-                  const sync = day.sync ? entryStatusText(day.sync.status, day.sync.verdictReason) : null;
-                  const label = dayLabel(day.date);
-                  return (
-                    <View key={day.date} style={styles.card}>
-                      <Text style={styles.line}>{dayText(day)}</Text>
-                      {sync && (
-                        <Text style={[styles.status, toneStyle[sync.tone]]} accessibilityLiveRegion="polite">
-                          {sync.text}
-                        </Text>
-                      )}
-
-                      {canMark && editing !== day.date && (
-                        <View style={styles.row}>
-                          {day.mark ? (
-                            <Button label={`Change ${label}`} secondary onPress={() => openEditor(day)} />
-                          ) : (
-                            <>
-                              <Button label={`Present ${label}`} onPress={() => void quick(day.date, 'present')} />
-                              <Button label={`Absent ${label}`} secondary onPress={() => void quick(day.date, 'absent')} />
-                              <Button label={`More ${label}`} secondary onPress={() => openEditor(day)} />
-                            </>
-                          )}
-                        </View>
-                      )}
-
-                      {editing === day.date && (
-                        <View style={styles.panel}>
-                          <MarkFields
-                            status={status}
-                            onStatus={setStatus}
-                            overtime={overtime}
-                            onOvertime={setOvertime}
-                            note={note}
-                            onNote={setNote}
+                    {canMark && editing !== day.date && (
+                      <View style={styles.row}>
+                        {day.mark ? (
+                          <Button
+                            label={t('workerMonth.change')}
+                            accessibilityLabel={t('workerMonth.changeDay', { day: label })}
+                            kind="secondary"
+                            style={styles.grow}
+                            onPress={() => openEditor(day)}
                           />
-                          <Button label="Save" onPress={() => void saveDay(day.date, () => cleanMark({ status, overtime, note }))} />
-                          <Button label="Cancel" secondary onPress={closeEditor} />
-                        </View>
-                      )}
-                    </View>
-                  );
-                })}
-              </>
-            )}
-          </>
-        )}
-      </ScrollView>
-    </SafeAreaView>
+                        ) : (
+                          <>
+                            <Button
+                              label={t('workerMonth.present')}
+                              accessibilityLabel={t('workerMonth.presentDay', { day: label })}
+                              style={styles.grow}
+                              onPress={() => void quick(day.date, 'present')}
+                            />
+                            <Button
+                              label={t('workerMonth.absent')}
+                              accessibilityLabel={t('workerMonth.absentDay', { day: label })}
+                              kind="secondary"
+                              style={styles.grow}
+                              onPress={() => void quick(day.date, 'absent')}
+                            />
+                            <Button
+                              label={t('workerMonth.more')}
+                              accessibilityLabel={t('workerMonth.moreDay', { day: label })}
+                              kind="secondary"
+                              style={styles.grow}
+                              onPress={() => openEditor(day)}
+                            />
+                          </>
+                        )}
+                      </View>
+                    )}
+
+                    {editing === day.date && (
+                      <View style={styles.panel}>
+                        <MarkFields
+                          status={status}
+                          onStatus={setStatus}
+                          overtime={overtime}
+                          onOvertime={setOvertime}
+                          note={note}
+                          onNote={setNote}
+                        />
+                        <Button label={t('fields.save')} onPress={() => void saveDay(day.date, () => cleanMark({ status, overtime, note }))} />
+                        <Button label={t('fields.cancel')} kind="secondary" onPress={closeEditor} />
+                      </View>
+                    )}
+                  </Card>
+                );
+              })}
+            </>
+          )}
+        </>
+      )}
+    </Screen>
   );
 }
 
-const toneStyle = {
-  wait: { color: tone.wait },
-  ok: { color: tone.ok },
-  attention: { color: tone.attention },
-};
-
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  sub: { fontSize: 14, color: colors.muted },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  name: { fontSize: 18, fontWeight: '500' },
-  status: { fontSize: 14 },
-  row: { flexDirection: 'row', flexWrap: 'wrap', gap: 8 },
-  card: { borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 8, backgroundColor: colors.paper },
-  panel: { gap: 12 },
+  row: { flexDirection: 'row', flexWrap: 'wrap', gap: space.sm },
+  grow: { flexGrow: 1 },
+  panel: { gap: space.md },
 });

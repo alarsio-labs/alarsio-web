@@ -1,4 +1,4 @@
-import { configure, fireEvent, render, screen } from '@testing-library/react-native';
+import { act, configure, fireEvent, render, screen } from '@testing-library/react-native';
 import type { ComponentProps } from 'react';
 
 import { markAllPresent } from '../../attendance/register-store';
@@ -10,6 +10,9 @@ import { prepareDeviceDb } from '../../db/prepare-device-db';
 import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { saveReport } from '../../reports/report-store';
 import { HomeScreen } from '../HomeScreen';
+
+// Waits for the screen to read the phone; with no user there is nothing to find by text.
+const settle = () => act(async () => { await new Promise((r) => setTimeout(r, 50)); });
 
 // A cold runner needs more than the default waits for sql.js to start; these are limits on waiting.
 jest.setTimeout(30_000);
@@ -149,19 +152,20 @@ describe('HomeScreen as Today (A8)', () => {
   it('says what to do when there are no sites', async () => {
     await db.run('delete from mirror_sites');
     await show();
-    expect(await screen.findByText('No sites yet. Pull to refresh, or ask your manager to add you to a site.')).toBeTruthy();
+    expect(await screen.findByText('No sites yet.')).toBeTruthy();
+    expect(screen.getByText('Pull to refresh, or ask your manager to add you to a site.')).toBeTruthy();
   });
 
   it("shows nothing of another user's records", async () => {
     await markAllPresent(db, USER, { id: SITE_1, orgId: ORG }, TODAY, NOW);
     await show({ userId: OTHER });
-    expect(await screen.findByText('Today')).toBeTruthy();
+    await settle();
     expect(screen.queryByText(/Register 3/)).toBeNull();
   });
 
   it('shows no cards when no user is signed in', async () => {
     await show({ userId: undefined, onOpenMaterials: jest.fn() });
-    expect(await screen.findByText('Today')).toBeTruthy();
+    await settle();
     expect(screen.queryByRole('button', { name: /Check in/ })).toBeNull();
     expect(screen.queryByRole('button', { name: 'Materials' })).toBeNull();
   });

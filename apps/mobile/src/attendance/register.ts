@@ -3,7 +3,10 @@
 // sync_attendance_corrections accept. Owner: Attendance (Manish). Issue #79, ADR-048.
 // Server side: ADR-021, ADR-030, ADR-033. Nothing here touches the database or the clock.
 
+import i18n from '../i18n';
 import type { OutboxStatus } from '../sync/entities';
+
+const t = i18n.t.bind(i18n);
 
 export const ENTRY_STATUSES = ['present', 'absent', 'half_day', 'leave'] as const;
 export type EntryStatus = (typeof ENTRY_STATUSES)[number];
@@ -154,17 +157,19 @@ export type StatusTone = 'wait' | 'ok' | 'attention';
 
 // Codes from the handlers (ADR-033). Anything else is said without the code: it can
 // carry server text.
-const REASONS: Record<string, string> = {
-  locked: 'A manager already approved this day, so this change was not applied. Propose a correction instead.',
-  duplicate: 'Another phone marked this worker differently first, and the server kept that.',
-  different_entry: 'The server already holds a different entry under this record.',
-  different_day: 'The server already holds a different day under this record.',
-  different_correction: 'The server already holds a different correction under this record.',
-  permission_denied: "You can't record on this site any more.",
-  invalid_input: "Something here isn't valid. Check the worker is still on this site and the day is not too far ahead.",
-  invalid_state: 'The day is not approved, so there is nothing to correct yet.',
-};
-const UNKNOWN_REASON = 'The server did not accept it.';
+const REASONS = {
+  locked: 'register.reason.locked',
+  duplicate: 'register.reason.duplicate',
+  different_entry: 'register.reason.different_entry',
+  different_day: 'register.reason.different_day',
+  different_correction: 'register.reason.different_correction',
+  permission_denied: 'register.reason.permission_denied',
+  invalid_input: 'register.reason.invalid_input',
+  invalid_state: 'register.reason.invalid_state',
+} as const;
+
+const reasonLine = (reason: string | null): string =>
+  reason !== null && Object.hasOwn(REASONS, reason) ? t(REASONS[reason as keyof typeof REASONS]) : t('register.reason.unknown');
 
 /**
  * What a saved entry (or day, or correction) says about itself. Only a synced
@@ -174,16 +179,13 @@ export function entryStatusText(status: OutboxStatus, reason: string | null): { 
   switch (status) {
     case 'pending':
     case 'syncing':
-      return { tone: 'wait', text: 'Saved on this phone, waiting to send' };
+      return { tone: 'wait', text: t('attendance.status.saved') };
     case 'failed':
-      return { tone: 'wait', text: 'Could not send yet. Will retry.' };
+      return { tone: 'wait', text: t('attendance.status.retry') };
     case 'synced':
-      return { tone: 'ok', text: 'On the server' };
+      return { tone: 'ok', text: t('attendance.status.onServer') };
     case 'conflict':
     case 'rejected':
-      return {
-        tone: 'attention',
-        text: `Needs attention · ${(reason !== null && Object.hasOwn(REASONS, reason) ? REASONS[reason] : undefined) ?? UNKNOWN_REASON}`,
-      };
+      return { tone: 'attention', text: t('attendance.status.needsAttention', { reason: reasonLine(reason) }) };
   }
 }

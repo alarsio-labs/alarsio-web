@@ -7,6 +7,7 @@ colour, a font size or a component that is not here updates this file in the sam
 a register, a slip, a stamped day. The landing page reads like one being printed as you
 scroll. It replaces v1 (a Raken-like SaaS page), which is in git history. The print look is for the
 landing page and the sign-in pages only; every signed-in page uses the app console in section 4.
+The phone app uses the app tokens in section 5 (27 Nov 2026), and the dashboard moves to them later.
 
 Three committed colours plus one dark ground, heavy condensed display type against
 wide-tracked mono furniture, 1.5 px ink borders, zero radii, and flat generated plates
@@ -265,6 +266,9 @@ area, not centred in it.
 
 ## 3b · Phone app (v2.1, proposed 6 Nov 2026)
 
+**Superseded on 27 Nov 2026 by section 5** (light body, slate header, orange actions). Kept for history.
+Only the start flow and the splash below still apply.
+
 **Status:** proposed by Manish under the deadline override; **Ishant confirms or changes it after 15 Nov.**
 It brings the phone app in line with the public site (section 2). Tokens are in `apps/mobile/src/theme.ts`.
 
@@ -401,4 +405,74 @@ and `Notice`. Fields stay in `v2-form.tsx`. A screen uses these pieces and does 
   published views only). The Overview's "Headcount reported" sums `daily_report_status.headcount`.
 - **Phone.** Check every page at 375 px.
 - **No new colour.** Any colour or size not in this section updates this file in the same PR.
-- **Out of scope:** the phone app (see section 3b), dark mode, motion.
+- **Out of scope:** the phone app (see section 5), dark mode, motion.
+
+---
+
+## 5 · App tokens: phone app now, dashboard next
+
+**Status:** agreed by Manish, 27 Nov 2026. This is the single source for the signed-in look of the phone app
+(`apps/mobile/src/theme.ts`). It replaces section 3b. The web dashboard (section 4) still ships as is; a later
+PR moves it onto these tokens, and this section then replaces section 4. The landing page and the sign-in pages
+keep the print brand (sections 1 to 2b). The phone keeps the wordmark and Anton on the splash, the tutorial and
+Sign in only.
+
+Light body, white cards, a dark slate header. Orange marks the one main action and the active tab. Status is
+always a chip with an icon and a word, never colour alone.
+
+### Colour
+
+| Token | Value | Use | Contrast |
+| :-- | :-- | :-- | :-- |
+| `ground` | `#F6F7F9` | Screen background | — |
+| `card` | `#FFFFFF` | Cards, inputs, rows | — |
+| `text` | `#1F2937` | Body text | 14.7 : 1 on card |
+| `muted` | `#4B5563` | Secondary text | 7.5 : 1 on card |
+| `border` | `#E5E7EB` | Card and row hairline | — |
+| `field` | `#6B7280` | Input and unselected-button border | 4.8 : 1 on card |
+| `header` | `#1E293B` | Header bar and tab-bar text colour on dark | white text 14 : 1 |
+| `headerMuted` | `#CBD5E1` | Secondary text on the header | 9 : 1 on header |
+| `action` | `#F97316` | Main action fill (text on it is `text`) | 5.2 : 1 |
+| `actionText` | `#C2410C` | Orange text or icon on light ground, active tab | 5.8 : 1 on card |
+| `disabled` | `#6B7280` | Disabled button fill, white text | 4.8 : 1 |
+
+Status chips (tint behind, text on it; each pair is checked in `theme.test.ts`):
+
+| Tone | Tint | Text and solid | Use |
+| :-- | :-- | :-- | :-- |
+| `ok` | `#DCFCE7` | `#166534` | Present, sent, checked in |
+| `wait` | `#FEF3C7` | `#92400E` | Half day, waiting to send |
+| `attention` | `#FEE2E2` | `#B91C1C` | Absent, needs attention, errors |
+| `neutral` | `#E5E7EB` | `#374151` | Left, no status |
+
+### Type
+
+- **Latin:** the system font (Roboto on Android, San Francisco on iOS). **Hindi:** Noto Sans Devanagari,
+  bundled (regular and bold). Only two weights: regular and bold.
+- **Scale:** title 22, heading 18, body 16, small 14, counter 28. Line height is 1.45 × the size, so Hindi
+  marks are not clipped. Never a fixed height on text or a row; use `minHeight`.
+- **Font scaling stays on**, capped at 1.4 ×, so a large setting does not break a row.
+
+### Shape and spacing
+
+- Space 4 / 8 / 12 / 16 / 24. Radius: input and chip 10, card 14, button 12. A card has a 1 px `border`, no shadow.
+- Touch targets are at least 48 dp (iOS HIG asks for 44 pt). Safe-area insets apply to every screen, top and bottom.
+
+### Components (`apps/mobile/src/ui/`)
+
+- **ScreenHeader.** `header` bar, white 18 bold title, optional back and one right slot. Handles the top inset.
+- **Button.** `primary` (`action` fill, `text` label), `secondary` (white, `field` border), `ghost` (text only).
+  Busy shows a spinner and blocks taps.
+- **Card, ListRow.** White card on `ground`. A row is at least 56 dp, with a title, one hint line, a trailing
+  slot and a chevron when it opens something.
+- **TextField.** Label above, white box, `field` border, `attention` border and message on error.
+- **StatusBadge.** The status chips above, with an icon and a word.
+- **EmptyState.** One sentence for what is missing, and the one action that fills it.
+- **Register row.** Worker name, then three one-tap buttons P, ½, A (48 dp each). Selected: solid `ok`, `wait`
+  or `attention` with white text. Unselected: white with a `field` border. Counters on top: Present, Absent, Left.
+- **Bottom tabs.** Today, Sites, Reports, More. The active tab is `actionText` with a bold label; the others are `muted`.
+
+### Language
+
+English and Hindi (`apps/mobile/src/i18n/`). The device language is the default; a switch in More saves the
+choice. A new string goes into both files in the same PR. Hindi text is checked by a native speaker before release.

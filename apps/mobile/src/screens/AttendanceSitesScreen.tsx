@@ -2,14 +2,20 @@
 // Owner: Attendance (Manish). Issue #79, ADR-034. Reads only this user's mirror.
 
 import { useEffect, useState } from 'react';
-import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { useTranslation } from 'react-i18next';
+import { StyleSheet, View } from 'react-native';
 
 import type { DeviceDb } from '../db/device-db';
+import i18n from '../i18n';
 import { readSites, type MirrorSite } from '../sync/pull';
+import { colors, space, type Tone } from '../theme';
+import { EmptyState } from '../ui/EmptyState';
+import { ListRow } from '../ui/ListRow';
+import { Screen } from '../ui/Screen';
+import { StatusBadge } from '../ui/StatusBadge';
+import { Text } from '../ui/Text';
 import { LoadFailed } from './LoadFailed';
 import { ScreenTitle } from './ScreenTitle';
-import { colors, radius } from '../theme';
 
 export interface AttendanceSitesScreenProps {
   openDb: () => Promise<DeviceDb>;
@@ -20,11 +26,24 @@ export interface AttendanceSitesScreenProps {
 
 type Load = { kind: 'loading' } | { kind: 'failed' } | { kind: 'ready'; sites: MirrorSite[] };
 
-export function statusLabel(status: string): string {
-  return status.charAt(0).toUpperCase() + status.slice(1);
+const SITE_STATUS = {
+  planned: 'attendance.siteStatus.planned',
+  active: 'attendance.siteStatus.active',
+  paused: 'attendance.siteStatus.paused',
+  completed: 'attendance.siteStatus.completed',
+  archived: 'attendance.siteStatus.archived',
+} as const;
+
+const SITE_TONE: Record<string, Tone> = { active: 'ok', paused: 'wait' };
+
+function statusLabel(status: string): string {
+  return Object.hasOwn(SITE_STATUS, status)
+    ? i18n.t(SITE_STATUS[status as keyof typeof SITE_STATUS])
+    : status.charAt(0).toUpperCase() + status.slice(1);
 }
 
 export function AttendanceSitesScreen({ openDb, userId, onOpenSite }: AttendanceSitesScreenProps) {
+  const { t } = useTranslation();
   const [load, setLoad] = useState<Load>({ kind: 'loading' });
   // Bumped by Try again, which reads the sites again.
   const [attempt, setAttempt] = useState(0);
@@ -53,51 +72,35 @@ export function AttendanceSitesScreen({ openDb, userId, onOpenSite }: Attendance
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <Screen>
       <ScreenTitle screen="attendance_sites" />
-      <Text style={styles.title} accessibilityRole="header">
-        Attendance
-      </Text>
-      {load.kind === 'loading' && <Text style={styles.line}>Loading…</Text>}
-      {load.kind === 'failed' && <LoadFailed message="Could not read the sites on this phone." onRetry={retry} />}
-      {load.kind === 'ready' && load.sites.length === 0 && (
-        <Text style={styles.line}>No sites on this phone yet. Connect once to download your sites.</Text>
-      )}
-      {load.kind === 'ready' && load.sites.length > 0 && (
-        <ScrollView style={styles.list} contentContainerStyle={styles.listContent}>
-          {load.sites.map((site) => (
-            <Pressable
+      {load.kind === 'loading' && <Text color={colors.muted}>{t('common.loading')}</Text>}
+      {load.kind === 'failed' && <LoadFailed message={t('attendance.sitesReadFailed')} onRetry={retry} />}
+      {load.kind === 'ready' && load.sites.length === 0 && <EmptyState title={t('attendance.noSites')} />}
+      {load.kind === 'ready' &&
+        load.sites.map((site) => {
+          const status = statusLabel(site.status);
+          const labelKey = site.orgId === null ? 'attendance.siteLabelRefresh' : 'attendance.siteLabel';
+          return (
+            <ListRow
               key={site.id}
-              accessibilityRole="button"
-              accessibilityLabel={`${site.name}, ${statusLabel(site.status).toLowerCase()}${site.orgId === null ? ', needs a refresh' : ''}`}
+              title={site.name}
+              hint={site.address}
+              accessibilityLabel={t(labelKey, { name: site.name, status: status.toLowerCase() })}
               onPress={() => onOpenSite(site.id)}
-              style={styles.card}
-            >
-              <Text style={styles.siteName}>{site.name}</Text>
-              <Text style={styles.siteAddress}>{site.address}</Text>
-              <View style={styles.row}>
-                <Text style={styles.siteStatus}>{statusLabel(site.status)}</Text>
-                {site.orgId === null && <Text style={styles.refresh}>Needs a refresh</Text>}
-              </View>
-            </Pressable>
-          ))}
-        </ScrollView>
-      )}
-    </SafeAreaView>
+              trailing={
+                <View style={styles.badges}>
+                  <StatusBadge tone={SITE_TONE[site.status] ?? 'neutral'} label={status} />
+                  {site.orgId === null && <StatusBadge tone="attention" label={t('attendance.needsRefresh')} />}
+                </View>
+              }
+            />
+          );
+        })}
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream, padding: 16, gap: 12 },
-  title: { fontSize: 24, fontWeight: '600' },
-  line: { fontSize: 16, color: colors.ink },
-  error: { fontSize: 16, color: colors.redDeep },
-  list: { flex: 1 },
-  listContent: { gap: 12, paddingBottom: 24 },
-  card: { minHeight: 44, borderWidth: 1, borderColor: colors.hair, borderRadius: radius.md, padding: 12, gap: 2, backgroundColor: colors.paper },
-  siteName: { fontSize: 18, fontWeight: '600' },
-  siteAddress: { fontSize: 14, color: colors.muted },
-  row: { flexDirection: 'row', gap: 12 },
-  siteStatus: { fontSize: 14, color: colors.ink },
-  refresh: { fontSize: 14, color: colors.redDeep },
+  badges: { gap: space.xs },
 });

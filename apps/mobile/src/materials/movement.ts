@@ -6,10 +6,13 @@
 // server has three decimals, and 0.1 + 0.2 must not reach a ledger. Nothing here touches
 // the database or the clock: callers pass the day in.
 
+import i18n from '../i18n';
 import type { MaterialKind } from './kinds';
 import { MATERIAL_KINDS } from './kinds';
 import type { OutboxStatus } from '../sync/entities';
 import { reasonText } from '../sync/status-text';
+
+const t = i18n.t.bind(i18n);
 
 export type { MaterialKind } from './kinds';
 
@@ -31,20 +34,25 @@ export type MovementErrorCode =
   | 'kind_invalid'
   | 'material_not_found';
 
+/** Every error code. The sentence for each is in the "siteMaterials.error" words. */
+export const MOVEMENT_ERROR_CODES: readonly MovementErrorCode[] = [
+  'quantity_required',
+  'quantity_invalid',
+  'quantity_zero',
+  'quantity_negative',
+  'quantity_too_large',
+  'reason_required',
+  'reason_too_long',
+  'date_invalid',
+  'date_future',
+  'kind_invalid',
+  'material_not_found',
+];
+
 /** One fixed sentence per code, so a raw error never reaches the screen. */
-export const MOVEMENT_MESSAGES: Record<MovementErrorCode, string> = {
-  quantity_required: 'Enter how much.',
-  quantity_invalid: 'Enter the quantity as a number, with up to three decimals.',
-  quantity_zero: 'The quantity cannot be zero.',
-  quantity_negative: 'Only an adjustment can be negative.',
-  quantity_too_large: 'That quantity is too large.',
-  reason_required: 'An adjustment needs a reason.',
-  reason_too_long: `Keep the reason within ${REASON_MAX} characters.`,
-  date_invalid: 'Enter the date as YYYY-MM-DD.',
-  date_future: 'The date cannot be in the future.',
-  kind_invalid: 'Choose what kind of entry this is.',
-  material_not_found: 'This material is not on this phone. Refresh and try again.',
-};
+export function movementErrorText(code: MovementErrorCode): string {
+  return t(`siteMaterials.error.${code}`, { max: REASON_MAX });
+}
 
 export class MovementError extends Error {
   constructor(readonly code: MovementErrorCode) {
@@ -182,13 +190,13 @@ export function movementStatusText(status: OutboxStatus, reason: string | null):
   switch (status) {
     case 'pending':
     case 'syncing':
-      return { tone: 'wait', text: 'Saved on this phone, waiting to send' };
+      return { tone: 'wait', text: t('siteMaterials.status.waiting') };
     case 'failed':
-      return { tone: 'wait', text: 'Could not send yet. Will retry.' };
+      return { tone: 'wait', text: t('siteMaterials.status.failed') };
     case 'synced':
-      return { tone: 'ok', text: 'On the server' };
+      return { tone: 'ok', text: t('siteMaterials.status.onServer') };
     case 'conflict':
     case 'rejected':
-      return { tone: 'attention', text: `Needs attention · ${reasonText(reason)}` };
+      return { tone: 'attention', text: t('siteMaterials.status.attention', { reason: reasonText(reason) }) };
   }
 }

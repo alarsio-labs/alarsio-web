@@ -1,7 +1,8 @@
-// Help and about: how to reach us, the privacy policy, the app version, and
-// sign out. Owner: Identity (Ishant), added for the pilot polish.
+// The More tab: help and about, the language switch, how to reach us, the privacy
+// policy, the app version, and sign out. Owner: Identity (Ishant).
 
-import { Linking, Pressable, ScrollView, StyleSheet, Text } from 'react-native';
+import { useTranslation } from 'react-i18next';
+import { Linking, StyleSheet, View } from 'react-native';
 
 import {
   PRIVACY_URL,
@@ -9,87 +10,69 @@ import {
   SUPPORT_WHATSAPP_DISPLAY,
   SUPPORT_WHATSAPP_URL,
 } from '../config/support';
-import { ScreenTitle } from './ScreenTitle';
-import { colors, minTarget, primaryTarget, radius, space, type } from '../theme';
+import type { Language } from '../i18n';
+import { colors, space } from '../theme';
+import { Button } from '../ui/Button';
+import { Card } from '../ui/Card';
+import { Screen } from '../ui/Screen';
+import { Text } from '../ui/Text';
 import { useSignOutFlow, type AccountMenuProps } from './AccountMenu';
 
 export interface AboutScreenProps extends AccountMenuProps {
   appVersion: string;
   /** Opens the tutorial again ("How Alarsio works"). Without it, the link is not shown. */
   onOpenTutorial?: () => void;
+  /** Saves the language choice. Without it, the switch is not shown. */
+  onChangeLanguage?: (language: Language) => void;
 }
 
-export function AboutScreen({ appVersion, user, unsentCounts, signOut, onOpenTutorial }: AboutScreenProps) {
+const LANGUAGES: Language[] = ['en', 'hi'];
+
+export function AboutScreen({ appVersion, user, unsentCounts, signOut, onOpenTutorial, onChangeLanguage }: AboutScreenProps) {
+  const { t, i18n } = useTranslation();
   const onSignOut = useSignOutFlow({ user, unsentCounts, signOut });
   const open = (url: string) => void Linking.openURL(url).catch(() => undefined);
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <ScreenTitle screen="help" />
-      <Text accessibilityRole="header" style={styles.title}>
-        Help and about
-      </Text>
-      <Text style={styles.text}>{`Need help? Write to ${SUPPORT_EMAIL} or WhatsApp ${SUPPORT_WHATSAPP_DISPLAY}.`}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Email support"
-        onPress={() => open(`mailto:${SUPPORT_EMAIL}`)}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>Email support</Text>
-      </Pressable>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="WhatsApp support"
-        onPress={() => open(SUPPORT_WHATSAPP_URL)}
-        style={styles.button}
-      >
-        <Text style={styles.buttonText}>WhatsApp support</Text>
-      </Pressable>
-      {onOpenTutorial && (
-        <Pressable accessibilityRole="button" accessibilityLabel="How Alarsio works" onPress={onOpenTutorial} style={styles.link}>
-          <Text style={styles.linkText}>How Alarsio works</Text>
-        </Pressable>
+    <Screen>
+      <Card>
+        <Text variant="heading" bold accessibilityRole="header">
+          {t('about.title')}
+        </Text>
+        <Text>{t('about.needHelp', { email: SUPPORT_EMAIL, whatsapp: SUPPORT_WHATSAPP_DISPLAY })}</Text>
+        <Button kind="secondary" label={t('startup.emailSupport')} onPress={() => open(`mailto:${SUPPORT_EMAIL}`)} />
+        <Button kind="secondary" label={t('startup.whatsappSupport')} onPress={() => open(SUPPORT_WHATSAPP_URL)} />
+        {onOpenTutorial && <Button kind="ghost" label={t('about.howItWorks')} onPress={onOpenTutorial} />}
+        <Button kind="ghost" accessibilityRole="link" label={t('about.privacy')} onPress={() => open(PRIVACY_URL)} />
+      </Card>
+
+      {onChangeLanguage && (
+        <Card>
+          <Text bold accessibilityRole="header">
+            {t('language.title')}
+          </Text>
+          <View style={styles.languages}>
+            {LANGUAGES.map((code) => (
+              <Button
+                key={code}
+                kind={i18n.language === code ? 'primary' : 'secondary'}
+                label={t(`language.${code}`)}
+                onPress={() => onChangeLanguage(code)}
+                style={styles.language}
+              />
+            ))}
+          </View>
+        </Card>
       )}
-      <Pressable
-        accessibilityRole="link"
-        accessibilityLabel="Privacy policy"
-        onPress={() => open(PRIVACY_URL)}
-        style={styles.link}
-      >
-        <Text style={styles.linkText}>Privacy policy</Text>
-      </Pressable>
-      <Text style={styles.small}>{`Version ${appVersion}`}</Text>
-      <Text style={styles.small}>{`Signed in as ${user.email}`}</Text>
-      <Pressable
-        accessibilityRole="button"
-        accessibilityLabel="Sign out"
-        onPress={() => void onSignOut()}
-        style={[styles.button, styles.buttonSecondary]}
-      >
-        <Text style={styles.buttonTextSecondary}>Sign out</Text>
-      </Pressable>
-    </ScrollView>
+
+      <Text variant="small" color={colors.muted}>{t('about.version', { version: appVersion })}</Text>
+      <Text variant="small" color={colors.muted}>{t('about.signedInAs', { email: user.email })}</Text>
+      <Button kind="secondary" label={t('common.signOut')} onPress={() => void onSignOut()} />
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.cream },
-  content: { padding: space.lg, gap: space.md },
-  title: { fontSize: type.title, fontWeight: '600', color: colors.ink },
-  text: { fontSize: type.body, color: colors.ink },
-  small: { fontSize: type.small, color: colors.muted },
-  button: {
-    minHeight: primaryTarget,
-    borderRadius: radius.pill,
-    backgroundColor: colors.ink,
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingHorizontal: space.lg,
-  },
-  buttonSecondary: { backgroundColor: colors.paper, borderWidth: 1, borderColor: colors.ink },
-  buttonText: { color: colors.white, fontSize: type.body },
-  buttonTextSecondary: { color: colors.ink, fontSize: type.body },
-  link: { minHeight: minTarget, justifyContent: 'center' },
-  linkText: { color: colors.ink, fontSize: type.body, textDecorationLine: 'underline' },
+  languages: { flexDirection: 'row', gap: space.sm },
+  language: { flex: 1 },
 });

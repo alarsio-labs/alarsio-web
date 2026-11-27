@@ -4,7 +4,8 @@ import {
   formatMilli,
   MovementError,
   movementStatusText,
-  MOVEMENT_MESSAGES,
+  MOVEMENT_ERROR_CODES,
+  movementErrorText,
   parsePayload,
   parseQuantity,
   signedMilli,
@@ -116,9 +117,13 @@ describe('buildMovement', () => {
   });
 
   it('has a fixed sentence for every error code, so no raw error reaches the screen', () => {
-    for (const code of Object.keys(MOVEMENT_MESSAGES)) {
-      expect(MOVEMENT_MESSAGES[code as keyof typeof MOVEMENT_MESSAGES].length).toBeGreaterThan(10);
+    expect(MOVEMENT_ERROR_CODES).toHaveLength(11);
+    for (const code of MOVEMENT_ERROR_CODES) {
+      const text = movementErrorText(code);
+      expect(text.length).toBeGreaterThan(10);
+      expect(text).not.toContain('siteMaterials.'); // a missing word would print its key
     }
+    expect(movementErrorText('reason_too_long')).toBe('Keep the reason within 500 characters.');
   });
 });
 

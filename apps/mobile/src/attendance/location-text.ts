@@ -2,20 +2,24 @@
 // (phone review, 12 Nov 2026). Before, a refused permission, location turned off and a slow GPS
 // all read "Location is not available", so a supervisor at the gate could not tell which to fix.
 // Owner: Attendance (Manish). Each sentence still starts the old way, then says what to do.
+// The words are in src/i18n (en.json, hi.json) under "attendance".
 
+import i18n from '../i18n';
 import type { UnavailableCause } from './location';
 
+const t = i18n.t.bind(i18n);
+
 export function locationProblemText(cause: UnavailableCause, action: 'in' | 'out'): string {
-  const without = `say why you are ${action === 'in' ? 'checking in' : 'checking out'} without it.`;
+  const without = t(action === 'in' ? 'attendance.withoutIn' : 'attendance.withoutOut');
   switch (cause) {
     case 'denied':
-      return `Location is not available: Alarsio is not allowed to use it on this phone. Allow it in Settings, then tap Try location again, or ${without}`;
+      return t('attendance.location.denied', { without });
     case 'services_off':
-      return `Location is not available: location is turned off on this phone. Turn it on from the quick settings, then tap Try location again, or ${without}`;
+      return t('attendance.location.servicesOff', { without });
     case 'timeout':
-      return `Location is not available: the phone could not find where you are in time. Step into the open, then tap Try location again, or ${without}`;
+      return t('attendance.location.timeout', { without });
     case 'error':
-      return `Location is not available. Tap Try location again, or ${without}`;
+      return t('attendance.location.error', { without });
   }
 }
 

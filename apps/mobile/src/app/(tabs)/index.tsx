@@ -1,16 +1,16 @@
 import { router, type Href } from 'expo-router';
 
-import { useSessionUser } from '../auth/session-user';
-import { readPublicConfig } from '../config/public-config';
-import type { DeviceDb } from '../db/device-db';
-import { openAppDb } from '../lib/app-db';
-import { getSupabase } from '../lib/supabase';
-import { HomeScreen } from '../screens/HomeScreen';
-import { expoPhotoFiles, supabasePhotoStorage } from '../reports/photo-device';
-import { runPhotoUploads } from '../reports/photo-upload';
-import { startSyncEngine } from '../sync/engine';
-import { supabaseMirrorSource } from '../sync/supabase-mirror-source';
-import { supabaseTransport } from '../sync/supabase-transport';
+import { useSessionUser } from '../../auth/session-user';
+import { readPublicConfig } from '../../config/public-config';
+import type { DeviceDb } from '../../db/device-db';
+import { openAppDb } from '../../lib/app-db';
+import { getSupabase } from '../../lib/supabase';
+import { HomeScreen } from '../../screens/HomeScreen';
+import { expoPhotoFiles, supabasePhotoStorage } from '../../reports/photo-device';
+import { runPhotoUploads } from '../../reports/photo-upload';
+import { startSyncEngine } from '../../sync/engine';
+import { supabaseMirrorSource } from '../../sync/supabase-mirror-source';
+import { supabaseTransport } from '../../sync/supabase-transport';
 
 const config = readPublicConfig();
 
