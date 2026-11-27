@@ -17,6 +17,7 @@ export const NOTE_MAX = 500;
 export const AMOUNT_MAX_PAISE = 100_000_000;
 
 export type AdvanceErrorCode =
+  | 'worker_required'
   | 'amount_required'
   | 'amount_invalid'
   | 'amount_zero'
