@@ -110,7 +110,8 @@
       "attendance_corrections": "हाज़िरी में सुधार",
       "daily_reports": "दैनिक रिपोर्ट",
       "report_photos": "रिपोर्ट की फ़ोटो",
-      "material_transactions": "सामग्री की प्रविष्टि"
+      "material_transactions": "सामग्री की प्रविष्टि",
+      "worker_advances": "अग्रिम"
     },
     "reason": {
       "appBug": "ऐप ने यह ग़लत भेजा। कृपया इसकी सूचना दें।",
