@@ -3,13 +3,15 @@
 -- assumed. Shim style, no pgTAP.
 begin;
 
--- Org A: alice owner, carol PM, bob supervisor (site 1), dave accountant. Org B: eve owner.
+-- Org A: alice owner, carol PM, bob supervisor (site 1), frank supervisor (site 2 only),
+-- dave accountant. Org B: eve owner.
 insert into auth.users (id, email) values
   ('a0000000-0000-0000-0000-00000000000a', 'alice@x'),
   ('b0000000-0000-0000-0000-00000000000b', 'bob@x'),
   ('c0000000-0000-0000-0000-00000000000c', 'carol@x'),
   ('d0000000-0000-0000-0000-00000000000d', 'dave@x'),
-  ('e0000000-0000-0000-0000-00000000000e', 'eve@x');
+  ('e0000000-0000-0000-0000-00000000000e', 'eve@x'),
+  ('f0000000-0000-0000-0000-00000000000f', 'frank@x');
 insert into public.organizations (id, name, created_by) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'Org A', 'a0000000-0000-0000-0000-00000000000a'),
   ('bbbbbbbb-0000-0000-0000-000000000002', 'Org B', 'e0000000-0000-0000-0000-00000000000e');
@@ -18,13 +20,15 @@ insert into public.memberships (org_id, user_id, role) values
   ('aaaaaaaa-0000-0000-0000-000000000001', 'c0000000-0000-0000-0000-00000000000c', 'project_manager'),
   ('aaaaaaaa-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', 'supervisor'),
   ('aaaaaaaa-0000-0000-0000-000000000001', 'd0000000-0000-0000-0000-00000000000d', 'accountant'),
+  ('aaaaaaaa-0000-0000-0000-000000000001', 'f0000000-0000-0000-0000-00000000000f', 'supervisor'),
   ('bbbbbbbb-0000-0000-0000-000000000002', 'e0000000-0000-0000-0000-00000000000e', 'owner');
 insert into public.sites (id, org_id, name, address, latitude, longitude, created_by) values
   ('51000000-0000-0000-0000-000000000001', 'aaaaaaaa-0000-0000-0000-000000000001', 'Site 1', 'x', 19.0, 73.0, 'a0000000-0000-0000-0000-00000000000a'),
   ('51000000-0000-0000-0000-000000000002', 'aaaaaaaa-0000-0000-0000-000000000001', 'Site 2', 'x', 19.1, 73.1, 'a0000000-0000-0000-0000-00000000000a'),
   ('51000000-0000-0000-0000-0000000000b1', 'bbbbbbbb-0000-0000-0000-000000000002', 'Site B', 'x', 18.0, 72.0, 'e0000000-0000-0000-0000-00000000000e');
 insert into public.site_assignments (org_id, site_id, user_id, assigned_by) values
-  ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-00000000000a');
+  ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000001', 'b0000000-0000-0000-0000-00000000000b', 'a0000000-0000-0000-0000-00000000000a'),
+  ('aaaaaaaa-0000-0000-0000-000000000001', '51000000-0000-0000-0000-000000000002', 'f0000000-0000-0000-0000-00000000000f', 'a0000000-0000-0000-0000-00000000000a');
 
 -- Workers: 1 Ravi (site 1 for 30 days), 2 Sita (site 1 for 2 days), 3 Bela (org B).
 insert into public.workers (id, org_id, code, full_name, trade, pay_type, created_by) values
@@ -114,10 +118,10 @@ begin
                      '77000000-0000-0000-0000-000000000001', current_date - 1, 30000);
   perform test_assert(r = 'ok', 'the accountant records an advance: ' || r);
 
-  -- The supervisor of the site, the project manager and another organisation's owner cannot.
-  r := public.wa_try('b0000000-0000-0000-0000-00000000000b', 'f3000000-0000-0000-0000-000000000003',
+  -- A supervisor of another site, the project manager and another organisation's owner cannot.
+  r := public.wa_try('f0000000-0000-0000-0000-00000000000f', 'f3000000-0000-0000-0000-000000000003',
                      '77000000-0000-0000-0000-000000000001', current_date - 1, 100);
-  perform test_assert(r like '42501:%', 'a supervisor is refused: ' || r);
+  perform test_assert(r like '42501:%', 'a supervisor of another site is refused: ' || r);
   r := public.wa_try('c0000000-0000-0000-0000-00000000000c', 'f3000000-0000-0000-0000-000000000003',
                      '77000000-0000-0000-0000-000000000001', current_date - 1, 100);
   perform test_assert(r like '42501:%', 'a project manager is refused: ' || r);
@@ -131,13 +135,17 @@ begin
   perform test_assert(r like '42501:%', 'a worker not on the site is refused: ' || r);
   perform test_assert(public.wa_count('77000000-0000-0000-0000-000000000001') = 2, 'a refusal wrote nothing');
 
-  -- Reads: owner and accountant see the rows, a supervisor and a PM see none.
+  -- Reads: owner and accountant see the rows, the site's supervisor sees its rows, and a
+  -- supervisor of another site and a PM see none.
   perform test_as('d0000000-0000-0000-0000-00000000000d');
   select count(*) into n from public.worker_advances; execute 'reset role';
   perform test_assert(n = 2, 'the accountant reads the advances');
   perform test_as('b0000000-0000-0000-0000-00000000000b');
   select count(*) into n from public.worker_advances; execute 'reset role';
-  perform test_assert(n = 0, 'a supervisor reads no advance');
+  perform test_assert(n = 2, 'the supervisor of the site reads its advances');
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  select count(*) into n from public.worker_advances; execute 'reset role';
+  perform test_assert(n = 0, 'a supervisor of another site reads no advance');
   perform test_as('c0000000-0000-0000-0000-00000000000c');
   select count(*) into n from public.worker_advances; execute 'reset role';
   perform test_assert(n = 0, 'a project manager reads no advance');
@@ -234,7 +242,10 @@ begin
 
   perform test_as('b0000000-0000-0000-0000-00000000000b');
   select count(*) into n from public.worker_advance_totals; execute 'reset role';
-  perform test_assert(n = 0, 'a supervisor reads no total');
+  perform test_assert(n >= 1, 'the supervisor of the site reads its totals');
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  select count(*) into n from public.worker_advance_totals; execute 'reset role';
+  perform test_assert(n = 0, 'a supervisor of another site reads no total');
 end $$;
 
 -- ------------------------------------------------------------- append-only
@@ -278,8 +289,12 @@ begin
   perform test_assert(public.wa_count('77000000-0000-0000-0000-000000000001') = 6, 'the replay added no row');
   r := public.wa_push('a0000000-0000-0000-0000-00000000000a', 'f3000000-0000-0000-0000-000000000030', p || '{"amount_paise": 26000}');
   perform test_assert(r = 'conflict / duplicate', 'the same id with other content is a conflict: ' || r);
-  r := public.wa_push('b0000000-0000-0000-0000-00000000000b', 'f3000000-0000-0000-0000-000000000031', p);
-  perform test_assert(r = 'rejected / permission_denied', 'a supervisor is rejected: ' || r);
+  -- The supervisor of the site records for another worker, so worker 1's count is unchanged.
+  r := public.wa_push('b0000000-0000-0000-0000-00000000000b', 'f3000000-0000-0000-0000-000000000031',
+                      p || '{"worker_id": "77000000-0000-0000-0000-000000000002"}');
+  perform test_assert(r = 'accepted / ', 'the supervisor of the site is accepted: ' || r);
+  r := public.wa_push('f0000000-0000-0000-0000-00000000000f', 'f3000000-0000-0000-0000-000000000037', p);
+  perform test_assert(r = 'rejected / permission_denied', 'a supervisor of another site is rejected: ' || r);
   r := public.wa_push('a0000000-0000-0000-0000-00000000000a', 'f3000000-0000-0000-0000-000000000032', p || '{"amount_paise": 1.5}');
   perform test_assert(r = 'rejected / invalid_input', 'a fractional amount is rejected: ' || r);
   r := public.wa_push('a0000000-0000-0000-0000-00000000000a', 'f3000000-0000-0000-0000-000000000033', p || '{"amount_paise": "100"}');
