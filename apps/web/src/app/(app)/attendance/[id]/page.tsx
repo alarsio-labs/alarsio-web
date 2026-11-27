@@ -5,7 +5,7 @@ import { UUID } from "@/lib/uuid";
 import { messageFor } from "@/lib/messages";
 import { isSiteRow, rows } from "@/lib/reports/rows";
 import { ENTRY_STATUS_LABEL, EXCEPTION_LABEL, hoursLabel } from "@/lib/attendance/labels";
-import { correctionTag, dayTag } from "@/lib/attendance/screen";
+import { correctionTag, dayTag, ENTRY_MARK, headcount } from "@/lib/attendance/screen";
 import { eyebrowFor } from "@/lib/app/dates";
 import { canReviewCorrection, canReviewDay, recordedByViewer } from "@/lib/attendance/review";
 import { istStamp } from "@/lib/attendance/time";
@@ -22,6 +22,7 @@ import { Card } from "@/components/app/card";
 import { DataTable } from "@/components/app/data-table";
 import { Notice } from "@/components/app/notice";
 import { PageHead } from "@/components/app/page-head";
+import { StatCard } from "@/components/app/stat-card";
 import { StatusTag } from "@/components/app/status-tag";
 import { reviewCorrection, reviewDay } from "./actions";
 import { ReviewForm } from "./review-form";
@@ -124,6 +125,7 @@ export default async function AttendanceDayPage({
     viewerId: user.id
   });
   const error = messageFor(query.error);
+  const count = headcount(entries);
 
   return (
     <main className="mx-auto grid max-w-4xl gap-6 px-4 py-8 sm:py-10">
@@ -135,6 +137,11 @@ export default async function AttendanceDayPage({
           <span>{entries.length} {entries.length === 1 ? "entry" : "entries"}</span>
           {day.recorded_by === user.id && <span className="ax-empty">Opened by you</span>}
         </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <StatCard label="Present" value={count.present} />
+        <StatCard label="Absent" value={count.absent} />
       </div>
 
       {error && <Notice kind="error">{error}</Notice>}
@@ -184,7 +191,11 @@ export default async function AttendanceDayPage({
           empty="No entries recorded."
           columns={[
             { key: "worker", label: "Worker", render: (e) => who(e.worker_id) },
-            { key: "status", label: "Status", render: (e) => ENTRY_STATUS_LABEL[e.status] },
+            {
+              key: "status",
+              label: "Status",
+              render: (e) => <StatusTag tone={ENTRY_MARK[e.status].tone}>{`${ENTRY_MARK[e.status].mark} · ${ENTRY_STATUS_LABEL[e.status]}`}</StatusTag>
+            },
             { key: "overtime", label: "Overtime", numeric: true, render: (e) => hoursLabel(e.overtime_hours) },
             { key: "note", label: "Note", render: (e) => <span className="whitespace-pre-wrap">{text(e.note)}</span> }
           ]}
