@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { orgLinks } from "./links";
+import { groupBySection, orgLinks } from "./links";
 
 const labels = (role: Parameters<typeof orgLinks>[0]) => orgLinks(role, "org-1").map((l) => l.label);
 
@@ -27,6 +27,18 @@ describe("orgLinks", () => {
 
   it("keeps Advances from a project manager, who cannot read them", () => {
     expect(labels("project_manager")).not.toContain("Advances");
+  });
+
+  it("groups the pages into the phone's tabs, and only those the role can use", () => {
+    const tabs = (role: Parameters<typeof orgLinks>[0]) => groupBySection(orgLinks(role, "o")).map((g) => [g.section, g.links.map((l) => l.label)]);
+    expect(tabs("owner")).toEqual([
+      ["today", ["Overview", "Attendance"]],
+      ["sites", ["Sites", "Materials", "Workers"]],
+      ["reports", ["Daily reports", "Wages", "Advances", "Export"]],
+      ["more", ["Team"]]
+    ]);
+    expect(tabs("supervisor")).toEqual([["reports", ["Daily reports", "Advances"]]]);
+    expect(tabs("accountant")).toEqual([["sites", ["Workers"]], ["reports", ["Wages", "Advances"]]]);
   });
 
   it("puts the organisation on every link", () => {

@@ -6,8 +6,9 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { Linking, View } from 'react-native';
+import { Linking, Share, View } from 'react-native';
 
+import { buildDaySlip } from '../attendance/day-slip';
 import { estimateGeofence, type GeofenceEstimate } from '../attendance/geofence';
 import { dayLabel } from '../attendance/labels';
 import type { LocationProvider, PermissionState, UnavailableCause } from '../attendance/location';
@@ -302,6 +303,16 @@ export function SiteAttendanceScreen({
     return out ? t('attendance.checkOutWithout') : t('attendance.checkInWithout');
   };
 
+  const shareSlip = () =>
+    once(async () => {
+      if (!db || !site) return;
+      try {
+        await Share.share({ message: await buildDaySlip(db, userId, site, today) });
+      } catch {
+        if (alive.current) setMessage(t('attendance.slipFailed'));
+      }
+    });
+
   const reasonField = (
     <TextField label={t('attendance.reason')} value={reasonText} onChangeText={setReasonText} maxLength={500} multiline />
   );
@@ -391,6 +402,8 @@ export function SiteAttendanceScreen({
           {step.kind === 'idle' && site.orgId !== null && onOpenWorkers && (
             <Button label={t('attendance.workers')} kind="secondary" onPress={onOpenWorkers} />
           )}
+
+          {step.kind === 'idle' && <Button label={t('attendance.shareSlip')} kind="secondary" onPress={() => void shareSlip()} />}
 
           {shown.map((v) => {
             const day = istDay(v.visit);

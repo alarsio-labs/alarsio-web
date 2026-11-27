@@ -1,38 +1,49 @@
 import Link from "next/link";
-import type { OrgLink } from "@/lib/dashboard/links";
-import { Icon, iconForPath } from "./nav-icon";
+import { groupBySection, SECTION_LABEL, type OrgLink, type Section } from "@/lib/dashboard/links";
+import { Icon, type IconName } from "./nav-icon";
 
-// The module links for the user's role in this organisation (lib/dashboard/links.ts),
-// one per page the role may open (docs/DESIGN.md section 4). "pills" is the row in
-// the top bar on a wide screen; "list" is the same links stacked in the Menu. The
-// current page has aria-current.
-export function SidebarNav({
-  links,
-  current,
-  variant = "list"
-}: {
-  links: readonly OrgLink[];
-  current: string | null;
-  variant?: "pills" | "list";
-}) {
-  if (links.length === 0) return null;
+// The navigation for the user's role in this organisation (docs/DESIGN.md section 5):
+// the phone's four tabs, Today, Sites, Reports and More, only those the role has pages
+// in (lib/dashboard/links.ts). A tab opens the first page of its section. The same tabs
+// sit in the header on a wide screen and at the bottom on a phone; CSS shows one.
+// `PageStrip` lists the pages of the current section.
+
+const SECTION_ICON: Record<Section, IconName> = { today: "calendar", sites: "sites", reports: "reports", more: "more" };
+
+export function SectionTabs({ links, current, className }: { links: readonly OrgLink[]; current: string | null; className: string }) {
+  const groups = groupBySection(links);
+  if (groups.length === 0) return null;
+  const here = links.find((l) => l.path === current)?.section;
   return (
-    <ul className={variant === "pills" ? "cx-pills" : "cx-nav"}>
-      {links.map((l) => {
-        const icon = variant === "list" ? iconForPath(l.path) : null;
-        return (
-          <li key={l.path}>
-            <Link
-              href={l.path}
-              className={variant === "pills" ? "cx-pill" : "cx-nav-link"}
-              aria-current={l.path === current ? "page" : undefined}
-            >
-              {icon && <Icon name={icon} />}
-              <span>{l.label}</span>
+    <nav className={className} aria-label="Sections">
+      <ul>
+        {groups.map(({ section, links: pages }) => (
+          <li key={section}>
+            <Link href={pages[0]?.path ?? "/dashboard"} className="cx-tab" aria-current={section === here ? "page" : undefined}>
+              <Icon name={SECTION_ICON[section]} size={20} />
+              <span>{SECTION_LABEL[section]}</span>
             </Link>
           </li>
-        );
-      })}
-    </ul>
+        ))}
+      </ul>
+    </nav>
+  );
+}
+
+/** The pages of the current section. Nothing when it holds only one page. */
+export function PageStrip({ links, current }: { links: readonly OrgLink[]; current: string | null }) {
+  const section = links.find((l) => l.path === current)?.section;
+  const pages = links.filter((l) => l.section === section);
+  if (pages.length < 2) return null;
+  return (
+    <nav className="cx-strip" aria-label={`${section ? SECTION_LABEL[section] : ""} pages`}>
+      <ul>
+        {pages.map((l) => (
+          <li key={l.path}>
+            <Link href={l.path} aria-current={l.path === current ? "page" : undefined}>{l.label}</Link>
+          </li>
+        ))}
+      </ul>
+    </nav>
   );
 }

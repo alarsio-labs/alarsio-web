@@ -67,7 +67,6 @@ export function StatCard({
           aria-valuenow={Math.min(Math.max(progress.value, 0), progress.max)}
         >
           <span className="ax-meter-fill" style={{ width: `${pct}%` }} />
-          <span className="ax-meter-mark" style={{ left: `${pct}%` }} />
         </div>
       )}
     </div>

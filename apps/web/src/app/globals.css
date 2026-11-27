@@ -1,33 +1,31 @@
 @import "tailwindcss";
 
-/* Design tokens from docs/DESIGN.md section 2. Every text pair there passes WCAG AA;
-   check a new pair before adding it here. */
+/* Design tokens from docs/DESIGN.md section 5 (the signed-in app). Every text pair there
+   passes WCAG AA; check a new pair before adding it here. The public pages draw with
+   their own tokens (landing.css, auth.css) and use none of these. */
 @theme {
   --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
 
-  --color-ink: #1c1917;
-  --color-ink-muted: #57534e;
-  --color-ink-faint: #78716c;
-  --color-canvas: #fafaf9;
-  --color-surface: #ffffff;
-  --color-line: #e7e5e4;
-  --color-accent: #f97316;
-  --color-accent-hover: #ea580c;
-  --color-accent-strong: #c2410c;
-  --color-link: #0369a1;
-  --color-night: #1f2a37;
-  --color-night-muted: #a8a29e;
+  --color-ground: #f6f7f9;
+  --color-card: #ffffff;
+  --color-text: #1f2937;
+  --color-muted: #4b5563;
+  --color-border: #e5e7eb;
+  --color-field: #6b7280;
+  --color-header: #1e293b;
+  --color-header-muted: #cbd5e1;
+  --color-action: #f97316;
+  --color-action-text: #c2410c;
+  --color-disabled: #6b7280;
 
   --color-ok: #166534;
   --color-ok-soft: #dcfce7;
-  --color-wait: #1e40af;
-  --color-wait-soft: #dbeafe;
-  --color-warn: #92400e;
-  --color-warn-soft: #fef3c7;
-  --color-bad: #991b1b;
-  --color-bad-soft: #fee2e2;
-
-  --shadow-float: 0 8px 24px rgb(28 25 23 / 0.08);
+  --color-wait: #92400e;
+  --color-wait-soft: #fef3c7;
+  --color-attention: #b91c1c;
+  --color-attention-soft: #fee2e2;
+  --color-neutral-chip: #374151;
+  --color-neutral-chip-soft: #e5e7eb;
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -426,6 +426,13 @@
     "addReasonResend": "Add a reason and send again",
     "dayRegister": "Day register",
     "workers": "Workers",
+    "shareSlip": "Share day slip",
+    "slipFailed": "The day slip could not be shared. Try again.",
+    "slipNoCheckIn": "No check-in",
+    "slipOnSite": "On site: {{count}}",
+    "slipHalfDay": "{{count}} on a half day",
+    "slipNoAttendance": "Attendance not marked",
+    "slipReport": "Daily report: {{status}}",
     "checkedIn": "Checked in {{time}}",
     "checkedOut": "Checked out {{time}}",
     "monthShort": {

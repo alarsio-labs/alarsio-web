@@ -6,8 +6,8 @@ colour, a font size or a component that is not here updates this file in the sam
 **Direction (v2, 29 Oct 2026): warm print editorial.** A site record is a printed thing:
 a register, a slip, a stamped day. The landing page reads like one being printed as you
 scroll. It replaces v1 (a Raken-like SaaS page), which is in git history. The print look is for the
-landing page and the sign-in pages only; every signed-in page uses the app console in section 4.
-The phone app uses the app tokens in section 5 (27 Nov 2026), and the dashboard moves to them later.
+landing page and the sign-in pages only; every signed-in page, on the phone and in the web dashboard,
+uses the app tokens in section 5 (27 Nov 2026).
 
 Three committed colours plus one dark ground, heavy condensed display type against
 wide-tracked mono furniture, 1.5 px ink borders, zero radii, and flat generated plates
@@ -205,8 +205,8 @@ frame, in `components/site/public-frame.tsx`, and every page after the home page
 
 ## 2c · Dashboard
 
-`app/(app)/dashboard`, in the app console (section 4): the top bar alone (no organisation is chosen yet, so
-no module pills), a PageHead "Your organisations", then one white card per organisation: a lettered avatar, its
+`app/(app)/dashboard`, in the app look (section 5): the top bar alone (no organisation is chosen yet, so
+no section tabs), a PageHead "Your organisations", then one white card per organisation: a lettered avatar, its
 name, the member's role as a muted pill, and a grid of link tiles (icon, label, one-line note, →), one
 column on phones and up to four on desktop. Which links a role sees comes from `lib/dashboard/links.ts`
 (`links.test.ts`). With no organisation, the head reads "Create your organisation" and the stepper (2d)
@@ -231,7 +231,7 @@ pages are unchanged.
 
 ## 2e · The other app pages
 
-Every signed-in page sits in `app/(app)/layout.tsx` and draws in the app console (section 4). The pages
+Every signed-in page sits in `app/(app)/layout.tsx` and draws in the app look (section 5). The pages
 keep their markup; `app/(app)/console.css` styles them from one place. Inside `.app` the landing tokens are
 redefined to the console's, Tailwind's neutral scale and radii point at cool greys and real corners, and
 `h1`, `h2`, table headers and the `lp-*` / `au-*` classes the pages still use draw in Inter. `buttonClass`
@@ -260,7 +260,7 @@ area, not centred in it.
 - **Phone first.** Check 375 px. No horizontal page scroll; check each poster line too.
 - **English only** in the MVP. **No dark mode** in the MVP.
 - **The app's own screens.** Sign in, sign up and check email use these tokens (section 2b).
-  Every signed-in page, the dashboard included, uses the app console in section 4 instead.
+  Every signed-in page, the dashboard included, uses the app look in section 5 instead.
 
 ---
 
@@ -288,6 +288,10 @@ It brings the phone app in line with the public site (section 2). Tokens are in 
   / N waiting to send / N need attention), an icon beside each row label, pill buttons below the cards.
 
 ## 4 · App screens: the app console, v4 "warm glass"
+
+**Retired on 27 Nov 2026 by section 5.** The web dashboard now draws in the section 5 look. Everything below
+is kept for history only; the file names and class names it mentions (`console.css`, `cx-*`, `ax-*`) still exist,
+but the colours, glass, pill navigation and shadows do not.
 
 **Status: Accepted by Ishant, 7 Nov 2026, under the deadline override in CLAUDE.md. Manish to confirm
 after 15 Nov.** It replaces v3 (the grey console with a sidebar, #176, 6 Nov), which replaced "Warm print,
@@ -409,11 +413,11 @@ and `Notice`. Fields stay in `v2-form.tsx`. A screen uses these pieces and does 
 
 ---
 
-## 5 · App tokens: phone app now, dashboard next
+## 5 · App look: phone app and web dashboard
 
 **Status:** agreed by Manish, 27 Nov 2026. This is the single source for the signed-in look of the phone app
-(`apps/mobile/src/theme.ts`). It replaces section 3b. The web dashboard (section 4) still ships as is; a later
-PR moves it onto these tokens, and this section then replaces section 4. The landing page and the sign-in pages
+(`apps/mobile/src/theme.ts`) and of the web dashboard (`apps/web`, moved on 27 Nov 2026). It replaces sections 3b
+and 4. The landing page and the sign-in pages
 keep the print brand (sections 1 to 2b). The phone keeps the wordmark and Anton on the splash, the tutorial and
 Sign in only.
 
@@ -476,3 +480,23 @@ Status chips (tint behind, text on it; each pair is checked in `theme.test.ts`):
 
 English and Hindi (`apps/mobile/src/i18n/`). The device language is the default; a switch in More saves the
 choice. A new string goes into both files in the same PR. Hindi text is checked by a native speaker before release.
+
+### Web dashboard (`apps/web`)
+
+The same tokens, scoped to `.app` in `app/(app)/console.css` so the public pages are untouched. The `@theme`
+block in `app/globals.css` carries the same names (`--color-ground`, `--color-card`, `--color-action`, and so on).
+
+- **Header.** Slate `header`, white text. Tabs for the four sections, from `lib/dashboard/links.ts`
+  (`groupBySection`): Today (Overview, Attendance), Sites (Sites, Materials, Workers), Reports (Daily reports,
+  Wages, Export), More (Team). Each role sees only the sections it can use; a supervisor sees Reports only.
+  The active tab has an orange underline. A strip under the header lists the pages of the current section.
+- **Phone width (under 768 px).** The same four tabs sit in a fixed bottom bar, and the organisation switch
+  moves into the account menu.
+- **Buttons.** Main action: `action` fill with `text` label. Orange text on light ground is `actionText`.
+- **Chips** (`StatusTag`, `lib/app/status.ts`). Green: done or fine. Amber: waiting for someone (needs approval,
+  sent back). Red: needs attention (serious blocker, safety incident, low stock). Grey: nothing yet. Each has an
+  icon and a word.
+- **Attendance day.** Each entry shows P (green), ½ (amber), A (red) or L for leave (grey), as read-only chips.
+  Counters on top: Present (present and half day) and Absent (absent and leave). The phone's "Left" counter
+  (workers not yet marked) is not on the web, because the page does not load the roster.
+- **Cards and tables.** White card, 1 px `border`, no shadow, radius 14. Table text is 14 px.

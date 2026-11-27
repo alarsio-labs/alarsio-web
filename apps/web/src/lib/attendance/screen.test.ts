@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { toneFor } from "@/lib/app/status";
-import { correctionTag, dayTag } from "./screen";
+import { correctionTag, dayTag, ENTRY_MARK, headcount } from "./screen";
 
 describe("dayTag", () => {
   it("uses the Overview's words for each day state", () => {
@@ -24,5 +24,19 @@ describe("correctionTag", () => {
     expect(toneFor(correctionTag("pending"))).toBe("action");
     expect(correctionTag("approved")).toBe("Approved");
     expect(correctionTag("rejected")).toBe("Rejected");
+  });
+});
+
+describe("headcount and marks", () => {
+  it("counts a half day as present and leave as absent", () => {
+    const entries = (["present", "half_day", "absent", "leave", "present"] as const).map((status) => ({ status }));
+    expect(headcount(entries)).toEqual({ present: 3, absent: 2 });
+    expect(headcount([])).toEqual({ present: 0, absent: 0 });
+  });
+
+  it("gives each status a mark and a tone", () => {
+    expect(ENTRY_MARK.present).toEqual({ mark: "P", tone: "ink" });
+    expect(ENTRY_MARK.half_day.mark).toBe("½");
+    expect(ENTRY_MARK.absent.tone).toBe("attention");
   });
 });
