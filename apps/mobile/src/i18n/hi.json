@@ -285,6 +285,9 @@
     "entry": "{{amount}} · {{worker}} · {{date}}",
     "entryNote": "टिप्पणी: {{note}}",
     "cancelAdvance": "यह अग्रिम रद्द करें",
+    "confirmCancel": "{{amount}} का अग्रिम रद्द करें? इसे वापस नहीं किया जा सकता।",
+    "confirmYes": "हाँ, रद्द करें",
+    "keep": "रहने दें",
     "cancelled": "रद्द किया गया",
     "cancellation": "{{amount}} का अग्रिम रद्द करता है",
     "status": {
@@ -294,6 +297,7 @@
       "attention": "ध्यान चाहिए · {{reason}}"
     },
     "error": {
+      "worker_required": "कर्मचारी चुनें।",
       "amount_required": "रकम लिखें।",
       "amount_invalid": "रकम रुपये में लिखें, दो दशमलव तक।",
       "amount_zero": "रकम शून्य से अधिक होनी चाहिए।",
