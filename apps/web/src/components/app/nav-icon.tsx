@@ -56,8 +56,13 @@ const PATHS: Record<string, ReactNode> = {
     </>
   ),
   export: <path d="M12 3v12M7 10l5 5 5-5M4 17v2a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2v-2" />,
-  menu: <path d="M4 7h16M4 12h16M4 17h16" />,
-  close: <path d="M6 6l12 12M18 6L6 18" />,
+  more: (
+    <>
+      <circle cx="5" cy="12" r="1.5" />
+      <circle cx="12" cy="12" r="1.5" />
+      <circle cx="19" cy="12" r="1.5" />
+    </>
+  ),
   chevrons: <path d="M8 9l4-4 4 4M8 15l4 4 4-4" />,
   signout: <path d="M15 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3M10 16l-4-4 4-4M6 12h10" />,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
