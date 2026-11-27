@@ -157,7 +157,7 @@ describe('formatRupees', () => {
 describe('texts', () => {
   it('has a sentence for every error code', () => {
     const codes: AdvanceErrorCode[] = [
-      'amount_required', 'amount_invalid', 'amount_zero', 'amount_too_large', 'note_too_long',
+      'worker_required', 'amount_required', 'amount_invalid', 'amount_zero', 'amount_too_large', 'note_too_long',
       'date_invalid', 'date_future', 'worker_not_found', 'advance_not_found', 'already_cancelled',
     ];
     for (const code of codes) expect(advanceErrorText(code)).not.toContain('siteAdvances');
