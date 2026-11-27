@@ -285,6 +285,9 @@
     "entry": "{{amount}} · {{worker}} · {{date}}",
     "entryNote": "Note: {{note}}",
     "cancelAdvance": "Cancel this advance",
+    "confirmCancel": "Cancel the advance of {{amount}}? This cannot be undone.",
+    "confirmYes": "Yes, cancel it",
+    "keep": "Keep it",
     "cancelled": "Cancelled",
     "cancellation": "Cancels an advance of {{amount}}",
     "status": {
@@ -294,6 +297,7 @@
       "attention": "Needs attention · {{reason}}"
     },
     "error": {
+      "worker_required": "Choose a worker.",
       "amount_required": "Enter the amount.",
       "amount_invalid": "Enter the amount in rupees, with up to two decimals.",
       "amount_zero": "The amount must be more than zero.",
