@@ -51,9 +51,7 @@ export default async function AdvancesPage({
     redirect(`/sign-in?next=${encodeURIComponent(next)}`);
   }
 
-  // Who may see and record advances is decided by the database: an owner or accountant
-  // for the whole organisation, a supervisor on an assigned site. RLS filters every
-  // read either way; these two checks only send everyone else away.
+  // RLS decides who sees what; these checks only send everyone else away.
   const month = `${todayInIndia().slice(0, 7)}-01`;
   const [{ data: orgRow }, { data: siteData }, { data: canViewWages }, { data: canRecord }] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", org).maybeSingle(),
@@ -156,9 +154,9 @@ export default async function AdvancesPage({
             )}
           </Card>
 
-          <Card title="This month" id="ad-totals">
+          <Card title="This month, all sites" id="ad-totals">
             <DataTable<TotalRow>
-              caption="Advances paid this month, by worker"
+              caption="Advances paid this month, by worker, at all sites"
               rows={monthTotals}
               rowKey={(t) => t.worker_id}
               minWidth={320}

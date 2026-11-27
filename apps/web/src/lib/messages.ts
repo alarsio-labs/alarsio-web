@@ -69,7 +69,7 @@ const MESSAGES = {
   advance_worker: "Choose a worker.",
   advance_forbidden: "You cannot record or cancel advances here, or that worker was not found.",
   advance_rule: "That worker was not on this site that day, or this advance cannot be cancelled.",
-  advance_exists: "That advance was already recorded differently. Reload the page and check.",
+  advance_exists: "That advance was already recorded differently, or already cancelled. Reload the page and check.",
   generic: "Something went wrong. Try again."
 } as const;
 

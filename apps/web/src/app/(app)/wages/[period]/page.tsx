@@ -250,7 +250,7 @@ export default async function WagePeriodPage({
       {!locked && summary && summary.rows.length > 0 && (
         <Card title="Add an adjustment" id="wg-adjust">
           <p className="ax-empty">
-            A paid leave day, an advance recovered, or a difference from a correction after a lock. It is a new row with a
+            A paid leave day, a bonus, or a difference from a correction after a lock. It is a new row with a
             reason; it is never edited later.
           </p>
           <form action={addAdjustment} className="mt-3 max-w-lg space-y-4">

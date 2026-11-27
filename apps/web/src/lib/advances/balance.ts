@@ -3,11 +3,7 @@ import type { AdvanceRow } from "./rows";
 
 export type BalanceRow = { worker_id: string; earned_paise: number; advance_paise: number; left_paise: number };
 
-/**
- * What each worker earned in a period, the advances paid in it (a cancellation takes
- * its amount off), and what is left. `otherPaise` is the net advance paid to workers
- * who have no wage line in the period, so no money is dropped from view.
- */
+/** `otherPaise` is the net advance to workers with no wage line, so no money is hidden. */
 export function balanceRows(
   wages: readonly { worker_id: string; total_amount: number }[],
   advances: readonly Pick<AdvanceRow, "worker_id" | "amount_paise" | "reverses_id">[]
