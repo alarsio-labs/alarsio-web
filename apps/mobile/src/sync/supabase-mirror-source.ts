@@ -70,6 +70,12 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'id, site_id, worker_id, paid_on, amount_paise, note, reverses_id',
     key: 'id',
   },
+  // Cash book entries and their cancellations (ADR-058), under RLS like the advances: owner and accountant see all, a supervisor their sites.
+  cash_entries: {
+    table: 'cash_entries',
+    columns: 'id, site_id, entry_date, category, amount_paise, note, reverses_id',
+    key: 'id',
+  },
   // Daily Reporting's published view (ADR-025, ADR-042), never daily_reports: ARCHITECTURE rule 4.
   // Only the columns the phone shows; the author's own rows only (filtered below, RLS beneath).
   report_status: {
@@ -133,6 +139,7 @@ export function supabaseMirrorSource(
       if (kind === 'approved_days') query = query.gte('work_date', windowFirstDay(now()));
       if (kind === 'month_entries') query = query.gte('work_date', monthWindowFirstDay(now()));
       if (kind === 'advances') query = query.gte('paid_on', monthWindowFirstDay(now()));
+      if (kind === 'cash_entries') query = query.gte('entry_date', monthWindowFirstDay(now()));
       // The signed-in author's own reports of the last two weeks (ADR-051); RLS also lets a
       // manager see others', which the phone has no use for.
       if (kind === 'report_status') {

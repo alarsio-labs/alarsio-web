@@ -9,6 +9,7 @@
 // every source arrived and parsed; otherwise the old mirror stays whole. The
 // server is reached through a MirrorSource, so every path is tested offline.
 
+import { isCashCategory, type CashCategory } from '../cash/cash';
 import type { DeviceDb } from '../db/device-db';
 import { SESSION_CHANGED, SyncTransportError } from './sender';
 
@@ -17,7 +18,7 @@ export const PULL_PAGE_SIZE = 1000;
 /** A safety stop, far above any real size, so a misbehaving server cannot loop a pull forever. */
 const MAX_PAGES = 1000;
 
-export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status' | 'month_entries' | 'advances';
+export type MirrorKind = 'sites' | 'materials' | 'roster' | 'approved_days' | 'report_status' | 'month_entries' | 'advances' | 'cash_entries';
 
 /** The column each source is ordered and paged by. */
 const KEY_FIELD: Record<MirrorKind, string> = {
@@ -28,6 +29,7 @@ const KEY_FIELD: Record<MirrorKind, string> = {
   report_status: 'id',
   month_entries: 'entry_id',
   advances: 'id',
+  cash_entries: 'id',
 };
 
 export interface MirrorSource {
@@ -158,6 +160,18 @@ export interface MirroredAdvance {
   reversesId: string | null;
 }
 
+/** A cash book entry, or its cancellation (reversesId set), as the server holds it. */
+export interface MirroredCashEntry {
+  id: string;
+  siteId: string;
+  /** Asia/Kolkata calendar day. */
+  entryDate: string;
+  category: CashCategory;
+  amountPaise: number;
+  note: string | null;
+  reversesId: string | null;
+}
+
 /** What the phone holds for its owner, and when it was refreshed. */
 export interface MirrorSummary {
   refreshedAt: string;
@@ -205,6 +219,7 @@ export async function runPull(
   let reports: ReportStatus[];
   let months: MonthRow[] | null;
   let advances: MirroredAdvance[] | null;
+  let cash: MirroredCashEntry[] | null;
   try {
     userId = await source.currentUserId();
     if (userId === null) return { kind: 'signed_out' };
@@ -215,6 +230,7 @@ export async function runPull(
     reports = await fetchAll(source, 'report_status', userId, pageSize, toReportStatus);
     months = await fetchOptional(source, 'month_entries', userId, pageSize, toMonthEntry);
     advances = await fetchOptional(source, 'advances', userId, pageSize, toMirroredAdvance);
+    cash = await fetchOptional(source, 'cash_entries', userId, pageSize, toMirroredCashEntry);
 
     // Still the same user? A sign-out that landed while the pages were coming in
     // must not be undone by a write of that user's data afterwards. This narrows
@@ -236,16 +252,18 @@ export async function runPull(
   reports = reports.filter((r) => siteIds.has(r.siteId));
   months = months?.filter((m) => siteIds.has(m.siteId)) ?? null;
   advances = advances?.filter((a) => siteIds.has(a.siteId)) ?? null;
+  cash = cash?.filter((c) => siteIds.has(c.siteId)) ?? null;
 
   const owner = userId.toLowerCase();
   try {
-    // Old month and advance rows are kept only when they are this user's own.
+    // Old month, advance and cash rows are kept only when they are this user's own.
     const before = await mirrorInfo(db);
     const keepMonth = months === null && before?.userId === owner;
     const keepAdvances = advances === null && before?.userId === owner;
+    const keepCash = cash === null && before?.userId === owner;
     const refreshedAt = now().toISOString();
     await db.transaction(async () => {
-      await deleteMirrors(db, keepMonth, keepAdvances);
+      await deleteMirrors(db, keepMonth, keepAdvances, keepCash);
       for (const s of sites) {
         await db.run(
           `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
@@ -314,6 +332,16 @@ export async function runPull(
           `insert into mirror_advances (id, site_id, worker_id, paid_on, amount_paise, note, reverses_id)
            values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
           chunk.flatMap((a) => [a.id, a.siteId, a.workerId, a.paidOn, a.amountPaise, a.note, a.reversesId]),
+        );
+      }
+      if (keepCash) await db.run(`delete from mirror_cash_entries where site_id not in (select id from mirror_sites)`);
+      const freshCash = cash ?? [];
+      for (let i = 0; i < freshCash.length; i += 100) {
+        const chunk = freshCash.slice(i, i + 100);
+        await db.run(
+          `insert into mirror_cash_entries (id, site_id, entry_date, category, amount_paise, note, reverses_id)
+           values ${chunk.map(() => '(?, ?, ?, ?, ?, ?, ?)').join(', ')}`,
+          chunk.flatMap((c) => [c.id, c.siteId, c.entryDate, c.category, c.amountPaise, c.note, c.reversesId]),
         );
       }
       await db.run(`insert into mirror_state (id, user_id, refreshed_at, month_refreshed_at) values (1, ?, ?, ?)`, [
@@ -618,6 +646,33 @@ export async function readSiteAdvances(db: DeviceDb, userId: string, siteId: str
   }));
 }
 
+/** The cash entries the mirror holds for a site, newest day first. Empty for anyone but the mirror's owner. */
+export async function readSiteCashEntries(db: DeviceDb, userId: string, siteId: string): Promise<MirroredCashEntry[]> {
+  if (!(await ownedBy(db, userId))) return [];
+  const rows = await db.all<{
+    id: string;
+    site_id: string;
+    entry_date: string;
+    category: CashCategory;
+    amount_paise: number;
+    note: string | null;
+    reverses_id: string | null;
+  }>(
+    `select id, site_id, entry_date, category, amount_paise, note, reverses_id from mirror_cash_entries
+      where site_id = ? order by entry_date desc, id`,
+    [siteId],
+  );
+  return rows.map((r) => ({
+    id: r.id,
+    siteId: r.site_id,
+    entryDate: r.entry_date,
+    category: r.category,
+    amountPaise: r.amount_paise,
+    note: r.note,
+    reversesId: r.reverses_id,
+  }));
+}
+
 /** Every worker the roster mirror holds for a site, once each, by name. */
 export async function readSiteWorkers(db: DeviceDb, userId: string, siteId: string): Promise<RosterWorker[]> {
   if (!(await ownedBy(db, userId))) return [];
@@ -681,8 +736,8 @@ async function ownedBy(db: DeviceDb, userId: string): Promise<boolean> {
 }
 
 /**
- * The month view and the advances are the newest sources and the only ones a missing view or table
- * can break, so they must not block the others: if one fails, the pull goes on without it and keeps
+ * The month view, the advances and the cash entries are the newest sources and the only ones a missing
+ * view or table can break, so they must not block the others: if one fails, the pull goes on without it and keeps
  * the old rows (ADR-053). A changed session still stops the whole pull.
  */
 async function fetchOptional<T>(
@@ -700,7 +755,7 @@ async function fetchOptional<T>(
   }
 }
 
-async function deleteMirrors(db: DeviceDb, keepMonth = false, keepAdvances = false): Promise<void> {
+async function deleteMirrors(db: DeviceDb, keepMonth = false, keepAdvances = false, keepCash = false): Promise<void> {
   await db.run(`delete from mirror_sites`);
   await db.run(`delete from mirror_materials`);
   await db.run(`delete from mirror_roster`);
@@ -708,6 +763,7 @@ async function deleteMirrors(db: DeviceDb, keepMonth = false, keepAdvances = fal
   await db.run(`delete from mirror_report_status`);
   if (!keepMonth) await db.run(`delete from mirror_month_entries`);
   if (!keepAdvances) await db.run(`delete from mirror_advances`);
+  if (!keepCash) await db.run(`delete from mirror_cash_entries`);
   await db.run(`delete from mirror_state`);
 }
 
@@ -920,6 +976,33 @@ function toMirroredAdvance(v: unknown): MirroredAdvance {
     siteId: v.site_id.toLowerCase(),
     workerId: v.worker_id.toLowerCase(),
     paidOn: v.paid_on,
+    amountPaise: v.amount_paise,
+    note: v.note,
+    reversesId: v.reverses_id === null ? null : v.reverses_id.toLowerCase(),
+  };
+}
+
+function toMirroredCashEntry(v: unknown): MirroredCashEntry {
+  if (
+    !isRow(v) ||
+    !isId(v.id) ||
+    !isId(v.site_id) ||
+    !isText(v.entry_date) ||
+    !isCalendarDay(v.entry_date) ||
+    !isCashCategory(v.category) ||
+    !isNum(v.amount_paise) ||
+    !Number.isSafeInteger(v.amount_paise) ||
+    v.amount_paise <= 0 ||
+    !(v.note === null || isText(v.note)) ||
+    !(v.reverses_id === null || isId(v.reverses_id))
+  ) {
+    return bad('cash_entries');
+  }
+  return {
+    id: v.id.toLowerCase(),
+    siteId: v.site_id.toLowerCase(),
+    entryDate: v.entry_date,
+    category: v.category,
     amountPaise: v.amount_paise,
     note: v.note,
     reversesId: v.reverses_id === null ? null : v.reverses_id.toLowerCase(),

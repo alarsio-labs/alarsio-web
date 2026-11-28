@@ -129,6 +129,17 @@ describe('supabaseMirrorSource (#49)', () => {
     expect(call(calls, 'gte')).toEqual(['paid_on', '2026-09-01']);
   });
 
+  it('reads cash entries from cash_entries, paged by id, from the first day of last month (ADR-058)', async () => {
+    const { client, calls } = fakeClient(signedInA);
+    await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('cash_entries', USER_A, 'c-key', 500);
+
+    expect(call(calls, 'from')).toEqual(['cash_entries']);
+    expect(String(call(calls, 'select')?.[0])).toBe('id, site_id, entry_date, category, amount_paise, note, reverses_id');
+    expect(call(calls, 'gt')).toEqual(['id', 'c-key']);
+    expect(call(calls, 'order')).toEqual(['id']);
+    expect(call(calls, 'gte')).toEqual(['entry_date', '2026-09-01']);
+  });
+
   it("reads only the signed-in author's report statuses, from Daily Reporting's view, for two weeks (ADR-051)", async () => {
     const { client, calls } = fakeClient(signedInA);
     await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('report_status', USER_A, 'r-key', 500);

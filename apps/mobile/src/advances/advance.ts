@@ -16,12 +16,11 @@ export const NOTE_MAX = 500;
 /** The server's cap for one advance: ₹10,00,000. */
 export const AMOUNT_MAX_PAISE = 100_000_000;
 
+export type AmountErrorCode = 'amount_required' | 'amount_invalid' | 'amount_zero' | 'amount_too_large';
+
 export type AdvanceErrorCode =
+  | AmountErrorCode
   | 'worker_required'
-  | 'amount_required'
-  | 'amount_invalid'
-  | 'amount_zero'
-  | 'amount_too_large'
   | 'note_too_long'
   | 'date_invalid'
   | 'date_future'
@@ -56,7 +55,7 @@ export interface AdvanceInput {
   paidOn: string;
 }
 
-export type AmountResult = { ok: true; paise: number } | { ok: false; code: AdvanceErrorCode };
+export type AmountResult = { ok: true; paise: number } | { ok: false; code: AmountErrorCode };
 
 const RUPEES = /^(\d+)(?:\.(\d{1,2}))?$/;
 
@@ -76,7 +75,7 @@ export function parseAmount(text: string): AmountResult {
 
 const DAY = /^(\d{4})-(\d{2})-(\d{2})$/;
 
-function isCalendarDay(text: string): boolean {
+export function isCalendarDay(text: string): boolean {
   const match = DAY.exec(text);
   if (match === null) return false;
   const [y, m, d] = [Number(match[1]), Number(match[2]), Number(match[3])];
@@ -84,7 +83,7 @@ function isCalendarDay(text: string): boolean {
   return date.getUTCFullYear() === y && date.getUTCMonth() === m - 1 && date.getUTCDate() === d;
 }
 
-const cleanNote = (text: string): string | null => (text.trim() === '' ? null : text.trim());
+export const cleanNote = (text: string): string | null => (text.trim() === '' ? null : text.trim());
 
 /** Validates one advance. `today` is the Asia/Kolkata day on the phone (ADR-021 D10). */
 export function buildAdvance(input: AdvanceInput, today: string): Advance {

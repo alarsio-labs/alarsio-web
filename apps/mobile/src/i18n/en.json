@@ -9,6 +9,7 @@
     "materials_sites": "Materials",
     "site_materials": "Materials",
     "site_advances": "Advances",
+    "site_cash": "Cash book",
     "help": "Help"
   },
   "sites": {
@@ -112,7 +113,8 @@
       "daily_reports": "Daily report",
       "report_photos": "Report photo",
       "material_transactions": "Material entry",
-      "worker_advances": "Advance"
+      "worker_advances": "Advance",
+      "cash_entries": "Cash entry"
     },
     "reason": {
       "appBug": "The app sent this wrongly. Please report it.",
@@ -311,6 +313,55 @@
       "generic": "Could not save on this phone. Try again."
     }
   },
+  "siteCash": {
+    "loadFailed": "Could not read the cash book on this phone.",
+    "missing": "This site is not on this phone.",
+    "scopeNote": "This is a proposed cash book for this site. It shows this month's entries and advances, as of the last refresh.",
+    "empty": "No cash entries at this site yet.",
+    "record": "Add a cash entry",
+    "category": "Type",
+    "amount": "Amount (₹)",
+    "noteOptional": "Note (optional)",
+    "date": "Date",
+    "save": "Save",
+    "cancel": "Cancel",
+    "recent": "Entries",
+    "summary": "In {{in}} · Out {{out}} · Advances {{advances}}",
+    "box": "In the box: {{amount}}",
+    "boxBelow": "Short by {{amount}}. More went out than came in.",
+    "waiting": "{{count}} waiting to send",
+    "entry": "{{label}} · {{amount}} · {{date}}",
+    "entryNote": "Note: {{note}}",
+    "advance": "Advance · {{worker}}",
+    "advanceHint": "Paid from the Advances screen",
+    "cancelEntry": "Cancel this entry",
+    "confirmCancel": "Cancel the entry of {{amount}}? This cannot be undone.",
+    "confirmYes": "Yes, cancel it",
+    "keep": "Keep it",
+    "cancelled": "Cancelled",
+    "cancellation": "Cancels an entry of {{amount}}",
+    "categories": {
+      "received": "Cash received",
+      "wages": "Wages",
+      "material": "Material",
+      "transport": "Transport",
+      "food": "Food",
+      "other": "Other"
+    },
+    "error": {
+      "category_invalid": "Choose a type.",
+      "amount_required": "Enter the amount.",
+      "amount_invalid": "Enter the amount in rupees, with up to two decimals.",
+      "amount_zero": "The amount must be more than zero.",
+      "amount_too_large": "One entry can be at most ₹10,00,000.",
+      "note_too_long": "Keep the note within {{max}} characters.",
+      "date_invalid": "Enter the date as YYYY-MM-DD.",
+      "date_future": "The date cannot be in the future.",
+      "entry_not_found": "This entry can't be cancelled from this phone.",
+      "already_cancelled": "This entry is already cancelled.",
+      "generic": "Could not save on this phone. Try again."
+    }
+  },
   "dailyReport": {
     "loadFailed": "Could not read the records on this phone.",
     "missing": "This site is not on this phone.",
@@ -473,6 +524,7 @@
     "dayRegister": "Day register",
     "workers": "Workers",
     "advances": "Advances",
+    "cashBook": "Cash book",
     "shareSlip": "Share day slip",
     "slipFailed": "The day slip could not be shared. Try again.",
     "slipNoCheckIn": "No check-in",

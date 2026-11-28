@@ -9,6 +9,7 @@
     "materials_sites": "सामग्री",
     "site_materials": "सामग्री",
     "site_advances": "अग्रिम",
+    "site_cash": "नकद बही",
     "help": "मदद"
   },
   "sites": {
@@ -112,7 +113,8 @@
       "daily_reports": "दैनिक रिपोर्ट",
       "report_photos": "रिपोर्ट की फ़ोटो",
       "material_transactions": "सामग्री की प्रविष्टि",
-      "worker_advances": "अग्रिम"
+      "worker_advances": "अग्रिम",
+      "cash_entries": "नकद प्रविष्टि"
     },
     "reason": {
       "appBug": "ऐप ने यह ग़लत भेजा। कृपया इसकी सूचना दें।",
@@ -311,6 +313,55 @@
       "generic": "इस फ़ोन पर सहेज नहीं सके। फिर कोशिश करें।"
     }
   },
+  "siteCash": {
+    "loadFailed": "इस फ़ोन पर नकद बही नहीं पढ़ सके।",
+    "missing": "यह साइट इस फ़ोन पर नहीं है।",
+    "scopeNote": "यह इस साइट की प्रस्तावित नकद बही है। इसमें इस महीने की प्रविष्टियाँ और अग्रिम हैं, आख़िरी ताज़ा करने तक के।",
+    "empty": "इस साइट पर अभी कोई नकद प्रविष्टि नहीं है।",
+    "record": "नकद प्रविष्टि जोड़ें",
+    "category": "प्रकार",
+    "amount": "रकम (₹)",
+    "noteOptional": "टिप्पणी (वैकल्पिक)",
+    "date": "तारीख़",
+    "save": "सहेजें",
+    "cancel": "रद्द करें",
+    "recent": "प्रविष्टियाँ",
+    "summary": "आया {{in}} · गया {{out}} · अग्रिम {{advances}}",
+    "box": "बक्से में: {{amount}}",
+    "boxBelow": "{{amount}} कम है। आने से ज़्यादा गया।",
+    "waiting": "{{count}} भेजने के इंतज़ार में",
+    "entry": "{{label}} · {{amount}} · {{date}}",
+    "entryNote": "टिप्पणी: {{note}}",
+    "advance": "अग्रिम · {{worker}}",
+    "advanceHint": "अग्रिम स्क्रीन से दिया गया",
+    "cancelEntry": "यह प्रविष्टि रद्द करें",
+    "confirmCancel": "{{amount}} की प्रविष्टि रद्द करें? इसे वापस नहीं किया जा सकता।",
+    "confirmYes": "हाँ, रद्द करें",
+    "keep": "रहने दें",
+    "cancelled": "रद्द किया गया",
+    "cancellation": "{{amount}} की प्रविष्टि रद्द करता है",
+    "categories": {
+      "received": "नकद मिला",
+      "wages": "मज़दूरी",
+      "material": "सामग्री",
+      "transport": "ढुलाई",
+      "food": "खाना",
+      "other": "अन्य"
+    },
+    "error": {
+      "category_invalid": "प्रकार चुनें।",
+      "amount_required": "रकम लिखें।",
+      "amount_invalid": "रकम रुपये में लिखें, दो दशमलव तक।",
+      "amount_zero": "रकम शून्य से अधिक होनी चाहिए।",
+      "amount_too_large": "एक प्रविष्टि अधिकतम ₹10,00,000 हो सकती है।",
+      "note_too_long": "टिप्पणी {{max}} अक्षरों के भीतर रखें।",
+      "date_invalid": "तारीख़ YYYY-MM-DD में लिखें।",
+      "date_future": "तारीख़ आगे की नहीं हो सकती।",
+      "entry_not_found": "यह प्रविष्टि इस फ़ोन से रद्द नहीं हो सकती।",
+      "already_cancelled": "यह प्रविष्टि पहले ही रद्द हो चुकी है।",
+      "generic": "इस फ़ोन पर सहेज नहीं सके। फिर कोशिश करें।"
+    }
+  },
   "dailyReport": {
     "loadFailed": "इस फ़ोन पर रिकॉर्ड नहीं पढ़े जा सके।",
     "missing": "यह साइट इस फ़ोन पर नहीं है।",
@@ -473,6 +524,7 @@
     "dayRegister": "दिन की हाज़िरी",
     "workers": "कामगार",
     "advances": "अग्रिम",
+    "cashBook": "नकद बही",
     "shareSlip": "दिन की पर्ची भेजें",
     "slipFailed": "दिन की पर्ची नहीं भेजी जा सकी। फिर कोशिश करें।",
     "slipNoCheckIn": "चेक-इन नहीं हुआ",

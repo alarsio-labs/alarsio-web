@@ -281,4 +281,59 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       alter table mirror_report_status add column next_day_plan text;
     `,
   },
+  {
+    // Issue #258, ADR-058. The outbox may now hold cash_entries. Rebuilt like version 11:
+    // SQLite cannot change a CHECK, so every row, id and send order is kept.
+    version: 14,
+    name: 'outbox cash entries',
+    sql: `
+      create table outbox_new (
+        seq             integer primary key autoincrement,
+        entity          text not null check (entity in (
+                          'site_visits', 'attendance_days', 'attendance_entries',
+                          'attendance_corrections', 'daily_reports', 'report_photos',
+                          'material_transactions', 'worker_advances', 'cash_entries')),
+        record_id       text not null check (length(record_id) = 36),
+        payload         text not null check (json_valid(payload) and json_type(payload) = 'object'),
+        status          text not null default 'pending' check (status in (
+                          'pending', 'syncing', 'synced', 'failed', 'conflict', 'rejected')),
+        reason          text,
+        attempts        integer not null default 0 check (attempts >= 0),
+        next_attempt_at text,
+        dirty           integer not null default 0 check (dirty in (0, 1)),
+        created_at      text not null,
+        updated_at      text not null,
+        author_id       text check (author_id is null or length(author_id) = 36),
+        unique (entity, record_id)
+      );
+      insert into outbox_new (seq, entity, record_id, payload, status, reason, attempts,
+                              next_attempt_at, dirty, created_at, updated_at, author_id)
+        select seq, entity, record_id, payload, status, reason, attempts,
+               next_attempt_at, dirty, created_at, updated_at, author_id
+          from outbox;
+      drop table outbox;
+      alter table outbox_new rename to outbox;
+      create index outbox_status_seq on outbox (status, seq);
+      create index outbox_author_status_seq on outbox (author_id, status, seq);
+    `,
+  },
+  {
+    // Issue #258, ADR-058. The eighth pull mirror: the cash entries of this and the last month on
+    // the sites the user sees, read under RLS. Replaced whole by each pull and owned by one user
+    // through mirror_state (ADR-023).
+    version: 15,
+    name: 'mirror cash entries',
+    sql: `
+      create table mirror_cash_entries (
+        id           text primary key check (length(id) = 36),
+        site_id      text not null check (length(site_id) = 36),
+        entry_date   text not null check (length(entry_date) = 10),
+        category     text not null check (category in ('received', 'wages', 'material', 'transport', 'food', 'other')),
+        amount_paise integer not null check (amount_paise > 0),
+        note         text,
+        reverses_id  text check (reverses_id is null or length(reverses_id) = 36)
+      );
+      create index mirror_cash_entries_site on mirror_cash_entries (site_id, entry_date);
+    `,
+  },
 ];

@@ -19,6 +19,7 @@ const ENTITY_LABELS = {
   report_photos: 'sync.entity.report_photos',
   material_transactions: 'sync.entity.material_transactions',
   worker_advances: 'sync.entity.worker_advances',
+  cash_entries: 'sync.entity.cash_entries',
 } as const satisfies Record<SyncEntity, string>;
 
 export function entityLabel(entity: SyncEntity): string {
