@@ -137,8 +137,8 @@ export default async function WorkerPage({
                 <option value="hourly">Hourly</option>
               </select>
             </Field>
-            <Field label="Phone (optional)">
-              <input name="phone" type="tel" maxLength={20} defaultValue={worker.phone ?? ""} className={inputClass} />
+            <Field label="Phone">
+              <input name="phone" type="tel" required maxLength={20} defaultValue={worker.phone ?? ""} className={inputClass} />
             </Field>
             <Field label="Status">
               <select name="status" defaultValue={worker.status} className={inputClass}>

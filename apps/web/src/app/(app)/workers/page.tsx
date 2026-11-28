@@ -15,12 +15,12 @@ import { addWorker } from "./actions";
 
 const PAGE = 200;
 
-type WorkerRow = { id: string; code: string; full_name: string; trade: string; pay_type: string; status: string };
+type WorkerRow = { id: string; code: string; full_name: string; trade: string; pay_type: string; status: string; phone: string | null };
 
 function isWorkerRow(r: unknown): r is WorkerRow {
   if (typeof r !== "object" || r === null) return false;
   const o = r as Record<string, unknown>;
-  return ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string");
+  return ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string") && (o.phone === null || typeof o.phone === "string");
 }
 
 export const metadata = { title: "Workers" };
@@ -51,7 +51,7 @@ export default async function WorkersPage({
     supabase.rpc("can_view_wages", { p_org_id: org }),
     supabase
       .from("workers")
-      .select("id, code, full_name, trade, pay_type, status", { count: "exact" })
+      .select("id, code, full_name, trade, pay_type, status, phone", { count: "exact" })
       .eq("org_id", org)
       .order("code")
       .range(from, from + PAGE - 1)
@@ -89,8 +89,8 @@ export default async function WorkersPage({
                   <option value="hourly">Hourly</option>
                 </select>
               </Field>
-              <Field label="Phone (optional)">
-                <input name="phone" type="tel" maxLength={20} className={inputClass} />
+              <Field label="Phone">
+                <input name="phone" type="tel" required maxLength={20} placeholder="98765 43210" className={inputClass} />
               </Field>
               <button type="submit" className={buttonClass}>Add worker</button>
             </form>
@@ -113,6 +113,8 @@ export default async function WorkersPage({
             { key: "name", label: "Name", render: (w) => w.full_name },
             { key: "trade", label: "Trade", render: (w) => w.trade },
             { key: "pay", label: "Pay", render: (w) => (w.pay_type === "hourly" ? "Hourly" : "Daily") },
+            // An old worker with no phone is asked for one on the next edit; an anonymized one never has it.
+            { key: "phone", label: "Phone", render: (w) => w.phone ?? (w.status === "active" ? <StatusTag tone="attention">Missing</StatusTag> : "—") },
             { key: "status", label: "Status", render: (w) => <StatusTag tone={w.status === "active" ? "ink" : "muted"}>{w.status === "active" ? "Active" : "Inactive"}</StatusTag> }
           ]}
         />
