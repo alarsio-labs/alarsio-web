@@ -2357,3 +2357,18 @@ balance line that needs `worker_effective_rates` stays with the owner and accoun
 - C5. **The form refills after a pull only while it is untouched.** A pull never overwrites unsaved typing.
 
 **Consequences.** A web edit shows on the phone after the next pull (about 5 minutes, or at once on pull-to-refresh, #266). Costs: up to about 8 KB per report, 15 days per site, on every pull (full refresh, ADR-023). Not covered: a draft from another device (the view holds none), another author's report for the same site and day, and a phone that never pulled before saving, which can still end as `duplicate`. PR 1 changes the view only; the phone reads nothing new until PR 2, and PR 2 must go out after PR 1 is on the server.
+
+## ADR-058 · Team page: change a role, resend an invite, and never lose the last owner
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (bug triage 2; BUG-03; amends ADR-019 I6 and ADR-006; owner: Ishant, to confirm in review)
+
+**Context.** The Team page could invite and revoke, nothing more. An owner could not change a role or resend a link (a second invite for the same email was blocked for 72 hours). "Already a member" and "an invite is open" both came back as `23505`, so the owner could not tell them apart. `accept_invite()` kept an existing member's old role and used up the invite, with no word to anyone (BUG-03). ADR-006 left a last-owner guard out of week 1.
+
+**Decision.**
+- G1. **A guard trigger on `memberships`** refuses (`PT422`) any update or delete that would leave an organisation with no owner. It covers every writer, including `accept_invite()`. An advisory lock makes two owners demoting each other at once take turns.
+- G2. **`change_member_role(org, user, role)`**, owner only, `SECURITY DEFINER`. A non-owner, an unknown organisation and another organisation's owner all get `42501`. The existing `update (role)` grant and owner-only update policy are unchanged.
+- G3. **`resend_invite(invite)`**, owner only. Only a hash of the token is stored, so it revokes the invite and makes a new one for the same email and role, with a new 72-hour link. If the new invite is refused, the revoke rolls back. An accepted invite cannot be resent.
+- G4. **`create_invite()`** raises `PT409` for an existing member. An open invite stays `23505`.
+- G5. **BUG-03: `accept_invite()` applies the invited role to an existing member** (the recommended option in `qa-audit/BUG-REGISTER.md`). I6 ("keeps their role") is replaced. The invite is used up. If it would demote the only owner, G1 refuses, the call rolls back and the invite stays unused.
+- G6. **Removing a member is not in this decision.** `site_assignments` holds a restrict foreign key to `memberships`, and no role has a delete grant (ADR-044). It needs its own ADR.
+
+**Consequences.** An owner can fix a wrong role in one click and resend a lost link. Cost: ADR-019 I1 means the link, not the email, decides who joins, so a forwarded link for a higher role now also promotes an existing member, and an existing owner who opens a lower-role link is demoted unless they are the last owner. Revoking stays the protection. The new link replaces the old one, so a resend breaks any copy already shared.

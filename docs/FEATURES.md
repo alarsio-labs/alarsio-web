@@ -69,6 +69,8 @@ Each row is a P0 from `docs/PRD.md`. Tick it only when it is merged **and** test
 - [ ] Invite a team member by email or copyable link
   *Database side in #42: `invites`, `create_invite`, `accept_invite`, `revoke_invite` (ADR-019). Unticked until the web pages (#52) run end to end against a real project.*
   *`org_member_names()` (ADR-044) lists members' names and roles for managers, for Sites web (#78). No row changes.*
+- [x] An owner changes a member's role and resends an invite; the only owner cannot be lowered
+  *ADR-058: `change_member_role`, `resend_invite`, a last-owner guard on `memberships`, a distinct "already a member" error, and BUG-03 (an invite now sets an existing member's role). Removing a member is still open (own ADR, `site_assignments` foreign key).*
 - [x] Four roles enforced by RLS: `owner`, `project_manager`, `supervisor`, `accountant`
 - [x] A supervisor sees only sites assigned to them
 

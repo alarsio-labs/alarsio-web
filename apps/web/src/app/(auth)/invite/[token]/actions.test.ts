@@ -99,6 +99,12 @@ describe("acceptInvite", () => {
     expect(await target(() => acceptInvite(form(TOKEN)))).toBe("/invite/invalid?reason=rate");
   });
 
+  it("says so when the invite would lower the only owner, and still forgets it", async () => {
+    db.result = { data: null, error: { code: "PT422" } };
+    expect(await target(() => acceptInvite(form(TOKEN)))).toBe("/invite/invalid?reason=owner");
+    expect(jar.deleted).toEqual(["alarsio_invite"]);
+  });
+
   it("accepts a valid token and goes to the dashboard", async () => {
     expect(await target(() => acceptInvite(form(TOKEN)))).toBe("/dashboard");
     expect(db.calls).toEqual([{ fn: "accept_invite", args: { p_token: TOKEN } }]);

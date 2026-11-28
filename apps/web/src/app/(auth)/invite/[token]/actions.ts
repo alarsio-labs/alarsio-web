@@ -14,6 +14,7 @@ export async function acceptInvite(form: FormData) {
   // Used or refused, the remembered invite is done: the dashboard must not send them back.
   await forgetInvite();
   if (error?.code === "PT429") redirect("/invite/invalid?reason=rate");
+  if (error?.code === "PT422") redirect("/invite/invalid?reason=owner");
   if (error || typeof data !== "string") redirect("/invite/invalid");
   redirect("/dashboard");
 }
