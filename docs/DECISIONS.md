@@ -2297,7 +2297,8 @@ and accountants to the web, so the phone is for supervisors, who hand the money 
 - A1. **Table `worker_advances`**, append-only (rule 5): `block_worker_advance_mutation` refuses update, delete and
   truncate, even for the table owner. Whole paise in a `bigint`, above 0 and at most 10 lakh rupees. Audit attached.
 - A2. **A mistake is a reversal row** with `reverses_id` set. It repeats the whole amount, names the same worker and
-  site (a composite foreign key), cannot itself be reversed, and an advance is reversed once (a unique key).
+  site (a composite foreign key), keeps the advance's day (`paid_on`), cannot itself be reversed, and an advance is
+  reversed once (a unique key). `apply_worker_advance` refuses a reversal on another day (`23514`).
 - A3. **Only `apply_worker_advance` writes** (`SECURITY DEFINER`, same shape as `apply_material_transaction`). No client
   has an insert grant. `sync_worker_advances` is a thin handler over it, and `worker_advances` joins sync_push's list.
 - A4. **Who:** `can_view_wages(org)` (owner, accountant) reads and records for the whole organisation. A supervisor
