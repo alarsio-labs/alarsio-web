@@ -194,6 +194,9 @@ changes: advances are not one of the rows above.*
   `daily_report_status` rows for 14 days) and shows "Sent back: <the manager's note>" on the report, its Today card
   and the unfinished list until the resubmit reaches the server (#137). `pull.test.ts`, `report-store.test.ts` and
   `report.test.ts` cover it; not yet run on a phone (needs a new EAS build) or in smoke test S11.*
+  *Mirroring the report's text (#267, ADR-057), so a web edit or another device shows on the phone: PR 1 (server)
+  adds `work_done` and `next_day_plan` to `daily_report_status`; `daily_report_status_content_test.sql` proves who reads
+  them. PR 2 (the phone) is not built yet. "File a report" and "Save as an offline draft" stay unticked.*
 
 *Managers read, filter and review reports on the web (#74, ADR-025): `/reports` lists
 `daily_report_status` with flagged reports first, and `/reports/<id>` shows the report, its

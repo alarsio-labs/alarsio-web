@@ -2341,3 +2341,19 @@ balance line that needs `worker_effective_rates` stays with the owner and accoun
 - P4. **Not enforced against a direct SQL insert.** The only writers are the web action and `import_workers`. If a third writer appears, add a `NOT VALID` check `phone is not null or anonymized_at is not null` then.
 
 **Consequence.** Import files for new workers need a Phone column. The pre-existing import tests now give new rows a phone. ADR-055 (auto worker code, #261) is a separate change.
+
+---
+
+## ADR-057 · The phone mirrors its author's report text, so a web edit or another device shows
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (issue #267, bug triage 5b; amends ADR-051; owners: Anuradha for the view, Nikhil for the pull; to confirm in review)
+
+**Context.** ADR-051 mirrors only the status of the author's reports. The phone shows its own outbox, so a report edited on the web, or filed on another device or before a reinstall, is invisible. The form fills once. A second save for the same site and day ends as `conflict` / `duplicate`.
+
+**Decision.**
+- C1. **`daily_report_status` publishes `work_done` and `next_day_plan`**, last in the view (PR 1). It already has `headcount`, `blockers`, `serious_blocker` and `safety_incident`. It never shows `edit_reason` (ADR-013 R6). RLS is unchanged, so no one reads a row they could not already read.
+- C2. **The `report_status` pull source reads those columns** into `mirror_report_status` (PR 2, device migration). It stays the author's own rows, the same 14 days, paged by `id`. A bad value fails the whole pull (ADR-023). A row with null content means "content not known", never an empty report.
+- C3. **The outbox wins.** If the phone holds a record for the site and day, the screen shows it. The mirror is used only when the outbox has none.
+- C4. **A mirror-only report is saved under the server's id**, so `sync_daily_reports` updates it in place (ADR-022 H4) and never answers `duplicate`. `submitted` needs a reason, `rejected` can be resubmitted with one, `reviewed` is read-only (ADR-013, ADR-042).
+- C5. **The form refills after a pull only while it is untouched.** A pull never overwrites unsaved typing.
+
+**Consequences.** A web edit shows on the phone after the next pull (about 5 minutes, or at once on pull-to-refresh, #266). Costs: up to about 8 KB per report, 15 days per site, on every pull (full refresh, ADR-023). Not covered: a draft from another device (the view holds none), another author's report for the same site and day, and a phone that never pulled before saving, which can still end as `duplicate`. PR 1 changes the view only; the phone reads nothing new until PR 2, and PR 2 must go out after PR 1 is on the server.
