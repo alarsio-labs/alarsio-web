@@ -348,12 +348,6 @@
       "food": "Food",
       "other": "Other"
     },
-    "status": {
-      "waiting": "Saved on this phone, waiting to send",
-      "failed": "Could not send yet. Will retry.",
-      "onServer": "On the server",
-      "attention": "Needs attention · {{reason}}"
-    },
     "error": {
       "category_invalid": "Choose a type.",
       "amount_required": "Enter the amount.",

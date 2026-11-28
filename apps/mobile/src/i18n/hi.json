@@ -348,12 +348,6 @@
       "food": "खाना",
       "other": "अन्य"
     },
-    "status": {
-      "waiting": "इस फ़ोन पर सहेजा, भेजने का इंतज़ार",
-      "failed": "अभी भेज नहीं सके। फिर कोशिश होगी।",
-      "onServer": "सर्वर पर है",
-      "attention": "ध्यान चाहिए · {{reason}}"
-    },
     "error": {
       "category_invalid": "प्रकार चुनें।",
       "amount_required": "रकम लिखें।",
