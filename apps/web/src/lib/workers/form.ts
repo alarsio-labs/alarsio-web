@@ -30,6 +30,11 @@ export function workerFields(form: FormData): WorkerInput | null {
   return { full_name, trade, pay_type: pay_type as PayType, phone };
 }
 
+/** A safe search word for the worker list: letters, marks (Hindi vowel signs), digits, space, - and + only, at most 40. */
+export function searchTerm(raw: unknown): string {
+  return typeof raw === "string" ? raw.replace(/[^\p{L}\p{M}\p{N} +-]/gu, "").trim().slice(0, 40) : "";
+}
+
 /** Maps a PostgREST error code to one of our message codes. */
 export function workerErrorCode(code: string | undefined): MessageCode {
   switch (code) {

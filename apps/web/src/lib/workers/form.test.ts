@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { formText, parseDate, parseRate, rateDateWindow, workerErrorCode, workerFields } from "./form";
+import { formText, parseDate, parseRate, rateDateWindow, searchTerm, workerErrorCode, workerFields } from "./form";
 
 const fd = (o: Record<string, string>) => {
   const f = new FormData();
@@ -35,6 +35,26 @@ describe("workerFields", () => {
     expect(workerFields(fd({ ...ok, phone: "" }))).toBeNull();
     expect(workerFields(fd({ ...ok, phone: "   " }))).toBeNull();
     expect(workerFields(fd({ full_name: "Ravi", trade: "mason", pay_type: "daily" }))).toBeNull();
+  });
+});
+
+describe("searchTerm", () => {
+  it("keeps names, codes and phone digits", () => {
+    expect(searchTerm("  Ravi Kumar ")).toBe("Ravi Kumar");
+    expect(searchTerm("W-010")).toBe("W-010");
+    expect(searchTerm("+91 98765")).toBe("+91 98765");
+    expect(searchTerm("रवि")).toBe("रवि");
+  });
+
+  it("drops characters that would change the filter, and long input", () => {
+    expect(searchTerm("a,b)(%_*\\.x")).toBe("abx");
+    expect(searchTerm("x".repeat(60))).toHaveLength(40);
+  });
+
+  it("is empty for anything that is not text", () => {
+    expect(searchTerm(undefined)).toBe("");
+    expect(searchTerm(["a"])).toBe("");
+    expect(searchTerm("%%")).toBe("");
   });
 });
 
