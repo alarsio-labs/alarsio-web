@@ -56,7 +56,7 @@ const MESSAGES = {
   assign_archived: "This site is archived, so nobody can be assigned to it.",
   assign_member: "That person is not a member of this organisation.",
   assign_not_allowed: "That assignment could not be changed. It may already be removed, or the site may be archived.",
-  worker_invalid: "Check the worker: code (up to 40 characters), name (up to 120) and trade (up to 60) are required, pay type is daily or hourly, and the phone looks like 98765 43210.",
+  worker_invalid: "Check the worker: code (up to 40 characters), name (up to 120), trade (up to 60) and phone are required, pay type is daily or hourly, and the phone looks like 98765 43210.",
   worker_code_taken: "Another worker in this organisation already has that code.",
   not_permitted: "You are not allowed to do that.",
   revoke_failed: "Could not revoke the invite. It may already be used or expired. Reload the page and try again.",

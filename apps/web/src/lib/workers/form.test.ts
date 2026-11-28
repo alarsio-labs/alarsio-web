@@ -19,16 +19,22 @@ describe("formText", () => {
 });
 
 describe("workerFields", () => {
-  const ok = { full_name: "Ravi", trade: "mason", pay_type: "Daily", phone: "" };
+  const ok = { full_name: "Ravi", trade: "mason", pay_type: "Daily", phone: " 98765 43210 " };
 
-  it("reads a valid worker, lowercasing pay type and nulling a blank phone", () => {
-    expect(workerFields(fd(ok))).toEqual({ full_name: "Ravi", trade: "mason", pay_type: "daily", phone: null });
+  it("reads a valid worker, lowercasing pay type and trimming the phone", () => {
+    expect(workerFields(fd(ok))).toEqual({ full_name: "Ravi", trade: "mason", pay_type: "daily", phone: "98765 43210" });
   });
 
   it("refuses a missing name, a pay type outside the list, and a phone over 20", () => {
     expect(workerFields(fd({ ...ok, full_name: "" }))).toBeNull();
     expect(workerFields(fd({ ...ok, pay_type: "monthly" }))).toBeNull();
     expect(workerFields(fd({ ...ok, phone: "1".repeat(21) }))).toBeNull();
+  });
+
+  it("refuses a blank or missing phone: it is required", () => {
+    expect(workerFields(fd({ ...ok, phone: "" }))).toBeNull();
+    expect(workerFields(fd({ ...ok, phone: "   " }))).toBeNull();
+    expect(workerFields(fd({ full_name: "Ravi", trade: "mason", pay_type: "daily" }))).toBeNull();
   });
 });
 

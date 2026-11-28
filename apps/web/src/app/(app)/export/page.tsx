@@ -1,7 +1,9 @@
 import { redirect } from "next/navigation";
 import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
-import { EXPORT_TABLES } from "@/lib/export/tables";
+import { READING_NOTES } from "@/lib/export/guide";
+import { exportFileName } from "@/lib/export/run";
+import { EXPORT_TABLES, type ExportTable } from "@/lib/export/tables";
 import { ownedOrganization } from "@/lib/export/supabase";
 import { buttonClass } from "@/components/form";
 import { Card } from "@/components/app/card";
@@ -9,6 +11,11 @@ import { Notice } from "@/components/app/notice";
 import { PageHead } from "@/components/app/page-head";
 
 export const metadata = { title: "Export" };
+
+// Tables sit next to each other by group in EXPORT_TABLES, so Map keeps that order.
+const groups = [
+  ...EXPORT_TABLES.reduce((m, t) => m.set(t.group, [...(m.get(t.group) ?? []), t]), new Map<string, ExportTable[]>())
+];
 
 export default async function ExportPage({
   searchParams
@@ -40,16 +47,38 @@ export default async function ExportPage({
           <PageHead eyebrow={org.name} title="Export data" />
           {error && <Notice kind="error">{error}</Notice>}
 
-          <Card title="What is in the file" id="ex-tables">
+          <Card title="How to read the files" id="ex-guide">
             <p className="ax-empty">
-              One ZIP file with a CSV for each kind of record below, and a manifest that counts the rows. It holds what you can
-              see in Alarsio today. Photo files are not included; each photo&apos;s storage path is.
+              You get one ZIP, named like <span className="ax-mono">{exportFileName(org.name, new Date())}</span>. Inside:
+              a CSV for each kind of record, a <span className="ax-mono">manifest.csv</span> that counts the rows, and a{" "}
+              <span className="ax-mono">README.txt</span> with these notes.
             </p>
-            <ul className="mt-4 grid grid-cols-1 gap-x-6 gap-y-1 sm:grid-cols-2">
-              {EXPORT_TABLES.map((t) => (
-                <li key={t.table} className="ax-mono">{t.table}.csv</li>
+            <ul className="mt-4 list-disc space-y-1 pl-5">
+              {READING_NOTES.map((n) => (
+                <li key={n}>{n}</li>
               ))}
             </ul>
+          </Card>
+
+          <Card title="What is in the file" id="ex-tables">
+            <p className="ax-empty">
+              It holds what you can see in Alarsio today. Photo files are not included; each photo&apos;s storage path is.
+            </p>
+            <div className="mt-4 grid gap-5">
+              {groups.map(([group, tables]) => (
+                <section key={group}>
+                  <h3 className="font-semibold">{group}</h3>
+                  <dl className="mt-1 grid gap-1">
+                    {tables.map((t) => (
+                      <div key={t.table}>
+                        <dt className="ax-mono">{t.table}.csv</dt>
+                        <dd className="ax-empty">{t.about}</dd>
+                      </div>
+                    ))}
+                  </dl>
+                </section>
+              ))}
+            </div>
           </Card>
 
           <Card title="Download" id="ex-download">

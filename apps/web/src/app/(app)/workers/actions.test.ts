@@ -1,14 +1,54 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpc = vi.fn();
+const insert = vi.fn();
 vi.mock("server-only", () => ({}));
 vi.mock("next/cache", () => ({ revalidatePath: vi.fn() }));
-vi.mock("@/lib/supabase/server", () => ({ supabaseServer: async () => ({ rpc }) }));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => {
+    throw new Error(`REDIRECT ${url}`);
+  }
+}));
+vi.mock("@/lib/supabase/server", () => ({
+  supabaseServer: async () => ({ rpc, from: () => ({ insert: (row: unknown) => ({ select: () => ({ single: () => insert(row) }) }) }) })
+}));
 
-const { importWorkers } = await import("./actions");
+const { addWorker, importWorkers } = await import("./actions");
 
 const ORG = "aaaaaaaa-0000-4000-8000-000000000001";
 const row = { code: "W-1", full_name: "Ravi", trade: "mason", pay_type: "daily" };
+
+describe("addWorker", () => {
+  const WORKER = "77000000-0000-4000-8000-000000000001";
+  const form = (over: Record<string, string> = {}) => {
+    const f = new FormData();
+    for (const [k, v] of Object.entries({ org_id: ORG, full_name: " Ravi ", trade: "mason", pay_type: "daily", phone: "", ...over })) f.set(k, v);
+    return f;
+  };
+  beforeEach(() => insert.mockReset());
+
+  it("sends no code, so the database gives the next one, and opens the new worker", async () => {
+    insert.mockResolvedValue({ data: { id: WORKER }, error: null });
+    await expect(addWorker(form())).rejects.toThrow(`REDIRECT /workers/${WORKER}?org=${ORG}&done=worker_added`);
+    expect(insert).toHaveBeenCalledWith({ org_id: ORG, full_name: "Ravi", trade: "mason", pay_type: "daily", phone: null });
+  });
+
+  it("ignores a code in the form: the code is never typed", async () => {
+    insert.mockResolvedValue({ data: { id: WORKER }, error: null });
+    await expect(addWorker(form({ code: "MINE" }))).rejects.toThrow("REDIRECT /workers/");
+    expect(insert.mock.calls[0]?.[0]).not.toHaveProperty("code");
+  });
+
+  it("goes back to the list with the error when the insert fails", async () => {
+    insert.mockResolvedValue({ data: null, error: { code: "23514" } });
+    await expect(addWorker(form())).rejects.toThrow(`REDIRECT /workers?org=${ORG}&error=worker_invalid`);
+  });
+
+  it("refuses a missing name before calling the database", async () => {
+    await expect(addWorker(form({ full_name: " " }))).rejects.toThrow(`REDIRECT /workers?org=${ORG}&error=worker_invalid`);
+    expect(insert).not.toHaveBeenCalled();
+  });
+});
 
 describe("importWorkers", () => {
   beforeEach(() => rpc.mockReset());

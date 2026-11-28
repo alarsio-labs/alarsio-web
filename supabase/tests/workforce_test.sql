@@ -397,10 +397,10 @@ begin
   -- A mixed file: one new, one existing (update), one invalid pay type, one blank code, one anonymized.
   perform test_as('a0000000-0000-0000-0000-00000000000a');
   r := import_workers('aaaaaaaa-0000-0000-0000-000000000001', $j$[
-    {"code": "W-300", "full_name": "Anil", "trade": "painter", "pay_type": "daily"},
+    {"code": "W-300", "full_name": "Anil", "trade": "painter", "pay_type": "daily", "phone": "9000000300"},
     {"code": "W-002", "full_name": "Sita Devi", "trade": "helper", "pay_type": "hourly"},
-    {"code": "W-301", "full_name": "Bad", "trade": "painter", "pay_type": "monthly"},
-    {"code": "",      "full_name": "Blank", "trade": "painter", "pay_type": "daily"},
+    {"code": "W-301", "full_name": "Bad", "trade": "painter", "pay_type": "monthly", "phone": "9000000301"},
+    {"code": "",      "full_name": "Blank", "trade": "painter", "pay_type": "daily", "phone": "9000000302"},
     {"code": "W-001", "full_name": "Ravi again", "trade": "mason", "pay_type": "daily"}
   ]$j$);
   reset role;
@@ -423,7 +423,7 @@ begin
 
   -- a code used in another org is a separate worker.
   perform test_as('e0000000-0000-0000-0000-00000000000e');
-  r := import_workers('bbbbbbbb-0000-0000-0000-000000000002', '[{"code": "W-300", "full_name": "Anil B", "trade": "painter", "pay_type": "daily"}]');
+  r := import_workers('bbbbbbbb-0000-0000-0000-000000000002', '[{"code": "W-300", "full_name": "Anil B", "trade": "painter", "pay_type": "daily", "phone": "9000000300"}]');
   reset role;
   perform test_assert(r -> 0 ->> 'result' = 'created', 'same code in another org is created separately');
   perform test_assert((select full_name from public.workers where code = 'W-300' and org_id = 'aaaaaaaa-0000-0000-0000-000000000001') = 'Anil', 'the org A worker was not touched');

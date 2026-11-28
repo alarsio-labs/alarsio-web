@@ -2,6 +2,7 @@ import { strFromU8, unzipSync } from "fflate";
 import { describe, expect, it } from "vitest";
 import { EXPORT_PAGE_SIZE, exportFileName, runExport, type PageQuery, type PageReader } from "./run";
 import { BOM } from "./csv";
+import { READING_NOTES } from "./guide";
 import { EXPORT_TABLES } from "./tables";
 
 const ORG = "aaaaaaaa-0000-0000-0000-000000000001";
@@ -47,7 +48,7 @@ describe("runExport", () => {
     const files = unzip(await runExport({ orgId: ORG, userId: OWNER, at: AT, read: reader }));
 
     expect(Object.keys(files).sort()).toEqual(
-      [...EXPORT_TABLES.map((t) => `${t.table}.csv`), "manifest.csv"].sort()
+      [...EXPORT_TABLES.map((t) => `${t.table}.csv`), "manifest.csv", "README.txt"].sort()
     );
     const workers = lines(files["workers.csv"]);
     expect(workers[0]).toBe(EXPORT_TABLES.find((t) => t.table === "workers")?.columns.join(","));
@@ -136,19 +137,32 @@ describe("runExport", () => {
     expect(audit).toContain("kept");
   });
 
-  it("writes the manifest: table, file, rows, when, who, and a note where rows are held back", async () => {
+  it("writes the manifest: table, file, what it holds, rows, when, who, and a note where rows are held back", async () => {
     const { reader } = fakeReader({ workers: [{ id: "w1", org_id: ORG }] });
     const files = unzip(await runExport({ orgId: ORG, userId: OWNER, at: AT, read: reader }));
     const manifest = lines(files["manifest.csv"]);
-    expect(manifest[0]).toBe("table,file,rows,exported_at,exported_by,note");
+    expect(manifest[0]).toBe("table,file,what_it_holds,rows,exported_at,exported_by,note");
     expect(manifest).toHaveLength(EXPORT_TABLES.length + 1);
-    expect(manifest).toContain(`workers,workers.csv,1,2026-10-19T08:30:00.000Z,${OWNER},`);
+    const about = EXPORT_TABLES.find((t) => t.table === "workers")?.about ?? "";
+    expect(about).not.toBe("");
+    const row = manifest.find((l) => l.startsWith("workers,"));
+    expect(row).toContain(`workers.csv,`);
+    expect(row).toContain(`,1,2026-10-19T08:30:00.000Z,${OWNER},`);
     const note = (t: string) => manifest.find((l) => l.startsWith(t + ","));
     expect(note("profiles")).toMatch(/your own profile/);
     expect(note("daily_reports")).toMatch(/drafts/);
     expect(note("report_photos")).toMatch(/files are not included/);
     expect(note("invites")).toMatch(/token/);
     expect(note("audit_log")).toMatch(/token/);
+  });
+
+  it("adds a README.txt that explains how to read the files and lists every file", async () => {
+    const { reader } = fakeReader({});
+    const files = unzip(await runExport({ orgId: ORG, userId: OWNER, at: AT, read: reader }));
+    const readme = files["README.txt"] ?? "";
+    expect(readme).toContain("Exported on 2026-10-19");
+    for (const note of READING_NOTES) expect(readme).toContain(note);
+    for (const t of EXPORT_TABLES) expect(readme).toContain(`${t.table}.csv - ${t.about}`);
   });
 
   it("fails as a whole when any page fails, so no partial file is made", async () => {

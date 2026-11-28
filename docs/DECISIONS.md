@@ -2314,3 +2314,30 @@ and accountants to the web, so the phone is for supervisors, who hand the money 
 **Consequence.** The phone screen of #239 (PR 2) can be built for the supervisor. It shows no rate and no pay: the
 balance line that needs `worker_effective_rates` stays with the owner and accountant on the web. Decided by Nikhil on
 2026-11-27 over the web-only option; Ishant (wages) and Manish (roster) to confirm in review.
+
+## ADR-055 · A new worker gets the next code automatically: a trigger fills `W001`, `W002`, …
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (bug triage 2026-11; amends ADR-011 W4; owner: Ishant, to confirm in review)
+
+**Context.** ADR-011 W4 made the worker code required and typed by the contractor. In practice people invent codes, mistype them and hit `worker_code_taken`, and the register has no pattern. The code still cannot change after creation.
+
+**Decision.**
+- C1. **Trigger `workers_set_code`** (BEFORE INSERT on `workers`) fills `code` only when it is null: `W` + at least 3 digits, one more than the highest `W<number>` in that organisation (`W001`, `W002`, … `W1000`). Other codes (`MASON1`, an imported `W-001`) are ignored. Case does not matter when counting.
+- C2. **A typed code is kept.** Import still takes codes from the file and stays keyed on the code. A blank code is not "no code": the table check still refuses it, so `import_workers` still rejects a blank cell. An import row with no `code` key at all now creates an auto-coded worker.
+- C3. **Race-free:** a per-organisation advisory lock makes two simultaneous inserts take different numbers. The unique index on `(org_id, lower(code))` stays the last guard.
+- C4. **Security invoker.** It reads `workers` as the caller. Only the owner and project manager can insert, and they can read the whole roster. No new column, table, role, grant or policy.
+- C5. **Web:** the Add worker form has no code field, and `addWorker` sends none.
+
+**Consequence.** No more typed codes or `worker_code_taken` from the form. The list still sorts the code as text (`W10` before `W2`); that is a separate fix. Another open PR may also take ADR-055: renumber at merge.
+
+## ADR-056 · A worker needs a phone: required in the forms and for a new import row, not by a table check
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (bug triage 2026-11; amends ADR-011 W5; owner: Ishant, to confirm in review)
+
+**Context.** ADR-011 W5 made the phone optional. A contractor needs it to reach a worker, and the accountant reads it to pay them. `workers.phone` must stay nullable: `anonymize_worker` sets it to null, and old workers have none. A table check would also break 15 other SQL suites that insert workers without a phone.
+
+**Decision.**
+- P1. **The Add worker and Edit worker forms require a phone** (same format check as before). `workerFields` refuses a blank one, so both actions refuse it.
+- P2. **`import_workers` rejects a row that would create a worker with no phone** (`phone_required`), including a row with no code key. A row for an existing worker is unchanged: a blank phone keeps the stored one (W12), and an anonymized worker is skipped.
+- P3. **No table check, no backfill.** Old workers with no phone keep working. The worker list shows "Missing" for an active one, and the edit form asks for the phone the next time someone saves it.
+- P4. **Not enforced against a direct SQL insert.** The only writers are the web action and `import_workers`. If a third writer appears, add a `NOT VALID` check `phone is not null or anonymized_at is not null` then.
+
+**Consequence.** Import files for new workers need a Phone column. The pre-existing import tests now give new rows a phone. ADR-055 (auto worker code, #261) is a separate change.

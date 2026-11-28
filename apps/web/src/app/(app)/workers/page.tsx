@@ -16,12 +16,25 @@ import { addWorker } from "./actions";
 
 const PAGE = 200;
 
-type WorkerRow = { id: string; code: string; full_name: string; trade: string; pay_type: string; status: string; anonymized_at: string | null };
+type WorkerRow = {
+  id: string;
+  code: string;
+  full_name: string;
+  trade: string;
+  pay_type: string;
+  status: string;
+  phone: string | null;
+  anonymized_at: string | null;
+};
 
 function isWorkerRow(r: unknown): r is WorkerRow {
   if (typeof r !== "object" || r === null) return false;
   const o = r as Record<string, unknown>;
-  return ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string") && (o.anonymized_at === null || typeof o.anonymized_at === "string");
+  return (
+    ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string") &&
+    (o.phone === null || typeof o.phone === "string") &&
+    (o.anonymized_at === null || typeof o.anonymized_at === "string")
+  );
 }
 
 export const metadata = { title: "Workers" };
@@ -47,7 +60,7 @@ export default async function WorkersPage({
 
   const workerList = supabase
     .from("workers")
-    .select("id, code, full_name, trade, pay_type, status, anonymized_at", { count: "exact" });
+    .select("id, code, full_name, trade, pay_type, status, phone, anonymized_at", { count: "exact" });
 
   // Owners and project managers manage workers (can_manage_sites); an
   // accountant reads them to pay them (can_view_wages, ADR-011 W10).
@@ -83,9 +96,6 @@ export default async function WorkersPage({
           <Card title="Add a worker" id="wk-add">
             <form action={addWorker} className="space-y-3">
               <input type="hidden" name="org_id" value={org} />
-              <Field label="Worker code">
-                <input name="code" required maxLength={40} className={inputClass} />
-              </Field>
               <Field label="Name">
                 <input name="full_name" required maxLength={120} className={inputClass} />
               </Field>
@@ -98,8 +108,8 @@ export default async function WorkersPage({
                   <option value="hourly">Hourly</option>
                 </select>
               </Field>
-              <Field label="Phone (optional)">
-                <input name="phone" type="tel" maxLength={20} className={inputClass} />
+              <Field label="Phone">
+                <input name="phone" type="tel" required maxLength={20} placeholder="98765 43210" className={inputClass} />
               </Field>
               <button type="submit" className={buttonClass}>Add worker</button>
             </form>
@@ -130,6 +140,8 @@ export default async function WorkersPage({
             { key: "name", label: "Name", render: (w) => <Link href={`/workers/${w.id}?org=${org}`} className="underline">{w.full_name}</Link> },
             { key: "trade", label: "Trade", render: (w) => w.trade },
             { key: "pay", label: "Pay", render: (w) => (w.pay_type === "hourly" ? "Hourly" : "Daily") },
+            // An old worker with no phone is asked for one on the next edit; an anonymized one never has it.
+            { key: "phone", label: "Phone", render: (w) => w.phone ?? (w.status === "active" ? <StatusTag tone="attention">Missing</StatusTag> : "—") },
             { key: "status", label: "Status", render: (w) => <StatusTag tone={w.status === "active" && !w.anonymized_at ? "ink" : "muted"}>{w.anonymized_at ? "Removed" : w.status === "active" ? "Active" : "Inactive"}</StatusTag> }
           ]}
         />

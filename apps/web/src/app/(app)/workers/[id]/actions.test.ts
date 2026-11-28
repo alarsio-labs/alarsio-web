@@ -37,7 +37,7 @@ const fd = (o: Record<string, string>) => {
   for (const [k, v] of Object.entries({ org_id: ORG, worker_id: W, ...o })) f.set(k, v);
   return f;
 };
-const worker = { full_name: "Ravi", trade: "mason", pay_type: "daily", phone: "", status: "active" };
+const worker = { full_name: "Ravi", trade: "mason", pay_type: "daily", phone: "98765 43210", status: "active" };
 
 async function outcome(p: Promise<unknown>): Promise<string> {
   try {
@@ -71,6 +71,7 @@ describe("saveWorker", () => {
   it("refuses bad input without calling the database", async () => {
     expect(await outcome(saveWorker(fd({ ...worker, pay_type: "monthly" })))).toBe("error=worker_invalid");
     expect(await outcome(saveWorker(fd({ ...worker, full_name: "x".repeat(121) })))).toBe("error=worker_invalid");
+    expect(await outcome(saveWorker(fd({ ...worker, phone: "" })))).toBe("error=worker_invalid");
     expect(calls).toHaveLength(0);
   });
 
