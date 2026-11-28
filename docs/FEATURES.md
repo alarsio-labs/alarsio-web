@@ -360,6 +360,15 @@ See `docs/research/powerplay-2026-11.md`.*
 
 ---
 
+## Worker advances (proposed, not a module)
+
+*Advances are #239 (ADR-054) and are not one of the nine modules until the team agrees. The view
+`worker_advance_lines` (migration `20261128110000_worker_advance_lines.sql`, `worker_advances_test.sql`) gives other
+modules one row per advance or reversal, so Wage Summaries and the phone mirror read a published view and not the
+ledger table. It adds no row and ticks none.*
+
+---
+
 ## Explicitly NOT in the MVP
 
 Do not build these. See `docs/PRD.md` §6.7 for the full list and reasoning.
