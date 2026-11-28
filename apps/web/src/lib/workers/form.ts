@@ -16,7 +16,7 @@ export function formText(form: FormData, name: string, max: number): string | nu
   return text.length > max ? null : text;
 }
 
-export type WorkerInput = { full_name: string; trade: string; pay_type: PayType; phone: string | null };
+export type WorkerInput = { full_name: string; trade: string; pay_type: PayType; phone: string };
 
 /** The editable worker fields, or null when any is missing, too long or not allowed. */
 export function workerFields(form: FormData): WorkerInput | null {
@@ -24,10 +24,10 @@ export function workerFields(form: FormData): WorkerInput | null {
   const trade = formText(form, "trade", LIMITS.trade);
   const pay = formText(form, "pay_type", 10);
   const phone = formText(form, "phone", LIMITS.phone);
-  if (!full_name || !trade || phone === null || !pay) return null;
+  if (!full_name || !trade || !phone || !pay) return null;
   const pay_type = pay.toLowerCase();
   if (!(PAY_TYPES as readonly string[]).includes(pay_type)) return null;
-  return { full_name, trade, pay_type: pay_type as PayType, phone: phone === "" ? null : phone };
+  return { full_name, trade, pay_type: pay_type as PayType, phone };
 }
 
 /** Maps a PostgREST error code to one of our message codes. */

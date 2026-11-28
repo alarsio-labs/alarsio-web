@@ -104,6 +104,8 @@ will read once #71 stops reading `sites` directly. No row is ticked for it: it a
 
 *A new worker now gets the next code, `W001`, `W002`, … (ADR-055, #261): the Add worker form has no code field, and a trigger fills it. Import still takes codes from the file. No row changes: not run against the team project (#58).*
 
+*A phone is now required (ADR-056, #262): the Add and Edit forms ask for it, and `import_workers` refuses a new worker without one. Old workers with no phone are flagged "Missing" in the list. No row changes: not run against the team project (#58).*
+
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
 - [x] Outside the geofence asks for a reason, never silently accepts
