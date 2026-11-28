@@ -13,6 +13,7 @@ export type ScreenKey =
   | 'materials_sites'
   | 'site_materials'
   | 'site_advances'
+  | 'site_cash'
   | 'help';
 
 export const MAX_SITE_NAME = 22;
