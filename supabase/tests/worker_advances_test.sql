@@ -217,6 +217,8 @@ begin
   perform test_assert(r like '23514:%', 'a reversal cannot be reversed: ' || r);
   r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000024', '77000000-0000-0000-0000-000000000002', current_date - 1, 50000, null, 'f3000000-0000-0000-0000-000000000001');
   perform test_assert(r like '23514:%', 'a reversal must name the same worker: ' || r);
+  r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000026', w, current_date - 2, 50000, null, 'f3000000-0000-0000-0000-000000000001');
+  perform test_assert(r like '23514:%', 'a reversal must keep the advance''s day: ' || r);
   r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000025', w, current_date - 1, 50000, null, 'f3000000-0000-0000-0000-0000000000ff');
   perform test_assert(r like '23514:%', 'a reversal of an unknown advance is refused: ' || r);
   perform test_assert(public.wa_count(w) = 5, 'the refused reversals wrote nothing');
