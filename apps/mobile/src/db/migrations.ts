@@ -211,4 +211,40 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       update mirror_state set month_refreshed_at = refreshed_at;
     `,
   },
+  {
+    // Issue #239, ADR-054. The outbox may now hold worker_advances. SQLite cannot change a
+    // CHECK, so the table is rebuilt with the new list and every row, id and send order kept.
+    version: 11,
+    name: 'outbox worker advances',
+    sql: `
+      create table outbox_new (
+        seq             integer primary key autoincrement,
+        entity          text not null check (entity in (
+                          'site_visits', 'attendance_days', 'attendance_entries',
+                          'attendance_corrections', 'daily_reports', 'report_photos',
+                          'material_transactions', 'worker_advances')),
+        record_id       text not null check (length(record_id) = 36),
+        payload         text not null check (json_valid(payload) and json_type(payload) = 'object'),
+        status          text not null default 'pending' check (status in (
+                          'pending', 'syncing', 'synced', 'failed', 'conflict', 'rejected')),
+        reason          text,
+        attempts        integer not null default 0 check (attempts >= 0),
+        next_attempt_at text,
+        dirty           integer not null default 0 check (dirty in (0, 1)),
+        created_at      text not null,
+        updated_at      text not null,
+        author_id       text check (author_id is null or length(author_id) = 36),
+        unique (entity, record_id)
+      );
+      insert into outbox_new (seq, entity, record_id, payload, status, reason, attempts,
+                              next_attempt_at, dirty, created_at, updated_at, author_id)
+        select seq, entity, record_id, payload, status, reason, attempts,
+               next_attempt_at, dirty, created_at, updated_at, author_id
+          from outbox;
+      drop table outbox;
+      alter table outbox_new rename to outbox;
+      create index outbox_status_seq on outbox (status, seq);
+      create index outbox_author_status_seq on outbox (author_id, status, seq);
+    `,
+  },
 ];
