@@ -64,9 +64,10 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
     columns: 'entry_id, site_id, worker_id, work_date, status, overtime_hours, day_status',
     key: 'entry_id',
   },
-  // Advances and their cancellations (ADR-054), under RLS: owner and accountant see all, a supervisor their sites.
+  // Advances and their cancellations (ADR-054) through the published view, never the table: owner and
+  // accountant see all, a supervisor their sites.
   advances: {
-    table: 'worker_advances',
+    table: 'worker_advance_lines',
     columns: 'id, site_id, worker_id, paid_on, amount_paise, note, reverses_id',
     key: 'id',
   },

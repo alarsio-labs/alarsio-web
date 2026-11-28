@@ -87,7 +87,7 @@ export default async function WagePeriodPage({
     readSummaryRows(supabase, periodId),
     locked ? supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId }) : Promise.resolve({ data: null }),
     supabase
-      .from("worker_advances")
+      .from("worker_advance_lines")
       .select("id, worker_id, paid_on, amount_paise, note, reverses_id")
       .eq("org_id", org)
       .gte("paid_on", period.start_date)
