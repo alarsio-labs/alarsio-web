@@ -2357,3 +2357,20 @@ balance line that needs `worker_effective_rates` stays with the owner and accoun
 - C5. **The form refills after a pull only while it is untouched.** A pull never overwrites unsaved typing.
 
 **Consequences.** A web edit shows on the phone after the next pull (about 5 minutes, or at once on pull-to-refresh, #266). Costs: up to about 8 KB per report, 15 days per site, on every pull (full refresh, ADR-023). Not covered: a draft from another device (the view holds none), another author's report for the same site and day, and a phone that never pulled before saving, which can still end as `duplicate`. PR 1 changes the view only; the phone reads nothing new until PR 2, and PR 2 must go out after PR 1 is on the server.
+
+
+## ADR-058 · Site cash book: an append-only ledger of cash in and out, written through one function
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Nikhil (spec #258, PR 1 of Phase 4 of #234; recommendations taken as the spec's own, to confirm in review)
+
+**Context.** A supervisor's paper book also tracks the cash box at a site: money received, money spent. Nothing in the MVP records it. #258 asks for a small module like advances (ADR-054), proposed and not a tenth module until the team agrees.
+
+**Decision.**
+- K1. **Table `cash_entries`**, append-only (rule 5): `block_cash_entry_mutation` refuses update, delete and truncate, even for the table owner. Whole paise in a `bigint`, above 0 and at most 10 lakh rupees. Audit attached.
+- K2. **The direction comes from the category**, never a column: `received` is cash in; `wages`, `material`, `transport`, `food` and `other` are cash out. The list is fixed by a check.
+- K3. **A mistake is a reversal row** with `reverses_id`. A composite foreign key makes it repeat the entry's site, day, category and amount, so a month nets out exactly. A reversal cannot itself be reversed, and an entry is reversed once (a unique key).
+- K4. **Only `apply_cash_entry` writes** (`SECURITY DEFINER`, same shape as `apply_worker_advance`). No client has an insert grant. `sync_cash_entries` is a thin `SECURITY INVOKER` handler over it, and `cash_entries` joins sync_push's list.
+- K5. **Who:** `can_view_wages(org)` (owner, accountant) reads and records for the whole organisation. A supervisor (`can_record_on_site(site)`) does so for their assigned sites. A project manager does neither. A missing site, another organisation's and any other role all get the same 42501.
+- K6. **Rules at write time:** a date is at most tomorrow in India (as ADR-017); an archived site takes no entry (`55000`, so `rejected / invalid_state`); a reversal of an entry at another site, with another amount, category or day, or one already reversed, is refused. A replay of the author's own record is answered "done" first.
+- K7. **View `cash_book_totals`** (`security_invoker`): per site and month, cash in, cash out and advances paid, each net of reversals. Advances are read through `worker_advance_lines`, never the ledger (rule 4). The box balance is in minus out minus advances, and is never stored.
+
+**Consequences.** The phone screen (PR 2) can be built for the supervisor. An advance counts as cash out automatically, so nobody types it twice. Not here: an opening balance, bank or UPI, receipts, approval of spending, export screens, WhatsApp. The export lists `cash_entries` in paise. PR 2 must not merge before this one is on the server, and neither merges until the team agrees to a tenth module.
