@@ -2314,3 +2314,16 @@ and accountants to the web, so the phone is for supervisors, who hand the money 
 **Consequence.** The phone screen of #239 (PR 2) can be built for the supervisor. It shows no rate and no pay: the
 balance line that needs `worker_effective_rates` stays with the owner and accountant on the web. Decided by Nikhil on
 2026-11-27 over the web-only option; Ishant (wages) and Manish (roster) to confirm in review.
+
+## ADR-056 · A worker needs a phone: required in the forms and for a new import row, not by a table check
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (bug triage 2026-11; amends ADR-011 W5; owner: Ishant, to confirm in review)
+
+**Context.** ADR-011 W5 made the phone optional. A contractor needs it to reach a worker, and the accountant reads it to pay them. `workers.phone` must stay nullable: `anonymize_worker` sets it to null, and old workers have none. A table check would also break 15 other SQL suites that insert workers without a phone.
+
+**Decision.**
+- P1. **The Add worker and Edit worker forms require a phone** (same format check as before). `workerFields` refuses a blank one, so both actions refuse it.
+- P2. **`import_workers` rejects a row that would create a worker with no phone** (`phone_required`), including a row with no code key. A row for an existing worker is unchanged: a blank phone keeps the stored one (W12), and an anonymized worker is skipped.
+- P3. **No table check, no backfill.** Old workers with no phone keep working. The worker list shows "Missing" for an active one, and the edit form asks for the phone the next time someone saves it.
+- P4. **Not enforced against a direct SQL insert.** The only writers are the web action and `import_workers`. If a third writer appears, add a `NOT VALID` check `phone is not null or anonymized_at is not null` then.
+
+**Consequence.** Import files for new workers need a Phone column. The pre-existing import tests now give new rows a phone. ADR-055 (auto worker code, PR #261) is a separate change; its number is free on `main` until that PR merges.
