@@ -7,6 +7,7 @@ import { safeNextPath } from "@/lib/safe-redirect";
 import { publicEnv } from "@/lib/env";
 import { checkNewPassword } from "@/lib/auth/password";
 import { rememberInvite } from "@/lib/auth/pending-invite";
+import { rememberSignUpEmail } from "@/lib/auth/pending-email";
 import type { MessageCode } from "@/lib/messages";
 
 function text(form: FormData, name: string): string {
@@ -79,6 +80,7 @@ export async function signUp(form: FormData) {
   // Same outcome whether or not the email is already registered, so the form
   // does not reveal who has an account.
   if (error && error.code !== "user_already_exists") back("/sign-up", signUpProblem(error), next);
+  await rememberSignUpEmail(email);
   // Keep `next` (an invite, for example) so a "send again" from the next page lands there too.
   redirect(next === "/dashboard" ? "/check-email" : `/check-email?next=${encodeURIComponent(next)}`);
 }
