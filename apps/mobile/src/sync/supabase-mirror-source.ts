@@ -74,7 +74,8 @@ const SOURCES: Record<MirrorKind, { table: string; columns: string; key: string 
   // Only the columns the phone shows; the author's own rows only (filtered below, RLS beneath).
   report_status: {
     table: 'daily_report_status',
-    columns: 'id, site_id, report_date, status, review_note, reviewed_at',
+    columns:
+      'id, site_id, report_date, status, review_note, reviewed_at, headcount, blockers, serious_blocker, safety_incident, work_done, next_day_plan',
     key: 'id',
   },
 };

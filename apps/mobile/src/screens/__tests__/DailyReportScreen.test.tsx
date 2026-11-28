@@ -248,6 +248,76 @@ describe('DailyReportScreen (#81)', () => {
     });
   });
 
+  // #267, ADR-057: a report only the server holds reaches the phone through the mirror.
+  describe('a report from the server (#267)', () => {
+    const SERVER_ID = 'd9000000-0000-4000-8000-000000000001';
+    const pulled = (status: 'submitted' | 'reviewed' | 'rejected') =>
+      db.run(
+        `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at, headcount,
+           work_done, blockers, serious_blocker, safety_incident, next_day_plan)
+         values (?, ?, ?, ?, 'Add photos of the slab', ?, 20, 'Edited on the web', 'Cement late', 0, 0, 'Level 3')`,
+        [SERVER_ID, SITE, TODAY, status, status === 'submitted' ? null : NOW.toISOString()],
+      );
+
+    it('fills an untouched form after a pull', async () => {
+      await seedSite(db, USER_A);
+      await show();
+      await screen.findByLabelText('Headcount');
+      await pulled('submitted');
+
+      await screen.findByText('Submitted');
+      expect(screen.getByLabelText('Headcount').props.value).toBe('20');
+      expect(screen.getByLabelText('Work done').props.value).toBe('Edited on the web');
+      expect(screen.getByLabelText('Plan for tomorrow').props.value).toBe('Level 3');
+    });
+
+    it('never overwrites what is being typed', async () => {
+      await seedSite(db, USER_A);
+      await show();
+      await type('Work done', 'Half a sentence');
+      await pulled('submitted');
+
+      await screen.findByText('Submitted');
+      expect(screen.getByLabelText('Work done').props.value).toBe('Half a sentence');
+      expect(screen.getByLabelText('Headcount').props.value).toBe('');
+    });
+
+    it('asks for a reason, and sends the change under the server id', async () => {
+      await seedSite(db, USER_A);
+      await pulled('submitted');
+      await show();
+      await screen.findByText('Submitted');
+
+      await type('Headcount', '22');
+      await type('Reason for the change', 'Two more came');
+      await press('Send changes');
+
+      await screen.findByText('Saved on this phone, waiting to send');
+      const [row] = await outboxRows(db);
+      expect(row).toMatchObject({ record_id: SERVER_ID, status: 'pending' });
+      expect(JSON.parse(row!.payload)).toMatchObject({ headcount: 22, work_done: 'Edited on the web', edit_reason: 'Two more came' });
+    });
+
+    it('says a manager sent it back, with the note, and can be sent again', async () => {
+      await seedSite(db, USER_A);
+      await pulled('rejected');
+      await show();
+
+      await screen.findByText(/Add photos of the slab/);
+      expect(screen.getByRole('button', { name: 'Send changes' })).toBeTruthy();
+    });
+
+    it('is read-only once reviewed', async () => {
+      await seedSite(db, USER_A);
+      await pulled('reviewed');
+      await show();
+
+      await screen.findByText(/A manager already reviewed this report/);
+      expect(screen.queryByRole('button', { name: 'Send changes' })).toBeNull();
+      expect(screen.getByLabelText('Work done').props.editable).toBe(false);
+    });
+  });
+
   describe('pull to refresh', () => {
     afterEach(() => setActiveSync(null));
 

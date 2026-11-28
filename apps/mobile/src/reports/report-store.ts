@@ -2,7 +2,8 @@
 // Reporting (Anuradha). Issue #81, ADR-036. The outbox is the only place a report
 // lives on the phone (D1): a draft and a submit are both saves of one record per
 // author, site and day, and the screen reads it back from there. Nothing is sent
-// from here; the sync engine does that.
+// from here; the sync engine does that. Where the outbox holds no record, findReport shows
+// the server's copy from the mirror (#267, ADR-057).
 
 import type { DeviceDb } from '../db/device-db';
 import type { OutboxStatus } from '../sync/entities';
@@ -19,7 +20,7 @@ import {
   type ReportServerView,
   sentBackNote,
 } from './report';
-import { readReportStatuses } from '../sync/pull';
+import { readReportStatus, readReportStatuses, type ReportStatus as MirrorReportStatus } from '../sync/pull';
 
 export interface StoredReport {
   recordId: string;
@@ -67,7 +68,41 @@ async function readReports(db: DeviceDb, userId: string, siteId?: string): Promi
   return reports;
 }
 
-/** This user's report for one site and day, if the phone holds one. */
+/**
+ * The report the server holds, from the mirror (#267, ADR-057), shown as saved on the server.
+ * Null while its content is not known: the server needs a headcount and work done to submit,
+ * so a row without them was pulled before the content columns existed.
+ */
+function fromMirror(s: MirrorReportStatus): StoredReport | null {
+  if (s.headcount === null || s.workDone === null) return null;
+  return {
+    recordId: s.id,
+    report: {
+      // Not mirrored and not needed: a save builds the report from the site, not from this one.
+      orgId: '',
+      siteId: s.siteId,
+      reportDate: s.reportDate,
+      status: 'submitted',
+      headcount: s.headcount,
+      workDone: s.workDone,
+      blockers: s.blockers,
+      seriousBlocker: s.seriousBlocker,
+      safetyIncident: s.safetyIncident,
+      nextDayPlan: s.nextDayPlan,
+      editReason: null,
+    },
+    status: s.status === 'reviewed' ? 'conflict' : 'synced',
+    reason: s.status === 'reviewed' ? 'reviewed' : null,
+    // Older than any review, so a send-back (`rejected`) still shows.
+    updatedAt: '1970-01-01T00:00:00.000Z',
+    server: { status: s.status, reviewNote: s.reviewNote, reviewedAt: s.reviewedAt },
+  };
+}
+
+/**
+ * This user's report for one site and day: the phone's own record if it holds one, else the
+ * server's copy from the mirror (ADR-057 C3).
+ */
 export async function findReport(
   db: DeviceDb,
   userId: string,
@@ -75,7 +110,10 @@ export async function findReport(
   reportDate: string,
 ): Promise<StoredReport | null> {
   const reports = await readReports(db, userId, siteId);
-  return reports.find((r) => r.report.reportDate === reportDate) ?? null;
+  const own = reports.find((r) => r.report.reportDate === reportDate);
+  if (own || !userId) return own ?? null;
+  const mirrored = await readReportStatus(db, userId, siteId, reportDate);
+  return mirrored ? fromMirror(mirrored) : null;
 }
 
 /** This user's reports for one site, newest saved first. */

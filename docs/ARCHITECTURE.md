@@ -119,6 +119,7 @@ balances, today's roster, the last 7 days of approved attendance days, this and 
 replaced whole on each pull and readable only by that user (ADR-023).
 The sites mirror carries each site's `org_id`, which every Attendance payload names (ADR-034).
 The approved-days mirror reads Attendance's `approved_attendance_days` and tells the register a day is approved before any edit (ADR-049).
+The report-status mirror holds the author's own reports of the last 14 days, with their text (ADR-051, ADR-057): where the outbox holds no record for a site and day, the phone shows this copy, and a save reuses its id. A row with no content is "not known", never an empty report.
 The advances mirror holds this and last month's rows of `worker_advances`, read under RLS, so an advance recorded on the web shows on the phone (ADR-054). This reads a table, not a view, and breaks rule 4; the view `worker_advance_lines` (PR #260) is meant to replace it. It is optional like the month mirror: if it fails, the old rows stay.
 On the phone, one module reads another's outbox records only through a function the owner publishes in its own
 folder: Daily Reporting pre-fills a report's headcount through Attendance's `readHeadcount` (ADR-038).

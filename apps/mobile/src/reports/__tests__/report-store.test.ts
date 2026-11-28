@@ -279,4 +279,76 @@ describe('report store (#81)', () => {
       expect(await listUnfinished(db, USER_A, TODAY)).toEqual([]);
     });
   });
+
+  // #267, ADR-057: the server's copy from the mirror, where the outbox holds none.
+  describe('a report only the server holds (#267)', () => {
+    const SERVER_ID = 'd9000000-0000-4000-8000-000000000001';
+    const mirrorHas = async (
+      status: string,
+      over: { headcount?: number | null; workDone?: string | null; user?: string } = {},
+    ) => {
+      await db.run(`insert or replace into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [over.user ?? USER_A, at(7200).toISOString()]);
+      await db.run(
+        `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at, headcount,
+           work_done, blockers, serious_blocker, safety_incident, next_day_plan)
+         values (?, ?, ?, ?, 'Add photos', ?, ?, ?, 'Cement late', 1, 0, 'Level 3')`,
+        [SERVER_ID, SITE_1.id, TODAY, status, status === 'submitted' ? null : at(3600).toISOString(), over.headcount === undefined ? 20 : over.headcount, over.workDone === undefined ? 'Slab done' : over.workDone],
+      );
+    };
+
+    it('shows the server copy as submitted, under the server id', async () => {
+      await mirrorHas('submitted');
+      const stored = await findReport(db, USER_A, SITE_1.id, TODAY);
+      expect(stored).toMatchObject({ recordId: SERVER_ID, status: 'synced', reason: null });
+      expect(stored?.report).toMatchObject({
+        status: 'submitted',
+        headcount: 20,
+        workDone: 'Slab done',
+        blockers: 'Cement late',
+        seriousBlocker: true,
+        safetyIncident: false,
+        nextDayPlan: 'Level 3',
+      });
+      expect(await listUnfinished(db, USER_A, '2026-10-21')).toEqual([]);
+    });
+
+    it("lets the phone's own record win", async () => {
+      await mirrorHas('submitted');
+      await saveReport(db, USER_A, SITE_1, TODAY, fields({ workDone: 'Typed on the phone' }), 'submitted', { reason: 'Edit' }, T);
+      const stored = await findReport(db, USER_A, SITE_1.id, TODAY);
+      expect(stored?.status).toBe('pending');
+      expect(stored?.report.workDone).toBe('Typed on the phone');
+    });
+
+    it('is saved under the server id, and needs a reason', async () => {
+      await mirrorHas('submitted');
+      await expect(saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', {}, T)).rejects.toMatchObject({ code: 'reason_required' });
+
+      const id = await saveReport(db, USER_A, SITE_1, TODAY, fields({ workDone: 'Edited' }), 'submitted', { reason: 'Fixed a typo' }, T);
+      expect(id).toBe(SERVER_ID);
+      expect((await outboxRows(db)).map((r) => r.record_id)).toEqual([SERVER_ID]);
+    });
+
+    it('can be sent again with a reason once a manager sent it back', async () => {
+      await mirrorHas('rejected');
+      const stored = await findReport(db, USER_A, SITE_1.id, TODAY);
+      expect(sentBackNote(stored!)).toBe('Add photos');
+      expect(await saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', { reason: 'Added photos' }, T)).toBe(SERVER_ID);
+    });
+
+    it('is read-only once reviewed', async () => {
+      await mirrorHas('reviewed');
+      await expect(saveReport(db, USER_A, SITE_1, TODAY, fields(), 'submitted', { reason: 'Late fix' }, T)).rejects.toMatchObject({ code: 'reviewed' });
+      expect(await outboxRows(db)).toEqual([]);
+    });
+
+    it('is not shown while its content is not known, or from another user\'s mirror', async () => {
+      await mirrorHas('submitted', { headcount: null, workDone: null });
+      expect(await findReport(db, USER_A, SITE_1.id, TODAY)).toBeNull();
+
+      await db.run('delete from mirror_report_status');
+      await mirrorHas('submitted', { user: USER_B });
+      expect(await findReport(db, USER_A, SITE_1.id, TODAY)).toBeNull();
+    });
+  });
 });

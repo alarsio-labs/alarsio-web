@@ -93,6 +93,12 @@ const reportStatus = (n: number, siteId = SITE_1, reportDate = '2026-10-20', sta
   status,
   review_note: status === 'rejected' ? note : null,
   reviewed_at: status === 'submitted' ? null : '2026-10-20T13:30:00.654321+00:00',
+  headcount: 12,
+  work_done: 'Slab poured on level 2',
+  blockers: 'Cement late',
+  serious_blocker: false,
+  safety_incident: true,
+  next_day_plan: 'Shuttering on level 3',
 });
 
 /**
@@ -750,6 +756,13 @@ describe('pull (#49)', () => {
         { review_note: 42 },
         { reviewed_at: 'yesterday' },
         { site_id: 'short' },
+        { headcount: '12' },
+        { headcount: 1.5 },
+        { work_done: 5 },
+        { blockers: false },
+        { next_day_plan: 7 },
+        { serious_blocker: null },
+        { safety_incident: 'yes' },
       ]) {
         expect(await pullReports([{ ...reportStatus(2), ...bad }])).toEqual({ kind: 'failed', reason: 'bad_row:report_status' });
       }
@@ -797,8 +810,48 @@ describe('pull (#49)', () => {
         status: 'rejected',
         reviewNote: 'Add photos of the slab',
         reviewedAt: '2026-10-20T13:30:00.654321+00:00',
+        headcount: 12,
+        workDone: 'Slab poured on level 2',
+        blockers: 'Cement late',
+        nextDayPlan: 'Shuttering on level 3',
+        seriousBlocker: false,
+        safetyIncident: true,
       });
       expect(await readReportStatus(db, USER_A, SITE_1, '2026-10-19')).toMatchObject({ status: 'submitted', reviewNote: null, reviewedAt: null });
+    });
+
+    it('holds a report with no content as not known, and a blank text as none (#267)', async () => {
+      await pullReports([
+        { ...reportStatus(1), headcount: null, work_done: null, blockers: null, next_day_plan: null },
+        { ...reportStatus(2, SITE_1, '2026-10-19'), blockers: '  ', next_day_plan: '' },
+      ]);
+      expect(await readReportStatus(db, USER_A, SITE_1, DAY)).toMatchObject({ headcount: null, workDone: null, blockers: null, nextDayPlan: null });
+      expect(await readReportStatus(db, USER_A, SITE_1, '2026-10-19')).toMatchObject({ blockers: null, nextDayPlan: null, workDone: 'Slab poured on level 2' });
+    });
+
+    it('keeps a row from before the content columns, with content not known (#267)', async () => {
+      const old = await openTestDeviceDb();
+      await prepareDeviceDb(old, deviceMigrations.slice(0, 12));
+      await old.run(
+        `insert into mirror_sites (id, org_id, name, address, latitude, longitude, geofence_radius_m, status)
+         values (?, ?, 'Kothrud', 'Pune', 18.52, 73.85, 200, 'active')`,
+        [SITE_1, ORG],
+      );
+      await old.run(`insert into mirror_state (id, user_id, refreshed_at) values (1, ?, ?)`, [USER_A, T0.toISOString()]);
+      await old.run(
+        `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at)
+         values (?, ?, ?, 'submitted', null, null)`,
+        [ID('d9000000', 1), SITE_1, DAY],
+      );
+
+      await prepareDeviceDb(old, deviceMigrations);
+
+      expect(await readReportStatus(old, USER_A, SITE_1, DAY)).toMatchObject({
+        status: 'submitted',
+        headcount: null,
+        workDone: null,
+        seriousBlocker: false,
+      });
     });
 
     it('reads a blank note as no note', async () => {
