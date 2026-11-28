@@ -71,6 +71,18 @@ describe("export table list", () => {
     }
   });
 
+  it("gives every table a group and a plain description, with each group kept together", () => {
+    const seen: string[] = [];
+    for (const spec of EXPORT_TABLES) {
+      expect(spec.group.trim(), spec.table).not.toBe("");
+      expect(spec.about.trim(), spec.table).not.toBe("");
+      if (seen.at(-1) !== spec.group) {
+        expect(seen, `${spec.table}: group ${spec.group} is split`).not.toContain(spec.group);
+        seen.push(spec.group);
+      }
+    }
+  });
+
   it("never exports an invite's token hash", () => {
     const invites = EXPORT_TABLES.find((t) => t.table === "invites");
     expect(invites?.columns).not.toContain("token_hash");
