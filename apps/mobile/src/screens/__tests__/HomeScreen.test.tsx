@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native';
 import type { PublicConfigResult } from '../../config/public-config';
 import type { DeviceDb } from '../../db/device-db';
 import type { SyncHandle, SyncStatus } from '../../sync/engine';
+import { requestSyncSoon } from '../../sync/request-sync';
 import { HomeScreen } from '../HomeScreen';
 
 // Waits for the screen to read the phone; with no user there is nothing to find by text.
@@ -106,6 +107,22 @@ describe('HomeScreen', () => {
     expect(startSync).not.toHaveBeenCalled();
     expect(screen.queryByRole('button', { name: 'Sync now' })).toBeNull();
     expect(screen.queryByText(/waiting to send|need attention/)).toBeNull();
+  });
+
+  it('lets a save on another screen ask this engine to sync, and lets go of it on unmount', async () => {
+    const requestSync = jest.fn();
+    const startSync = jest.fn(() => fakeHandle({ requestSync }));
+    const { unmount } = await render(
+      <HomeScreen openDb={openFakeDb} startSync={startSync} userId={USER} config={goodConfig} />,
+    );
+    await settle();
+
+    requestSyncSoon();
+    expect(requestSync).toHaveBeenCalledTimes(1);
+
+    await unmount();
+    requestSyncSoon();
+    expect(requestSync).toHaveBeenCalledTimes(1);
   });
 
   it("drops the previous user's panel as soon as the user changes", async () => {
