@@ -53,6 +53,8 @@ export interface SiteAttendanceScreenProps {
   onOpenWorkers?: () => void;
   /** Opens the advances for this site (#239, ADR-054). No button without it. */
   onOpenAdvances?: () => void;
+  /** Opens the cash book for this site (#258, ADR-058). No button without it. */
+  onOpenCash?: () => void;
 }
 
 type Action = { kind: 'in' } | { kind: 'out'; recordId: string };
@@ -101,6 +103,7 @@ export function SiteAttendanceScreen({
   onOpenRegister,
   onOpenWorkers,
   onOpenAdvances,
+  onOpenCash,
 }: SiteAttendanceScreenProps) {
   const { t } = useTranslation();
   const [db, setDb] = useState<DeviceDb | null>(null);
@@ -408,6 +411,9 @@ export function SiteAttendanceScreen({
 
           {step.kind === 'idle' && site.orgId !== null && onOpenAdvances && (
             <Button label={t('attendance.advances')} kind="secondary" onPress={onOpenAdvances} />
+          )}
+          {step.kind === 'idle' && site.orgId !== null && onOpenCash && (
+            <Button label={t('attendance.cashBook')} kind="secondary" onPress={onOpenCash} />
           )}
           {step.kind === 'idle' && <Button label={t('attendance.shareSlip')} kind="secondary" onPress={() => void shareSlip()} />}
 
