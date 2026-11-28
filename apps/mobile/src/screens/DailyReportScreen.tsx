@@ -148,6 +148,11 @@ export function DailyReportScreen({
         const opening = openingFields(stored?.report ?? null, counted);
         saved.current = JSON.stringify(opening);
         setForm(opening);
+      } else if (stored && JSON.stringify(latest.current.form) === saved.current) {
+        // A pull or another device changed the report and nothing was typed: show it (ADR-057 C5).
+        const opening = openingFields(stored.report, null);
+        saved.current = JSON.stringify(opening);
+        setForm(opening);
       }
       setLoad({ kind: 'ready', site, stored, photoList });
     } catch {

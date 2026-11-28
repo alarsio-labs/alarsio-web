@@ -116,6 +116,13 @@ export interface ReportStatus {
   status: ReportServerStatus;
   reviewNote: string | null;
   reviewedAt: string | null;
+  /** The report's content (#267, ADR-057). Null means "not known", never an empty report. */
+  headcount: number | null;
+  workDone: string | null;
+  blockers: string | null;
+  nextDayPlan: string | null;
+  seriousBlocker: boolean;
+  safetyIncident: boolean;
 }
 
 /** The status of an attendance day (attendance_days). */
@@ -269,9 +276,23 @@ export async function runPull(
       }
       for (const r of reports) {
         await db.run(
-          `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at)
-           values (?, ?, ?, ?, ?, ?)`,
-          [r.id, r.siteId, r.reportDate, r.status, r.reviewNote, r.reviewedAt],
+          `insert into mirror_report_status (id, site_id, report_date, status, review_note, reviewed_at,
+             headcount, work_done, blockers, serious_blocker, safety_incident, next_day_plan)
+           values (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`,
+          [
+            r.id,
+            r.siteId,
+            r.reportDate,
+            r.status,
+            r.reviewNote,
+            r.reviewedAt,
+            r.headcount,
+            r.workDone,
+            r.blockers,
+            r.seriousBlocker ? 1 : 0,
+            r.safetyIncident ? 1 : 0,
+            r.nextDayPlan,
+          ],
         );
       }
       // Up to thousands of rows: one statement per 100 rows, not one per row. 700 values stay under SQLite's 999 limit.
@@ -454,6 +475,39 @@ export async function readApprovedDay(db: DeviceDb, userId: string, siteId: stri
   }));
 }
 
+interface ReportStatusRow {
+  id: string;
+  site_id: string;
+  report_date: string;
+  status: ReportServerStatus;
+  review_note: string | null;
+  reviewed_at: string | null;
+  headcount: number | null;
+  work_done: string | null;
+  blockers: string | null;
+  serious_blocker: number | null;
+  safety_incident: number | null;
+  next_day_plan: string | null;
+}
+
+const REPORT_STATUS_COLUMNS = `id, site_id, report_date, status, review_note, reviewed_at, headcount, work_done,
+  blockers, serious_blocker, safety_incident, next_day_plan`;
+
+const reportStatusOf = (row: ReportStatusRow): ReportStatus => ({
+  id: row.id,
+  siteId: row.site_id,
+  reportDate: row.report_date,
+  status: row.status,
+  reviewNote: row.review_note,
+  reviewedAt: row.reviewed_at,
+  headcount: row.headcount,
+  workDone: row.work_done,
+  blockers: row.blockers,
+  nextDayPlan: row.next_day_plan,
+  seriousBlocker: row.serious_blocker === 1,
+  safetyIncident: row.safety_incident === 1,
+});
+
 /**
  * The server's status of this user's report for a site and day, from the last pull (ADR-051),
  * or null: not pulled yet, not this user's mirror, a draft, or older than two weeks. Null means
@@ -462,42 +516,18 @@ export async function readApprovedDay(db: DeviceDb, userId: string, siteId: stri
 export async function readReportStatus(db: DeviceDb, userId: string, siteId: string, date: string): Promise<ReportStatus | null> {
   if (!isCalendarDay(date)) throw new Error('date must be YYYY-MM-DD');
   if (!(await ownedBy(db, userId))) return null;
-  const [row] = await db.all<{
-    id: string;
-    site_id: string;
-    report_date: string;
-    status: ReportServerStatus;
-    review_note: string | null;
-    reviewed_at: string | null;
-  }>(
-    `select id, site_id, report_date, status, review_note, reviewed_at from mirror_report_status
-      where site_id = ? and report_date = ? order by id limit 1`,
+  const [row] = await db.all<ReportStatusRow>(
+    `select ${REPORT_STATUS_COLUMNS} from mirror_report_status where site_id = ? and report_date = ? order by id limit 1`,
     [siteId.toLowerCase(), date],
   );
-  return row
-    ? { id: row.id, siteId: row.site_id, reportDate: row.report_date, status: row.status, reviewNote: row.review_note, reviewedAt: row.reviewed_at }
-    : null;
+  return row ? reportStatusOf(row) : null;
 }
 
 /** Every report status the phone holds for this user (ADR-051), or none when the mirror is not theirs. */
 export async function readReportStatuses(db: DeviceDb, userId: string): Promise<ReportStatus[]> {
   if (!(await ownedBy(db, userId))) return [];
-  const rows = await db.all<{
-    id: string;
-    site_id: string;
-    report_date: string;
-    status: ReportServerStatus;
-    review_note: string | null;
-    reviewed_at: string | null;
-  }>(`select id, site_id, report_date, status, review_note, reviewed_at from mirror_report_status order by id`);
-  return rows.map((row) => ({
-    id: row.id,
-    siteId: row.site_id,
-    reportDate: row.report_date,
-    status: row.status,
-    reviewNote: row.review_note,
-    reviewedAt: row.reviewed_at,
-  }));
+  const rows = await db.all<ReportStatusRow>(`select ${REPORT_STATUS_COLUMNS} from mirror_report_status order by id`);
+  return rows.map(reportStatusOf);
 }
 
 /**
@@ -896,6 +926,8 @@ function toMirroredAdvance(v: unknown): MirroredAdvance {
   };
 }
 
+const nonBlank = (text: string | null): string | null => (text === null || text.trim() === '' ? null : text);
+
 function toReportStatus(v: unknown): ReportStatus {
   if (
     !isRow(v) ||
@@ -904,7 +936,13 @@ function toReportStatus(v: unknown): ReportStatus {
     !isText(v.report_date) ||
     !isReportServerStatus(v.status) ||
     !(v.review_note === null || isText(v.review_note)) ||
-    !(v.reviewed_at === null || isText(v.reviewed_at))
+    !(v.reviewed_at === null || isText(v.reviewed_at)) ||
+    !(v.headcount === null || (typeof v.headcount === 'number' && Number.isInteger(v.headcount))) ||
+    !(v.work_done === null || isText(v.work_done)) ||
+    !(v.blockers === null || isText(v.blockers)) ||
+    !(v.next_day_plan === null || isText(v.next_day_plan)) ||
+    typeof v.serious_blocker !== 'boolean' ||
+    typeof v.safety_incident !== 'boolean'
   ) {
     return bad('report_status');
   }
@@ -916,7 +954,13 @@ function toReportStatus(v: unknown): ReportStatus {
     siteId: v.site_id.toLowerCase(),
     reportDate: v.report_date,
     status: v.status,
-    reviewNote: v.review_note === null || v.review_note.trim() === '' ? null : v.review_note,
+    reviewNote: nonBlank(v.review_note),
     reviewedAt: v.reviewed_at,
+    headcount: v.headcount,
+    workDone: nonBlank(v.work_done),
+    blockers: nonBlank(v.blockers),
+    nextDayPlan: nonBlank(v.next_day_plan),
+    seriousBlocker: v.serious_blocker,
+    safetyIncident: v.safety_incident,
   };
 }

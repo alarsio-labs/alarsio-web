@@ -136,7 +136,9 @@ describe('supabaseMirrorSource (#49)', () => {
     // Never daily_reports: ARCHITECTURE rule 4 (Daily Reporting publishes this view, ADR-025).
     expect(call(calls, 'from')).toEqual(['daily_report_status']);
     // Only what the phone shows: no headcount, blockers or reviewer.
-    expect(call(calls, 'select')).toEqual(['id, site_id, report_date, status, review_note, reviewed_at']);
+    expect(call(calls, 'select')).toEqual([
+      'id, site_id, report_date, status, review_note, reviewed_at, headcount, blockers, serious_blocker, safety_incident, work_done, next_day_plan',
+    ]);
     // RLS also shows a manager other people's reports; the phone keeps only its author's.
     expect(call(calls, 'eq')).toEqual(['author_id', USER_A]);
     expect(REPORT_LOOKBACK_DAYS).toBe(14);

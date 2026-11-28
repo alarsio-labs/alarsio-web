@@ -266,4 +266,19 @@ export const deviceMigrations: readonly DeviceMigration[] = [
       create index mirror_advances_site on mirror_advances (site_id, paid_on);
     `,
   },
+  {
+    // Issue #267, ADR-057. The report mirror also holds the report's content, so a report edited
+    // on the web or filed on another device shows here. Nullable: a row from before this version
+    // has no content until the next pull, and null means "not known".
+    version: 13,
+    name: 'mirror report content',
+    sql: `
+      alter table mirror_report_status add column headcount integer;
+      alter table mirror_report_status add column work_done text;
+      alter table mirror_report_status add column blockers text;
+      alter table mirror_report_status add column serious_blocker integer;
+      alter table mirror_report_status add column safety_incident integer;
+      alter table mirror_report_status add column next_day_plan text;
+    `,
+  },
 ];
