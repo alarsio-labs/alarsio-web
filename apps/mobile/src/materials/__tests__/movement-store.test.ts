@@ -45,6 +45,7 @@ function mirrorSource(user = USER_A): MirrorSource {
     month_entries: [],
     report_status: [],
     advances: [],
+    cash_entries: [],
   };
   return {
     currentUserId: async () => user,

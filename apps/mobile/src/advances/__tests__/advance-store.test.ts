@@ -54,6 +54,7 @@ function mirrorSource(user = USER_A, advances: Record<string, unknown>[] = []): 
     approved_days: [],
     month_entries: [],
     report_status: [],
+    cash_entries: [],
   };
   return { currentUserId: async () => user, fetchPage: async (kind, _u, after) => (after === null ? data[kind] : []) };
 }
