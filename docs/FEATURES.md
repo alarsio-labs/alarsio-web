@@ -169,9 +169,6 @@ marks or changes a day through the day register's save path. The phone copies th
 `20261126100000_attendance_month_entries_view.sql`, `attendance_month_view_test.sql`): it has `note` last, and must be
 pushed to the team project before a phone has month rows. No row changes: it is not one of the rows above, and it
 has not run on a device or against the team project (#58).*
-*Worker advances are #239 (ADR-054): `apply_worker_advance` records an advance or a reversal. A reversal must keep the
-advance's own day (migration `20261128100000_advance_reversal_same_day.sql`, `worker_advances_test.sql`). No row
-changes: advances are not one of the rows above.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -357,6 +354,14 @@ without JavaScript it is a still, complete page. `lib/landing/content.test.ts` p
 
 *Post-MVP (after 15 Nov 2026): raise the website to Powerplay-level polish (demo-first, enquiry form, proof).
 See `docs/research/powerplay-2026-11.md`.*
+
+---
+
+## Worker advances (proposed, not a module)
+
+*Advances are #239 (ADR-054) and are not one of the nine modules until the team agrees. `apply_worker_advance` records
+an advance or a reversal, and a reversal must keep the advance's own day (migration
+`20261128100000_advance_reversal_same_day.sql`, `worker_advances_test.sql`). It adds no row and ticks none.*
 
 ---
 
