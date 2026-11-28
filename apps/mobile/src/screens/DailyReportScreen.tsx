@@ -6,7 +6,7 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { AppState, StyleSheet, Switch, View } from 'react-native';
+import { AppState, RefreshControl, StyleSheet, Switch, View } from 'react-native';
 
 import { readHeadcount } from '../attendance/headcount';
 import type { DeviceDb } from '../db/device-db';
@@ -31,6 +31,7 @@ import {
 } from '../reports/report';
 import { findReport, saveReport, type StoredReport } from '../reports/report-store';
 import { istDate, readSites, type MirrorSite } from '../sync/pull';
+import { syncNowSoon } from '../sync/request-sync';
 import { colors, radius, space, tone } from '../theme';
 import { Button } from '../ui/Button';
 import { EmptyState } from '../ui/EmptyState';
@@ -155,6 +156,15 @@ export function DailyReportScreen({
       if (alive.current) setLoad({ kind: 'failed' });
     }
   }, [db, userId, siteId, day, photos]);
+
+  // Pull down: sync now, so a manager's answer shows at once, then read the records again.
+  const [refreshing, setRefreshing] = useState(false);
+  const pullToRefresh = async () => {
+    setRefreshing(true);
+    await syncNowSoon();
+    await refresh();
+    if (alive.current) setRefreshing(false);
+  };
 
   // Try again: open the database again if it failed to open, and read the records again.
   const retry = () => {
@@ -290,7 +300,7 @@ export function DailyReportScreen({
   if (form.safetyIncident) flagged.push(t('dailyReport.safetyIncident'));
 
   return (
-    <Screen>
+    <Screen refreshControl={<RefreshControl refreshing={refreshing} onRefresh={() => void pullToRefresh()} />}>
       <ScreenTitle screen="daily_report" siteName={site.name} />
       <Text variant="title" bold accessibilityRole="header">
         {site.name}

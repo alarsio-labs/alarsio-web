@@ -107,7 +107,7 @@ describe('outbox', () => {
   describe('enqueue', () => {
     it('asks the running engine to sync after a save, but not when the save is refused', async () => {
       const requestSync = jest.fn();
-      setActiveSync({ requestSync });
+      setActiveSync({ requestSync, retryNow: jest.fn() });
       try {
         await enqueue(db, entry(1), T0);
         expect(requestSync).toHaveBeenCalledTimes(1);
