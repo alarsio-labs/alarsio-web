@@ -5,7 +5,7 @@ import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { readSiteAdvances, runPull, type MirrorKind, type MirrorSource } from '../pull';
 import { SyncTransportError } from '../sender';
 
-// Issue #239, ADR-054: the advances mirror, read from worker_advances under RLS.
+// Issue #239, ADR-054: the advances mirror, read from the worker_advance_lines view under RLS.
 
 const USER_A = '11111111-0000-4000-8000-00000000000a';
 const USER_B = '22222222-0000-4000-8000-00000000000b';

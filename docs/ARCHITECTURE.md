@@ -25,7 +25,7 @@ apps/mobile (Expo)  ─┘    every request runs as the signed-in user
 | **Daily Reporting** | `daily_reports`, `daily_report_revisions`, `report_photos` | Sites, Attendance |
 | **Materials & Inventory** | `materials`, `material_transactions` | Sites |
 | **Wage Summaries** | `wage_periods`, `wage_lines`, `wage_line_days`, `wage_adjustments`, `wage_period_reopens` (ADR-035) | Identity, Sites, Attendance, Workforce, Worker advances (read only) |
-| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials, Workforce and Attendance views for the mirrors, and the advances table under RLS (ADR-054) |
+| **Offline Sync** *(platform)* | device SQLite outbox and read-only mirrors | Attendance, Reporting, Materials; reads Sites, Materials, Workforce and Attendance views for the mirrors, and the advances view `worker_advance_lines` (ADR-054) |
 | **Audit, Retention & Guards** *(platform)* | `audit_log`, `purge_log`, `rate_limit_counters`, `staff_members` (ADR-052) | Identity |
 
 Dependencies point **downward** only. Identity → Sites → field capture → wages.
@@ -44,7 +44,7 @@ list, publish it deliberately and add it here in the same PR.
 | Attendance | `attendance_local_date(ts)` (the Asia/Kolkata day of a timestamp; `apply_worker_advance` uses it for the roster check) · `mark_all_present(site, date)` · `review_attendance_day(day_id, approve, reason)` · `review_attendance_correction(correction_id, approve, reason)` (both `SECURITY DEFINER`, `can_review_site`, and refuse a day the caller recorded or a correction they proposed; ADR-030, ADR-040) · `sync_site_visits` · `sync_attendance_days` · `sync_attendance_entries` · `sync_attendance_corrections` (sync handlers; ADR-033) | `approved_attendance_days` (one row per entry of an approved day, corrections applied, `entry_id` last as the key the phone's mirror pages by; owner and accountant read every site of their org; ADR-032, ADR-049) · `attendance_month_entries` (one row per entry the caller can see, with its day's status and note; the phone's month mirror pages it by `entry_id`; ADR-053) · `site_exceptions` (what needs a reviewer's look, no coordinates; ADR-032) |
 | Daily Reporting | `review_daily_report(report_id, note)` · `send_back_daily_report(report_id, reason)` (both `SECURITY DEFINER`, `can_review_site`, never the author; ADR-042) · `sync_daily_reports` · `sync_report_photos` (sync handlers) | `daily_report_status` |
 | Materials | `apply_material_transaction` · `sync_material_transactions` (sync handler) | `material_balances` · `material_alerts` |
-| Worker advances (proposed, #237 and #239; not one of the nine until the team agrees) | `apply_worker_advance` (`SECURITY DEFINER`; `can_view_wages` or `can_record_on_site`; ADR-054) · `sync_worker_advances` (sync handler, `SECURITY INVOKER`) | `worker_advance_totals` (per worker and month) · `worker_advance_lines` (one row per advance or reversal, for a period that is not a month and for the phone mirror). Owner and accountant read all, a supervisor only their own sites (ADR-054) · select on `worker_advances` (same RLS; the Wage Summaries page totals a period from it) |
+| Worker advances (proposed, #237 and #239; not one of the nine until the team agrees) | `apply_worker_advance` (`SECURITY DEFINER`; `can_view_wages` or `can_record_on_site`; ADR-054) · `sync_worker_advances` (sync handler, `SECURITY INVOKER`) | `worker_advance_totals` (per worker and month) · `worker_advance_lines` (one row per advance or reversal, for a period that is not a month and for the phone mirror). Owner and accountant read all, a supervisor only their own sites (ADR-054) |
 | Wage Summaries | `calculate_wage_period(period_id)` · `lock_wage_period(period_id)` · `reopen_wage_period(period_id, reason)` (owner only) · `wage_period_attendance_changes(period_id)` (all `SECURITY DEFINER`; `can_view_wages`, and `is_org_owner` for reopen; ADR-035) | `wage_summary` · `wage_summary_by_site` (owner and accountant only; ADR-035) |
 | Offline Sync | `sync_push(batch)` · types `sync_verdict` and `sync_result`, which every handler returns | — |
 | Audit & Guards | `write_audit` · `enforce_rate_limit(key, limit, window)` · `is_staff()` · `staff_org_usage()` (both `SECURITY DEFINER`; staff only; ADR-052) | — |
@@ -115,12 +115,12 @@ A module may also hand the engine an `afterRun` hook, called after each push for
 it to upload report-photo files once their metadata is accepted (ADR-037). The engine stays ignorant of what the hook does.
 
 The phone also **pulls** what the signed-in user may see (sites, material
-balances, today's roster, the last 7 days of approved attendance days, this and last month's advances) into read-only mirrors, through published views only (the advances mirror is the one exception, below),
+balances, today's roster, the last 7 days of approved attendance days, this and last month's advances) into read-only mirrors, through published views only,
 replaced whole on each pull and readable only by that user (ADR-023).
 The sites mirror carries each site's `org_id`, which every Attendance payload names (ADR-034).
 The approved-days mirror reads Attendance's `approved_attendance_days` and tells the register a day is approved before any edit (ADR-049).
 The report-status mirror holds the author's own reports of the last 14 days, with their text (ADR-051, ADR-057): where the outbox holds no record for a site and day, the phone shows this copy, and a save reuses its id. A row with no content is "not known", never an empty report.
-The advances mirror holds this and last month's rows of `worker_advances`, read under RLS, so an advance recorded on the web shows on the phone (ADR-054). This reads a table, not a view, and breaks rule 4; the view `worker_advance_lines` (PR #260) is meant to replace it. It is optional like the month mirror: if it fails, the old rows stay.
+The advances mirror holds this and last month's rows of the view `worker_advance_lines`, read under RLS, so an advance recorded on the web shows on the phone (ADR-054). It is optional like the month mirror: if it fails, the old rows stay.
 On the phone, one module reads another's outbox records only through a function the owner publishes in its own
 folder: Daily Reporting pre-fills a report's headcount through Attendance's `readHeadcount` (ADR-038).
 
