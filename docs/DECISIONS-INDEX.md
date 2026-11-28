@@ -67,3 +67,4 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-055 | A new worker gets the next code automatically: a trigger fills W001, W002, … | Proposed | Workforce |
 | ADR-056 | A worker needs a phone: required in the forms and for a new import row, not by a table check | Proposed | Workforce |
 | ADR-057 | The phone mirrors its author's report text, so a web edit or another device shows | Proposed | Daily Reporting |
+| ADR-058 | Site cash book: an append-only ledger of cash in and out, written through one function | Proposed | Cash book (Nikhil) |

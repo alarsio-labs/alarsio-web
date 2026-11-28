@@ -379,6 +379,15 @@ ledger table. It adds no row and ticks none.*
 
 ---
 
+## Site cash book (proposed, not a module)
+
+*The cash book is #258 (ADR-058) and is not one of the nine modules until the team agrees. Server side: `cash_entries`
+(append-only), `apply_cash_entry`, `sync_cash_entries` and the view `cash_book_totals` (migrations
+`20261128150000_cash_entries.sql` and `20261128160000_sync_cash_entries.sql`, `cash_entries_test.sql`). The phone screen
+is a second PR. It adds no row above and ticks none.*
+
+---
+
 ## Explicitly NOT in the MVP
 
 Do not build these. See `docs/PRD.md` §6.7 for the full list and reasoning.
