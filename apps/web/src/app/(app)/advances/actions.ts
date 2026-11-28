@@ -6,10 +6,7 @@ import { supabaseServer } from "@/lib/supabase/server";
 import { UUID } from "@/lib/uuid";
 import { advanceErrorCode, cleanAdvanceInput } from "@/lib/advances/input";
 
-// The only writes the advances page makes, all through apply_worker_advance as the
-// signed-in user. The function checks the caller, the roster and every limit, and a
-// retry with the same id is a no-op: the page puts a fresh id in each form, so a
-// double click or a reload-and-resend cannot record an advance twice (ADR-054).
+// Each form carries a fresh id, so a resend is a no-op (ADR-054).
 
 function field(form: FormData, key: string): string | null {
   const v = form.get(key);
