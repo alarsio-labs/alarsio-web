@@ -2314,3 +2314,17 @@ and accountants to the web, so the phone is for supervisors, who hand the money 
 **Consequence.** The phone screen of #239 (PR 2) can be built for the supervisor. It shows no rate and no pay: the
 balance line that needs `worker_effective_rates` stays with the owner and accountant on the web. Decided by Nikhil on
 2026-11-27 over the web-only option; Ishant (wages) and Manish (roster) to confirm in review.
+
+## ADR-055 · A new worker gets the next code automatically: a trigger fills `W001`, `W002`, …
+**Date:** 2026-11-28 · **Status:** Proposed · **By:** Manish (bug triage 2026-11; amends ADR-011 W4; owner: Ishant, to confirm in review)
+
+**Context.** ADR-011 W4 made the worker code required and typed by the contractor. In practice people invent codes, mistype them and hit `worker_code_taken`, and the register has no pattern. The code still cannot change after creation.
+
+**Decision.**
+- C1. **Trigger `workers_set_code`** (BEFORE INSERT on `workers`) fills `code` only when it is null: `W` + at least 3 digits, one more than the highest `W<number>` in that organisation (`W001`, `W002`, … `W1000`). Other codes (`MASON1`, an imported `W-001`) are ignored. Case does not matter when counting.
+- C2. **A typed code is kept.** Import still takes codes from the file and stays keyed on the code. A blank code is not "no code": the table check still refuses it, so `import_workers` still rejects a blank cell. An import row with no `code` key at all now creates an auto-coded worker.
+- C3. **Race-free:** a per-organisation advisory lock makes two simultaneous inserts take different numbers. The unique index on `(org_id, lower(code))` stays the last guard.
+- C4. **Security invoker.** It reads `workers` as the caller. Only the owner and project manager can insert, and they can read the whole roster. No new column, table, role, grant or policy.
+- C5. **Web:** the Add worker form has no code field, and `addWorker` sends none.
+
+**Consequence.** No more typed codes or `worker_code_taken` from the form. The list still sorts the code as text (`W10` before `W2`); that is a separate fix. Another open PR may also take ADR-055: renumber at merge.
