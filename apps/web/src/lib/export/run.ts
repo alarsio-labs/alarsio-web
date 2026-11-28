@@ -3,6 +3,7 @@
 // PageReader so this file holds no Supabase code and is tested with a fake.
 import { strToU8, zipSync } from "fflate";
 import { toCsv } from "./csv";
+import { buildReadme } from "./guide";
 import { EXPORT_TABLES, WITHHELD_COLUMNS } from "./tables";
 
 // PostgREST's default row cap on a hosted project is 1000; a page never asks
@@ -83,6 +84,7 @@ export async function runExport(input: {
     manifest.push({
       table: spec.table,
       file,
+      what_it_holds: spec.about,
       rows: rows.length,
       exported_at: exportedAt,
       exported_by: input.userId,
@@ -91,8 +93,9 @@ export async function runExport(input: {
   }
 
   files["manifest.csv"] = strToU8(
-    toCsv(["table", "file", "rows", "exported_at", "exported_by", "note"], manifest)
+    toCsv(["table", "file", "what_it_holds", "rows", "exported_at", "exported_by", "note"], manifest)
   );
+  files["README.txt"] = strToU8(buildReadme(input.at));
   return zipSync(files, { level: 6, mtime: input.at });
 }
 

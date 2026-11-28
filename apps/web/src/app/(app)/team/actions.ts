@@ -1,6 +1,7 @@
 "use server";
 
 import { revalidatePath } from "next/cache";
+import { redirect } from "next/navigation";
 import { isAppRole } from "@alarsio/types";
 import { supabaseServer } from "@/lib/supabase/server";
 import { publicEnv } from "@/lib/env";
@@ -20,7 +21,7 @@ function errorFor(code: string | undefined): string {
     case "42501":
       return "Only an owner of this organisation can invite.";
     case "23505":
-      return "That person is already a member, or already has an open invite.";
+      return "That person is already a member, or already has an open invite. To send a new link, revoke the open invite first.";
     case "22023":
       return "Enter a valid email address.";
     case "PT429":
@@ -67,8 +68,10 @@ export async function createInvite(_prev: InviteState, form: FormData): Promise<
 
 export async function revokeInvite(form: FormData) {
   const id = form.get("invite_id");
-  if (typeof id !== "string" || !UUID.test(id)) return;
+  const orgId = form.get("org_id");
+  if (typeof id !== "string" || !UUID.test(id) || typeof orgId !== "string" || !UUID.test(orgId)) return;
   const supabase = await supabaseServer();
-  await supabase.rpc("revoke_invite", { p_invite_id: id });
+  const { error } = await supabase.rpc("revoke_invite", { p_invite_id: id });
   revalidatePath("/team");
+  if (error) redirect(`/team?org=${orgId}&error=revoke_failed`);
 }

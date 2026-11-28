@@ -5,6 +5,7 @@ export const IMPORT_RULES =
 
 const REASON: Record<string, string> = {
   invalid_value: `a value is missing or not allowed. ${IMPORT_RULES}`,
+  phone_required: "a new worker needs a phone number. Add it in the Phone column",
   not_permitted: "you are not allowed to change this worker",
   anonymized: "this worker's personal details were removed, so the row was left alone",
   pay_type_locked: "this worker already has a wage rate, so the pay type cannot change. Keep the old pay type, or add them under a new code"

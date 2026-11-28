@@ -217,6 +217,8 @@ begin
   perform test_assert(r like '23514:%', 'a reversal cannot be reversed: ' || r);
   r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000024', '77000000-0000-0000-0000-000000000002', current_date - 1, 50000, null, 'f3000000-0000-0000-0000-000000000001');
   perform test_assert(r like '23514:%', 'a reversal must name the same worker: ' || r);
+  r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000026', w, current_date - 2, 50000, null, 'f3000000-0000-0000-0000-000000000001');
+  perform test_assert(r like '23514:%', 'a reversal must keep the advance''s day: ' || r);
   r := public.wa_try(a, 'f3000000-0000-0000-0000-000000000025', w, current_date - 1, 50000, null, 'f3000000-0000-0000-0000-0000000000ff');
   perform test_assert(r like '23514:%', 'a reversal of an unknown advance is refused: ' || r);
   perform test_assert(public.wa_count(w) = 5, 'the refused reversals wrote nothing');
@@ -246,6 +248,39 @@ begin
   perform test_as('f0000000-0000-0000-0000-00000000000f');
   select count(*) into n from public.worker_advance_totals; execute 'reset role';
   perform test_assert(n = 0, 'a supervisor of another site reads no total');
+end $$;
+
+-- ------------------------------------------------------------------- lines
+
+do $$
+declare n bigint;
+begin
+  perform test_assert(
+    (select reloptions @> array['security_invoker=true'] from pg_class
+      where oid = 'public.worker_advance_lines'::regclass),
+    'the lines view is security_invoker');
+  perform test_assert(
+    not has_table_privilege('anon', 'public.worker_advance_lines', 'SELECT')
+    and not has_table_privilege('authenticated', 'public.worker_advance_lines', 'INSERT'),
+    'anon cannot read the lines view and no client can write through it');
+
+  perform test_as('a0000000-0000-0000-0000-00000000000a');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = (select count(*) from public.worker_advances), 'the owner reads every line');
+
+  perform test_as('b0000000-0000-0000-0000-00000000000b');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n >= 1, 'the supervisor of the site reads its lines');
+
+  perform test_as('f0000000-0000-0000-0000-00000000000f');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'a supervisor of another site reads no line');
+  perform test_as('c0000000-0000-0000-0000-00000000000c');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'a project manager reads no line');
+  perform test_as('e0000000-0000-0000-0000-00000000000e');
+  select count(*) into n from public.worker_advance_lines; execute 'reset role';
+  perform test_assert(n = 0, 'another organisation reads no line');
 end $$;
 
 -- ------------------------------------------------------------- append-only

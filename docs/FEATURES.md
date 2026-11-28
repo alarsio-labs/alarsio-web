@@ -102,6 +102,10 @@ will read once #71 stops reading `sites` directly. No row is ticked for it: it a
 
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
+*A new worker now gets the next code, `W001`, `W002`, … (ADR-055, #261): the Add worker form has no code field, and a trigger fills it. Import still takes codes from the file. No row changes: not run against the team project (#58).*
+
+*A phone is now required (ADR-056, #262): the Add and Edit forms ask for it, and `import_workers` refuses a new worker without one. Old workers with no phone are flagged "Missing" in the list. No row changes: not run against the team project (#58).*
+
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
 - [x] Outside the geofence asks for a reason, never silently accepts
@@ -169,6 +173,9 @@ marks or changes a day through the day register's save path. The phone copies th
 `20261126100000_attendance_month_entries_view.sql`, `attendance_month_view_test.sql`): it has `note` last, and must be
 pushed to the team project before a phone has month rows. No row changes: it is not one of the rows above, and it
 has not run on a device or against the team project (#58).*
+*Worker advances are #239 (ADR-054): `apply_worker_advance` records an advance or a reversal. A reversal must keep the
+advance's own day (migration `20261128100000_advance_reversal_same_day.sql`, `worker_advances_test.sql`). No row
+changes: advances are not one of the rows above.*
 
 ### 5 · Daily Reporting
 - [ ] File a report: headcount pre-filled, work done, blockers, safety flag, next-day plan
@@ -354,6 +361,15 @@ without JavaScript it is a still, complete page. `lib/landing/content.test.ts` p
 
 *Post-MVP (after 15 Nov 2026): raise the website to Powerplay-level polish (demo-first, enquiry form, proof).
 See `docs/research/powerplay-2026-11.md`.*
+
+---
+
+## Worker advances (proposed, not a module)
+
+*Advances are #239 (ADR-054) and are not one of the nine modules until the team agrees. The view
+`worker_advance_lines` (migration `20261128110000_worker_advance_lines.sql`, `worker_advances_test.sql`) gives other
+modules one row per advance or reversal, so Wage Summaries and the phone mirror read a published view and not the
+ledger table. It adds no row and ticks none.*
 
 ---
 
