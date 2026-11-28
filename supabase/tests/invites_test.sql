@@ -84,7 +84,7 @@ begin
   s := null;
   begin perform create_invite('aaaaaaaa-0000-0000-0000-000000000001', 'BOB@x.in', 'owner');
   exception when others then s := sqlstate; end;
-  perform test_assert(s = '23505', 'existing member refused, got ' || coalesce(s, 'no error'));
+  perform test_assert(s = 'PT409', 'existing member refused with its own code, got ' || coalesce(s, 'no error'));
   s := null;
   begin perform create_invite('aaaaaaaa-0000-0000-0000-000000000001', 'frank@x.in', 'accountant');
   exception when others then s := sqlstate; end;
@@ -208,7 +208,7 @@ begin
   perform test_assert((select count(*) from public.invites where email in ('gone@x.in', 'late@x.in')) = 4, 'a revoked or expired invite does not block a new one');
 end $$;
 
--- an existing member accepting keeps their role; the invite is used up.
+-- an existing member accepting takes the invited role (BUG-03, ADR-058); the invite is used up.
 do $$
 declare tok text; r uuid;
 begin
@@ -221,8 +221,8 @@ begin
   reset role;
   perform test_assert(r = 'aaaaaaaa-0000-0000-0000-000000000001', 'existing member gets the org id back');
   perform test_assert(
-    (select role = 'supervisor' from public.memberships where user_id = '90000000-0000-0000-0000-000000000009'),
-    'existing role is not changed by an invite');
+    (select role = 'owner' from public.memberships where user_id = '90000000-0000-0000-0000-000000000009'),
+    'an existing member takes the invited role');
   perform test_assert(
     (select accepted_at is not null from public.invites where email = 'gina@x.in'), 'the invite is used up');
 end $$;

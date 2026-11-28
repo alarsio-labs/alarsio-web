@@ -6,6 +6,21 @@ import { Field, Notice, buttonBase, buttonClass, inputClass } from "@/components
 import { ROLE_LABEL } from "@/lib/dashboard/memberships";
 import { createInvite, type InviteState } from "./actions";
 
+export function SentNotice({ state }: { state: Extract<InviteState, { status: "sent" }> }) {
+  return (
+    <div className="space-y-2">
+      <Notice kind="info">
+        {state.emailed
+          ? `Invite emailed to ${state.email}.`
+          : `Invite created, but the email could not be sent. Send ${state.email} this link yourself.`}{" "}
+        The link works once, for 72 hours, for whoever opens it. This is the only time it is shown.
+      </Notice>
+      <input readOnly value={state.link} onFocus={(e) => e.currentTarget.select()} className={`${inputClass} font-mono text-sm`} aria-label="Invite link" />
+      <CopyLink link={state.link} />
+    </div>
+  );
+}
+
 function CopyLink({ link }: { link: string }) {
   const [copied, setCopied] = useState(false);
   const copy = async () => {
@@ -46,18 +61,7 @@ export function InviteForm({ orgId }: { orgId: string }) {
       </form>
 
       {state.status === "error" && <Notice kind="error">{state.message}</Notice>}
-      {state.status === "sent" && (
-        <div className="space-y-2">
-          <Notice kind="info">
-            {state.emailed
-              ? `Invite emailed to ${state.email}.`
-              : `Invite created, but the email could not be sent. Send ${state.email} this link yourself.`}{" "}
-            The link works once, for 72 hours, for whoever opens it. This is the only time it is shown.
-          </Notice>
-          <input readOnly value={state.link} onFocus={(e) => e.currentTarget.select()} className={`${inputClass} font-mono text-sm`} aria-label="Invite link" />
-          <CopyLink link={state.link} />
-        </div>
-      )}
+      {state.status === "sent" && <SentNotice state={state} />}
     </div>
   );
 }

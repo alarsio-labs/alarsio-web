@@ -26,7 +26,9 @@ export default async function InvitePage({
         <AuthNotice kind="error">
           {reason === "rate"
             ? "Too many attempts. Wait an hour and try again."
-            : "This invite link is invalid, expired, revoked or already used. Ask your owner for a new one."}
+            : reason === "owner"
+              ? "You are the only owner of this organisation, so this invite cannot lower your role. Make someone else an owner first."
+              : "This invite link is invalid, expired, revoked or already used. Ask your owner for a new one."}
         </AuthNotice>
         <AuthFoot>
           <p>

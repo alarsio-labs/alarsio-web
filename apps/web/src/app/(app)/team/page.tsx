@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
-import { isAppRole } from "@alarsio/types";
+import { APP_ROLES, isAppRole } from "@alarsio/types";
 import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
-import { Notice } from "@/components/form";
+import { Notice, inputClass } from "@/components/form";
 import { ROLE_LABEL } from "@/lib/dashboard/memberships";
 import { messageFor } from "@/lib/messages";
 import { toMemberName, type MemberName } from "@/lib/sites/assignments";
@@ -12,7 +12,8 @@ import { PageHead } from "@/components/app/page-head";
 import { StatusTag } from "@/components/app/status-tag";
 import type { StatusTone } from "@/lib/app/status";
 import { InviteForm } from "./invite-form";
-import { revokeInvite } from "./actions";
+import { ResendButton } from "./resend-button";
+import { changeRole, revokeInvite } from "./actions";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
 
@@ -91,7 +92,22 @@ export default async function TeamPage({
                 empty="No members yet."
                 columns={[
                   { key: "name", label: "Name", render: (m) => m.full_name ?? "No name yet" },
-                  { key: "role", label: "Role", render: (m) => ROLE_LABEL[m.role] }
+                  {
+                    key: "role",
+                    label: "Role",
+                    render: (m) => (
+                      <form action={changeRole} className="ov-tags items-center">
+                        <input type="hidden" name="org_id" value={org} />
+                        <input type="hidden" name="user_id" value={m.user_id} />
+                        <select name="role" defaultValue={m.role} aria-label={`Role for ${m.full_name ?? "this member"}`} className={inputClass}>
+                          {APP_ROLES.map((r) => (
+                            <option key={r} value={r}>{ROLE_LABEL[r]}</option>
+                          ))}
+                        </select>
+                        <Button type="submit" variant="secondary">Save</Button>
+                      </form>
+                    )
+                  }
                 ]}
               />
             )}
@@ -118,6 +134,7 @@ export default async function TeamPage({
                       return (
                         <span className="ov-tags items-center">
                           <StatusTag tone={INVITE_TONE[status] ?? "ink"}>{status}</StatusTag>
+                          {(status === "Open" || status === "Expired") && <ResendButton orgId={org} inviteId={i.id} />}
                           {status === "Open" && (
                             <form action={revokeInvite}>
                               <input type="hidden" name="org_id" value={org} />

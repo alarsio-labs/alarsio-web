@@ -123,7 +123,7 @@ Responsible module: Identity & Access (dashboard links). Owner: Ishant.
 |---|---|
 | **ID** | BUG-03 |
 | **Severity** | MEDIUM (design gap) |
-| **Status** | OPEN — design decision in ADR-019, pilot review needed |
+| **Status** | FIXED in `fix/team-invite-gaps` (Option B, ADR-058); Ishant to confirm |
 | **Affected feature** | Invite acceptance (S3) |
 | **Affected roles** | owner (creating invite), invited user |
 
@@ -296,7 +296,7 @@ Add `"/wages"` and `"/export"` to the `SIGNED_IN_ONLY` array.
 |---|---|---|---|
 | BUG-01 | HIGH | Email template unverified | PENDING dashboard verification |
 | BUG-02 | MEDIUM | Export link missing from dashboard | KNOWN #135 |
-| BUG-03 | MEDIUM | accept_invite silently keeps old role | Design review needed |
+| BUG-03 | MEDIUM | accept_invite silently keeps old role | FIXED (ADR-058), to confirm |
 | BUG-04 | RETRACTED | Pay-type lock error — correctly handled | CLOSED |
 | BUG-05 | LOW-MED | removeSupervisor sends client timestamp (trigger overwrites) | OPEN (safe) |
 | BUG-06 | LOW | addWorker generic error on null-without-error edge case | OPEN |
