@@ -22,7 +22,7 @@ describe("addWorker", () => {
   const WORKER = "77000000-0000-4000-8000-000000000001";
   const form = (over: Record<string, string> = {}) => {
     const f = new FormData();
-    for (const [k, v] of Object.entries({ org_id: ORG, full_name: " Ravi ", trade: "mason", pay_type: "daily", phone: "", ...over })) f.set(k, v);
+    for (const [k, v] of Object.entries({ org_id: ORG, full_name: " Ravi ", trade: "mason", pay_type: "daily", phone: "98765 43210", ...over })) f.set(k, v);
     return f;
   };
   beforeEach(() => insert.mockReset());
@@ -30,7 +30,7 @@ describe("addWorker", () => {
   it("sends no code, so the database gives the next one, and opens the new worker", async () => {
     insert.mockResolvedValue({ data: { id: WORKER }, error: null });
     await expect(addWorker(form())).rejects.toThrow(`REDIRECT /workers/${WORKER}?org=${ORG}&done=worker_added`);
-    expect(insert).toHaveBeenCalledWith({ org_id: ORG, full_name: "Ravi", trade: "mason", pay_type: "daily", phone: null });
+    expect(insert).toHaveBeenCalledWith({ org_id: ORG, full_name: "Ravi", trade: "mason", pay_type: "daily", phone: "98765 43210" });
   });
 
   it("ignores a code in the form: the code is never typed", async () => {
@@ -42,6 +42,11 @@ describe("addWorker", () => {
   it("goes back to the list with the error when the insert fails", async () => {
     insert.mockResolvedValue({ data: null, error: { code: "23514" } });
     await expect(addWorker(form())).rejects.toThrow(`REDIRECT /workers?org=${ORG}&error=worker_invalid`);
+  });
+
+  it("refuses a missing phone before calling the database", async () => {
+    await expect(addWorker(form({ phone: " " }))).rejects.toThrow(`REDIRECT /workers?org=${ORG}&error=worker_invalid`);
+    expect(insert).not.toHaveBeenCalled();
   });
 
   it("refuses a missing name before calling the database", async () => {
