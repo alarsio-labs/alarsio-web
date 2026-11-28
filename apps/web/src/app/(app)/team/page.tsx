@@ -1,5 +1,10 @@
 import { redirect } from "next/navigation";
+import { isAppRole } from "@alarsio/types";
 import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
+import { Notice } from "@/components/form";
+import { ROLE_LABEL } from "@/lib/dashboard/memberships";
+import { messageFor } from "@/lib/messages";
+import { toMemberName, type MemberName } from "@/lib/sites/assignments";
 import { Button } from "@/components/app/button";
 import { Card } from "@/components/app/card";
 import { DataTable } from "@/components/app/data-table";
@@ -37,8 +42,10 @@ export default async function TeamPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const org = (await searchParams).org;
+  const params = await searchParams;
+  const org = params.org;
   if (typeof org !== "string" || !UUID.test(org)) redirect("/dashboard");
+  const actionError = messageFor(params.error);
 
   const supabase = await supabaseServer();
   const {
@@ -48,7 +55,7 @@ export default async function TeamPage({
 
   // RLS returns this org only if the caller is a member, and invites only if
   // they are its owner. The page checks nothing the database does not.
-  const [{ data: orgRow }, { data: isOwner }, { data: invites }] = await Promise.all([
+  const [{ data: orgRow }, { data: isOwner }, invitesResult, membersResult] = await Promise.all([
     supabase.from("organizations").select("name").eq("id", org).maybeSingle(),
     supabase.rpc("is_org_owner", { p_org_id: org }),
     supabase
@@ -56,49 +63,77 @@ export default async function TeamPage({
       .select("id, email, role, expires_at, accepted_at, revoked_at")
       .eq("org_id", org)
       .order("created_at", { ascending: false })
-      .limit(50)
+      .limit(50),
+    supabase.rpc("org_member_names", { p_org_id: org })
   ]);
   if (!orgRow || isOwner !== true) redirect("/dashboard");
 
-  const rows = Array.isArray(invites) ? invites.filter(isInviteRow) : [];
+  const rows = Array.isArray(invitesResult.data) ? invitesResult.data.filter(isInviteRow) : [];
+  const members = Array.isArray(membersResult.data) ? membersResult.data.map(toMemberName).filter((m) => m !== null) : [];
   const now = Date.now();
 
   return (
     <main className="mx-auto grid max-w-6xl gap-6 px-4 py-8 sm:py-10">
       <PageHead eyebrow={orgRow.name} title="Team" />
+      {actionError && <Notice kind="error">{actionError}</Notice>}
 
       <div className="ov-columns">
-        <Card title="Invites" id="tm-invites">
-          <DataTable<InviteRow>
-            caption="Invites"
-            rows={rows}
-            rowKey={(i) => i.id}
-            minWidth={520}
-            empty="No invites yet."
-            columns={[
-              { key: "email", label: "Email", render: (i) => <span className="break-all">{i.email}</span> },
-              { key: "role", label: "Role", render: (i) => i.role.replace("_", " ") },
-              {
-                key: "status",
-                label: "Status",
-                render: (i) => {
-                  const status = statusOf(i, now);
-                  return (
-                    <span className="ov-tags items-center">
-                      <StatusTag tone={INVITE_TONE[status] ?? "ink"}>{status}</StatusTag>
-                      {status === "Open" && (
-                        <form action={revokeInvite}>
-                          <input type="hidden" name="invite_id" value={i.id} />
-                          <Button type="submit" variant="secondary">Revoke</Button>
-                        </form>
-                      )}
-                    </span>
-                  );
-                }
-              }
-            ]}
-          />
-        </Card>
+        <div className="grid gap-6">
+          <Card title="Members" id="tm-members">
+            {membersResult.error ? (
+              <Notice kind="error">{messageFor("members_failed")}</Notice>
+            ) : (
+              <DataTable<MemberName>
+                caption="Members"
+                rows={members}
+                rowKey={(m) => m.user_id}
+                minWidth={360}
+                empty="No members yet."
+                columns={[
+                  { key: "name", label: "Name", render: (m) => m.full_name ?? "No name yet" },
+                  { key: "role", label: "Role", render: (m) => ROLE_LABEL[m.role] }
+                ]}
+              />
+            )}
+          </Card>
+  
+          <Card title="Invites" id="tm-invites">
+            {invitesResult.error ? (
+              <Notice kind="error">{messageFor("invites_failed")}</Notice>
+            ) : (
+              <DataTable<InviteRow>
+                caption="Invites"
+                rows={rows}
+                rowKey={(i) => i.id}
+                minWidth={520}
+                empty="No invites yet."
+                columns={[
+                  { key: "email", label: "Email", render: (i) => <span className="break-all">{i.email}</span> },
+                  { key: "role", label: "Role", render: (i) => (isAppRole(i.role) ? ROLE_LABEL[i.role] : i.role) },
+                  {
+                    key: "status",
+                    label: "Status",
+                    render: (i) => {
+                      const status = statusOf(i, now);
+                      return (
+                        <span className="ov-tags items-center">
+                          <StatusTag tone={INVITE_TONE[status] ?? "ink"}>{status}</StatusTag>
+                          {status === "Open" && (
+                            <form action={revokeInvite}>
+                              <input type="hidden" name="org_id" value={org} />
+                              <input type="hidden" name="invite_id" value={i.id} />
+                              <Button type="submit" variant="secondary">Revoke</Button>
+                            </form>
+                          )}
+                        </span>
+                      );
+                    }
+                  }
+                ]}
+              />
+            )}
+          </Card>
+        </div>
 
         <Card title="Invite someone" id="tm-invite">
           <InviteForm orgId={org} />

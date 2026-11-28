@@ -28,9 +28,13 @@ describe('attentionRoute', () => {
     expect(attentionRoute(row('material_transactions'))).toBe(`/materials/${SITE}`);
   });
 
+  it('opens an advance at the site advances screen', () => {
+    expect(attentionRoute(row('worker_advances'))).toBe(`/advances/${SITE}`);
+  });
+
   it('has nothing to open for a photo, or for any row with no site', () => {
     expect(attentionRoute(row('report_photos'))).toBeNull();
-    for (const entity of ['site_visits', 'attendance_days', 'attendance_entries', 'attendance_corrections', 'daily_reports', 'material_transactions'] as const) {
+    for (const entity of ['site_visits', 'attendance_days', 'attendance_entries', 'attendance_corrections', 'daily_reports', 'material_transactions', 'worker_advances'] as const) {
       expect(attentionRoute(row(entity, null))).toBeNull();
     }
   });

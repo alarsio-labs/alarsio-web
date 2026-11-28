@@ -92,7 +92,7 @@ describe('month mirror (#234, ADR-053)', () => {
 
     await prepareDeviceDb(old, deviceMigrations);
 
-    expect(await readUserVersion(old)).toBe(10);
+    expect(await readUserVersion(old)).toBe(deviceMigrations.length);
     expect(await old.all('select * from mirror_month_entries')).toEqual([]);
     expect((await readSites(old, USER_A)).map((s) => s.id)).toEqual([SITE_1]);
   });

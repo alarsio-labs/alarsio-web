@@ -1,16 +1,27 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { APP_ROLES } from "@alarsio/types";
-import { Field, Notice, buttonClass, inputClass } from "@/components/form";
+import { Field, Notice, buttonBase, buttonClass, inputClass } from "@/components/form";
+import { ROLE_LABEL } from "@/lib/dashboard/memberships";
 import { createInvite, type InviteState } from "./actions";
 
-const ROLE_LABEL: Record<(typeof APP_ROLES)[number], string> = {
-  owner: "Owner",
-  project_manager: "Project manager",
-  supervisor: "Supervisor",
-  accountant: "Accountant"
-};
+function CopyLink({ link }: { link: string }) {
+  const [copied, setCopied] = useState(false);
+  const copy = async () => {
+    try {
+      await navigator.clipboard.writeText(link);
+      setCopied(true);
+    } catch {
+      setCopied(false); // the box above stays selectable, so the owner can copy by hand
+    }
+  };
+  return (
+    <button type="button" onClick={copy} className={buttonBase}>
+      {copied ? "Copied" : "Copy link"}
+    </button>
+  );
+}
 
 export function InviteForm({ orgId }: { orgId: string }) {
   const [state, action, pending] = useActionState<InviteState, FormData>(createInvite, { status: "idle" });
@@ -43,7 +54,8 @@ export function InviteForm({ orgId }: { orgId: string }) {
               : `Invite created, but the email could not be sent. Send ${state.email} this link yourself.`}{" "}
             The link works once, for 72 hours, for whoever opens it. This is the only time it is shown.
           </Notice>
-          <input readOnly value={state.link} className={`${inputClass} font-mono text-sm`} aria-label="Invite link" />
+          <input readOnly value={state.link} onFocus={(e) => e.currentTarget.select()} className={`${inputClass} font-mono text-sm`} aria-label="Invite link" />
+          <CopyLink link={state.link} />
         </div>
       )}
     </div>

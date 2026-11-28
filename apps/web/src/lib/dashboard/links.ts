@@ -19,6 +19,7 @@ const LINKS: (OrgLink & { roles: AppRole[] })[] = [
   { label: "Materials", path: "/materials", note: "Stock and alerts", section: "sites", roles: ["owner", "project_manager"] },
   { label: "Workers", path: "/workers", note: "Roster, rates, sites", section: "sites", roles: ["owner", "project_manager", "accountant"] },
   { label: "Wages", path: "/wages", note: "Periods, lock, export", section: "reports", roles: ["owner", "accountant"] },
+  { label: "Advances", path: "/advances", note: "Money paid before payday", section: "reports", roles: ["owner", "accountant", "supervisor"] },
   { label: "Team", path: "/team", note: "Invite and manage", section: "more", roles: ["owner"] },
   // #135: owners could not find the export page (smoke test S15).
   { label: "Export", path: "/export", note: "Download all your data", section: "reports", roles: ["owner"] }

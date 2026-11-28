@@ -7,6 +7,7 @@ import { safeNextPath } from "@/lib/safe-redirect";
 import { publicEnv } from "@/lib/env";
 import { checkNewPassword } from "@/lib/auth/password";
 import { rememberInvite } from "@/lib/auth/pending-invite";
+import type { MessageCode } from "@/lib/messages";
 
 function text(form: FormData, name: string): string {
   const v = form.get(name);
@@ -17,6 +18,23 @@ function back(path: string, error: string, next: string): never {
   const q = new URLSearchParams({ error });
   if (next !== "/dashboard") q.set("next", next);
   redirect(`${path}?${q.toString()}`);
+}
+
+type AuthFailure = { code?: string; status?: number };
+
+const isRateLimited = (e: AuthFailure) => e.code === "over_email_send_rate_limit" || e.code === "over_request_rate_limit";
+
+// Supabase answers the same for known and unknown addresses, so these errors reveal nothing
+// about who has an account. Only `user_not_found` stays hidden, on resend.
+function mailProblem(e: AuthFailure | null): MessageCode | null {
+  if (!e || e.code === "user_not_found") return null;
+  return isRateLimited(e) ? "resend_rate" : "email_failed";
+}
+
+function signUpProblem(e: AuthFailure): MessageCode {
+  if (isRateLimited(e)) return "resend_rate";
+  if (e.code === "weak_password") return "password_rejected";
+  return (e.status ?? 500) >= 500 ? "email_failed" : "sign_up_failed";
 }
 
 export async function signIn(form: FormData) {
@@ -60,7 +78,7 @@ export async function signUp(form: FormData) {
   });
   // Same outcome whether or not the email is already registered, so the form
   // does not reveal who has an account.
-  if (error && error.code !== "user_already_exists") back("/sign-up", "sign_up_failed", next);
+  if (error && error.code !== "user_already_exists") back("/sign-up", signUpProblem(error), next);
   // Keep `next` (an invite, for example) so a "send again" from the next page lands there too.
   redirect(next === "/dashboard" ? "/check-email" : `/check-email?next=${encodeURIComponent(next)}`);
 }
@@ -68,7 +86,7 @@ export async function signUp(form: FormData) {
 /**
  * Sends the sign-up confirmation email again, from "Check your email" or "Link expired".
  * It answers the same whether or not the address has an account (the rule signUp follows),
- * except when Supabase refuses because the last email went out too recently.
+ * except when sending itself fails (too recent, or the mail server is down).
  */
 export async function resendConfirmation(form: FormData) {
   const next = safeNextPath(form.get("next"));
@@ -84,7 +102,8 @@ export async function resendConfirmation(form: FormData) {
     email,
     options: { emailRedirectTo: `${siteUrl}/auth/confirm?next=${encodeURIComponent(next)}` }
   });
-  if (error?.code === "over_email_send_rate_limit") back(from, "resend_rate", next);
+  const problem = mailProblem(error);
+  if (problem) back(from, problem, next);
   const q = new URLSearchParams({ sent: "1" });
   if (next !== "/dashboard") q.set("next", next);
   redirect(`/check-email?${q.toString()}`);
@@ -96,11 +115,12 @@ export async function requestPasswordReset(form: FormData) {
 
   const { siteUrl } = publicEnv();
   const supabase = await supabaseServer();
-  await supabase.auth.resetPasswordForEmail(email, {
+  const { error } = await supabase.auth.resetPasswordForEmail(email, {
     redirectTo: `${siteUrl}/auth/confirm?next=${encodeURIComponent("/update-password")}`
   });
-  // Same page whether or not the address has an account, and even if sending failed,
-  // so the form does not reveal who has an account (the same rule as signUp).
+  const problem = mailProblem(error);
+  if (problem) back("/forgot-password", problem, "/dashboard");
+  // Same page whether or not the address has an account, so the form does not reveal who has one.
   redirect("/check-email?for=reset");
 }
 
