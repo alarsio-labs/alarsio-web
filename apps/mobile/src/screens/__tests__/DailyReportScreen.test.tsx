@@ -1,5 +1,5 @@
 import { Stack } from 'expo-router';
-import { configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
+import { act, configure, fireEvent, render, screen, waitFor } from '@testing-library/react-native';
 
 import type { DeviceDb } from '../../db/device-db';
 import { deviceMigrations } from '../../db/migrations';
@@ -8,6 +8,7 @@ import { openTestDeviceDb } from '../../db/test-support/sqljs-device-db';
 import { saveReport } from '../../reports/report-store';
 import type { SyncResultRow } from '../../sync/entities';
 import { applyVerdicts, claimBatch, enqueue } from '../../sync/outbox';
+import { setActiveSync } from '../../sync/request-sync';
 import { DailyReportScreen } from '../DailyReportScreen';
 
 // The header title is set through expo-router, which Jest does not load.
@@ -51,6 +52,19 @@ const outboxRows = (db: DeviceDb) =>
 async function serverAnswers(db: DeviceDb, user: string, recordId: string, v: SyncResultRow['verdict'], reason: string | null = null) {
   await claimBatch(db, user, NOW);
   await applyVerdicts(db, [{ entity: 'daily_reports', record_id: recordId, verdict: v, reason }], NOW);
+}
+
+type Node = NonNullable<typeof screen.root>;
+
+/** The scroll view that holds the pull-to-refresh control. */
+function findScrollView(node: Node | null): Node | null {
+  if (!node) return null;
+  if (node.props.refreshControl) return node;
+  for (const child of node.children) {
+    const found = typeof child === 'string' ? null : findScrollView(child);
+    if (found) return found;
+  }
+  return null;
 }
 
 const FULL = { headcount: '12', workDone: 'Slab poured on level 2', blockers: '', seriousBlocker: false, safetyIncident: false, nextDayPlan: '' };
@@ -231,6 +245,31 @@ describe('DailyReportScreen (#81)', () => {
       expect(screen.queryByRole('button', { name: 'Send changes' })).toBeNull();
       expect(screen.queryByRole('button', { name: 'Submit' })).toBeNull();
       expect(screen.getByLabelText('Headcount').props.editable).toBe(false);
+    });
+  });
+
+  describe('pull to refresh', () => {
+    afterEach(() => setActiveSync(null));
+
+    it('syncs now and shows the server answer without waiting for the next tick', async () => {
+      await seedSite(db, USER_A);
+      const recordId = await saveReport(db, USER_A, { id: SITE, orgId: ORG }, TODAY, FULL, 'submitted', {}, NOW);
+      // The engine's push and pull, as far as this screen can see: the server answers.
+      const retryNow = jest.fn(async () => {
+        await serverAnswers(db, USER_A, recordId, 'conflict', 'reviewed');
+        return { kind: 'done', batches: 1, records: 1 } as const;
+      });
+      setActiveSync({ requestSync: jest.fn(), retryNow });
+      await render(<DailyReportScreen openDb={() => Promise.resolve(db)} userId={USER_A} siteId={SITE} now={() => NOW} pollMs={0} />);
+      await screen.findByText('Saved on this phone, waiting to send');
+      await type('Headcount', '15');
+
+      const { refreshControl } = findScrollView(screen.root)?.props ?? {};
+      await act(async () => refreshControl.props.onRefresh());
+
+      await screen.findByText(/A manager already reviewed this report/);
+      expect(retryNow).toHaveBeenCalledTimes(1);
+      expect(screen.getByLabelText('Headcount').props.value).toBe('15');
     });
   });
 
