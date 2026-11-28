@@ -66,3 +66,4 @@ ADR-034 is used twice (Sites web, and Attendance on the phone). Both are listed 
 | ADR-054 | Worker advances: an append-only ledger, written through one function, readable by owner, accountant and the site's supervisor | Proposed | Worker advances (Nikhil) |
 | ADR-055 | A new worker gets the next code automatically: a trigger fills W001, W002, … | Proposed | Workforce |
 | ADR-056 | A worker needs a phone: required in the forms and for a new import row, not by a table check | Proposed | Workforce |
+| ADR-057 | The phone mirrors its author's report text, so a web edit or another device shows | Proposed | Daily Reporting |
