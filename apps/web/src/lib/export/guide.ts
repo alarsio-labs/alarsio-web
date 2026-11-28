@@ -6,7 +6,7 @@ export const READING_NOTES: readonly string[] = [
   "Open a .csv file in Excel with Data, then From Text/CSV, and choose UTF-8, so Hindi names show correctly.",
   "Every row has an id. A column ending in _id, such as worker_id or site_id, points to the id of a row in another file: worker_id matches id in workers.csv, site_id matches id in sites.csv.",
   "Times are in UTC. Add 5 hours 30 minutes for India time. A date with no time, such as attendance_date, is already the calendar day.",
-  "Money is in rupees. The one exception is worker_advances.csv, which is in paise (100 paise = ₹1).",
+  "Money is in rupees. The exceptions are worker_advances.csv and cash_entries.csv, which are in paise (100 paise = ₹1).",
   "An empty cell means there is no value."
 ];
 

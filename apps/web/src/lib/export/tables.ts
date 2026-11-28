@@ -188,6 +188,14 @@ export const EXPORT_TABLES: readonly ExportTable[] = [
     orgColumn: "org_id",
     columns: ["id", "org_id", "site_id", "worker_id", "paid_on", "amount_paise", "note", "reverses_id", "recorded_by", "created_at"]
   },
+  // Site cash book (ADR-058)
+  {
+    table: "cash_entries",
+    group: "Cash book",
+    about: "Cash in and out of each site's cash box. Amounts are in paise (100 paise = ₹1).",
+    orgColumn: "org_id",
+    columns: ["id", "org_id", "site_id", "entry_date", "category", "amount_paise", "note", "reverses_id", "recorded_by", "created_at"]
+  },
   // Wage Summaries
   {
     table: "wage_periods",
