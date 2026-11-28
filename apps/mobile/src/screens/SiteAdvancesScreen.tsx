@@ -1,7 +1,7 @@
 // Record worker advances at one site, with no signal needed. Owner: Offline Sync (Nikhil).
 // Issue #239, ADR-054. Every save goes to the outbox first, under the signed-in user. The
-// list shows what this user saved on this phone: the phone holds no copy of the server's
-// advances, so it says so. "On the server" appears only once the server has accepted a
+// list joins what this user saved here with the advances the pull mirror holds, so an advance
+// recorded elsewhere shows too. "On the server" appears only once the server has accepted a
 // record (ADR-009). No rate or pay is shown, only money paid out.
 
 import { useCallback, useEffect, useRef, useState } from 'react';

@@ -118,6 +118,17 @@ describe('supabaseMirrorSource (#49)', () => {
     expect(call(calls, 'gt')).toBeUndefined();
   });
 
+  it('reads advances from worker_advances, paged by id, from the first day of last month (ADR-054)', async () => {
+    const { client, calls } = fakeClient(signedInA);
+    await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('advances', USER_A, 'a-key', 500);
+
+    expect(call(calls, 'from')).toEqual(['worker_advances']);
+    expect(String(call(calls, 'select')?.[0])).toBe('id, site_id, worker_id, paid_on, amount_paise, note, reverses_id');
+    expect(call(calls, 'gt')).toEqual(['id', 'a-key']);
+    expect(call(calls, 'order')).toEqual(['id']);
+    expect(call(calls, 'gte')).toEqual(['paid_on', '2026-09-01']);
+  });
+
   it("reads only the signed-in author's report statuses, from Daily Reporting's view, for two weeks (ADR-051)", async () => {
     const { client, calls } = fakeClient(signedInA);
     await supabaseMirrorSource(client, { now: () => NOW }).fetchPage('report_status', USER_A, 'r-key', 500);

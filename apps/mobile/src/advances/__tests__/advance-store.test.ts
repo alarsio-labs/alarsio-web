@@ -39,8 +39,9 @@ const rostered = (n: number, workerId: string, name: string, siteId = SITE, assi
 });
 
 /** A server where USER_A holds two sites and a roster with a late joiner, a leaver and a worker on the other site. */
-function mirrorSource(user = USER_A): MirrorSource {
+function mirrorSource(user = USER_A, advances: Record<string, unknown>[] = []): MirrorSource {
   const data = {
+    advances,
     sites: [site(SITE, 'Kothrud'), site(SITE_2, 'Baner')],
     materials: [],
     roster: [
@@ -157,6 +158,55 @@ describe('advance store', () => {
       await enqueue(db, { entity: 'worker_advances', recordId: 'bbbbbbbb-0000-4000-8000-000000000001', authorId: USER_A, payload: { site_id: SITE } }, NOW);
       const id = await saveAdvance(db, USER_A, SITE, draft(), NOW);
       expect((await loadSiteAdvances(db, USER_A, SITE)).map((a) => a.recordId)).toEqual([id]);
+    });
+  });
+
+  describe('advances the server holds (mirror)', () => {
+    const SERVER_ADV = 'ad000000-0000-4000-8000-000000000001';
+    const serverRow = (over: Record<string, unknown> = {}) => ({
+      id: SERVER_ADV, site_id: SITE, worker_id: SITA, paid_on: '2026-10-15', amount_paise: 30000, note: 'web', reverses_id: null, ...over,
+    });
+    const pullAdvances = (rows: Record<string, unknown>[]) => runPull(db, mirrorSource(USER_A, rows), { now: () => PULLED });
+
+    it('lists an advance recorded elsewhere with the worker name, newest day first, and it can be cancelled', async () => {
+      await pullAdvances([serverRow()]);
+      const mine = await saveAdvance(db, USER_A, SITE, draft({ amount: '100', paidOn: '2026-10-20' }), NOW);
+
+      const list = await loadSiteAdvances(db, USER_A, SITE);
+
+      expect(list.map((a) => [a.recordId, a.workerName, a.status, a.canCancel])).toEqual([
+        [mine, 'Ram', 'pending', false],
+        [SERVER_ADV, 'Sita', 'synced', true],
+      ]);
+      const reversal = await reverseAdvance(db, USER_A, SITE, SERVER_ADV, NOW);
+      const rows = await listRecords(db, USER_A, 'worker_advances');
+      expect(rows.find((r) => r.recordId === reversal)!.payload).toMatchObject({
+        worker_id: SITA, paid_on: '2026-10-15', amount_paise: 30000, reverses_id: SERVER_ADV,
+      });
+    });
+
+    it('shows an advance once when the outbox and the mirror both hold it', async () => {
+      const id = await saveAdvance(db, USER_A, SITE, draft({ paidOn: '2026-10-18' }), NOW);
+      await markSynced(id);
+      await pullAdvances([serverRow({ id, worker_id: RAM, paid_on: '2026-10-18', amount_paise: 50000, note: null })]);
+
+      expect((await loadSiteAdvances(db, USER_A, SITE)).map((a) => a.recordId)).toEqual([id]);
+    });
+
+    it('marks a mirrored advance cancelled when the mirror holds its cancellation', async () => {
+      await pullAdvances([
+        serverRow(),
+        serverRow({ id: 'ad000000-0000-4000-8000-000000000002', note: null, reverses_id: SERVER_ADV }),
+      ]);
+
+      const list = await loadSiteAdvances(db, USER_A, SITE);
+
+      expect(list.find((a) => a.recordId === SERVER_ADV)).toMatchObject({ cancelled: true, canCancel: false });
+    });
+
+    it("shows another user's mirror nothing", async () => {
+      await pullAdvances([serverRow()]);
+      expect(await loadSiteAdvances(db, USER_B, SITE)).toEqual([]);
     });
   });
 
