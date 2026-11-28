@@ -1,9 +1,11 @@
 # HANDOFF
-**Goal:** Labour Book-style attendance on the phone. Phase 3 = text day slip for WhatsApp (issue #183).
-**Completed:** Phase 1 (worker month, #234, #244) merged; phone offline test passed. Phase 3 built on `feat/attendance-day-slip` and pushed. PR #247 is open: 5 of 5 checks pass, review required. Auto-fix could not be turned on (app could not match the repo).
-**Next step:** Try "Share day slip" on the phone (Expo Go). Then get a review on PR #247 (`gh pr view 247 --repo alarsio-labs/alarsio-web --comments`).
-**Open items:** Phase 3 scope is not confirmed by the team (FEATURES.md lists WhatsApp/SMS as not in MVP). Phase 2 (advance + balance) waits on replies in #237 and #239.
-**Not done:** image slip (needs `expo install expo-sharing react-native-view-shot`), Phase 4 Cash book, `docs/SECURITY.md` line-by-line pass, FEATURES.md update. Branch `docs/handoff-after-244` has 3 unpushed HANDOFF commits.
-**Key files:** `apps/mobile/src/attendance/day-slip.ts`, `screens/SiteAttendanceScreen.tsx`, `i18n/en.json`, `i18n/hi.json`.
-**Commands:** `pnpm --filter mobile test -- SiteAttendanceScreen day-slip`, `pnpm typecheck`, `pnpm lint`, `gh issue view 183 --repo alarsio-labs/alarsio-web --comments`.
-**Rules:** No GitHub write without approval of the exact command. Stage files by name; one commit per file. Branch from `main` for new work.
+
+**Goal:** Phase 2 advances (#239, ADR-054): record advances on the phone and the web. Phase 4 Cash book is next.
+**Completed:** Phases 1 and 3 merged. PR #248 (server) merged. PR #254 (phone, `feat/advances-phone`) and PR #255 (web, `feat/advances-web`) are open on `main`, with main merged in.
+**Scope cut:** phone lists only advances saved on this phone. No server mirror, no rate or pay, no balance line on phone or web.
+**Next step:** 1) Review #254 and #255. 2) Merge both. 3) Then the earned / left balance line and the phone mirror of server advances.
+**Later:** Phase 4 Cash book; `docs/SECURITY.md` pass; /review, /security-review, module-guard, doc-keeper (preflight does not run them).
+**Key files (phone):** `apps/mobile/src/advances/`, `screens/SiteAdvancesScreen.tsx`, `app/advances/[siteId].tsx`, `db/migrations.ts` (v11).
+**Key files (web):** `apps/web/src/app/(app)/advances/` (`page.tsx`, `actions.ts`), `lib/advances/` (`input.ts`, `rows.ts`), `lib/dashboard/links.ts`.
+**Commands:** `pnpm exec jest src/advances src/screens/__tests__/SiteAdvancesScreen` (in `apps/mobile`); `PREFLIGHT_NO_FEATURE_TICK=1 bash scripts/preflight.sh` (slow, run in background).
+**Notes:** `SitesScreen` and `SignInScreen` tests time out under load; they pass alone. Never stage `AGENTS.md` or `apps/web/AGENTS.md`. No push without approval.

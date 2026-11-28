@@ -607,6 +607,33 @@ describe('SiteAttendanceScreen (#79)', () => {
     });
   });
 
+  describe('the advances button (#239)', () => {
+    it('opens the advances, and is not shown when no screen is given to open', async () => {
+      await seedSite(db, USER_A);
+      const onOpenAdvances = jest.fn();
+      await render(
+        <SiteAttendanceScreen
+          openDb={() => Promise.resolve(db)}
+          userId={USER_A}
+          siteId={SITE}
+          location={fakeLocation({})}
+          now={() => clock}
+          pollMs={0}
+          onOpenAdvances={onOpenAdvances}
+        />,
+      );
+      await press('Advances');
+      expect(onOpenAdvances).toHaveBeenCalledTimes(1);
+    });
+
+    it('has no Advances button without the callback', async () => {
+      await seedSite(db, USER_A);
+      await show(fakeLocation({}), USER_A, 0);
+      await screen.findByRole('button', { name: 'Check in' });
+      expect(screen.queryByRole('button', { name: 'Advances' })).toBeNull();
+    });
+  });
+
   describe('the day slip (#183)', () => {
     afterEach(() => jest.restoreAllMocks());
 

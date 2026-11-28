@@ -12,6 +12,7 @@ const location = expoLocationProvider();
 
 const openRegister = (siteId: string) => router.push({ pathname: '/attendance/register/[siteId]', params: { siteId } });
 const openWorkers = (siteId: string) => router.push({ pathname: '/attendance/workers/[siteId]', params: { siteId } });
+const openAdvances = (siteId: string) => router.push({ pathname: '/advances/[siteId]', params: { siteId } });
 
 export default function SiteAttendanceRoute() {
   const user = useSessionUser();
@@ -25,6 +26,7 @@ export default function SiteAttendanceRoute() {
       location={location}
       onOpenRegister={() => openRegister(siteId)}
       onOpenWorkers={() => openWorkers(siteId)}
+      onOpenAdvances={() => openAdvances(siteId)}
     />
   );
 }
