@@ -199,6 +199,25 @@ describe("signUp", () => {
     expect(await target(() => signUp(form(good)))).toBe("/sign-up?error=password_rejected");
   });
 
+  describe("remembers the address for the check-email page", () => {
+    const kept = () => jar.set.filter((c) => c.name === "alarsio_signup_email");
+
+    it("keeps it lower-cased for one hour, even when the address already has an account", async () => {
+      await target(() => signUp(form(good)));
+      sb.signUp = { error: { code: "user_already_exists" } };
+      await target(() => signUp(form(good)));
+      expect(kept().map((c) => c.value)).toEqual(["asha@example.com", "asha@example.com"]);
+      expect(kept()[0]?.options).toMatchObject({ httpOnly: true, sameSite: "lax", path: "/", maxAge: 3600 });
+    });
+
+    it("keeps nothing when sign-up is refused or fails", async () => {
+      await target(() => signUp(form({ ...good, terms: "" })));
+      sb.signUp = { error: { code: "validation_failed", status: 422 } };
+      await target(() => signUp(form(good)));
+      expect(kept()).toHaveLength(0);
+    });
+  });
+
   it("signs up with the name and a verification link that keeps a safe next", async () => {
     expect(await target(() => signUp(form({ ...good, next: "/team?org=o1" })))).toBe("/check-email?next=%2Fteam%3Forg%3Do1");
     const args = called("signUp")[0]?.args[0] as { email: string; options: { data: { full_name: string } } };

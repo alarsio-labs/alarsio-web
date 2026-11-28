@@ -4,6 +4,7 @@ import { AuthField, AuthFoot, AuthNotice, AuthScene, AuthTitle } from "@/compone
 import { SubmitButton } from "@/components/auth/submit-button";
 import { PendingLink } from "@/components/auth/pending-link";
 import { IconBadge, InboxVisual } from "@/components/auth/visuals";
+import { rememberedSignUpEmail } from "@/lib/auth/pending-email";
 import { messageFor } from "@/lib/messages";
 import { safeNextPath } from "@/lib/safe-redirect";
 import { SUPPORT_EMAIL } from "@/lib/site/contact";
@@ -20,6 +21,7 @@ export default async function CheckEmailPage({
   const sent = params.sent === "1";
   const next = safeNextPath(params.next);
   const error = messageFor(params.error);
+  const knownEmail = reset ? null : await rememberedSignUpEmail();
   const signInHref = next === "/dashboard" ? "/sign-in" : `/sign-in?next=${encodeURIComponent(next)}`;
 
   return (
@@ -43,8 +45,17 @@ export default async function CheckEmailPage({
       <p className="sx-divider">No email? Check spam, or send it again</p>
       <form action={reset ? requestPasswordReset : resendConfirmation}>
         <input type="hidden" name="next" value={next} />
-        <AuthField label="Your email" name="email" type="email" autoComplete="email" inputMode="email" required placeholder="you@company.in" />
-        <SubmitButton label="Send the email again" pendingLabel="Sending…" variant="ink" />
+        {knownEmail ? (
+          <>
+            <input type="hidden" name="email" value={knownEmail} />
+            <p className="sx-sub">
+              Sent to <b>{knownEmail}</b>
+            </p>
+          </>
+        ) : (
+          <AuthField label="Your email" name="email" type="email" autoComplete="email" inputMode="email" required placeholder="you@company.in" />
+        )}
+        <SubmitButton label={knownEmail ? "Send it again" : "Send the email again"} pendingLabel="Sending…" variant="ink" />
       </form>
       <AuthFoot>
         <p>
