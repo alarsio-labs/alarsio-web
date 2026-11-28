@@ -112,7 +112,8 @@
       "daily_reports": "Daily report",
       "report_photos": "Report photo",
       "material_transactions": "Material entry",
-      "worker_advances": "Advance"
+      "worker_advances": "Advance",
+      "cash_entries": "Cash entry"
     },
     "reason": {
       "appBug": "The app sent this wrongly. Please report it.",

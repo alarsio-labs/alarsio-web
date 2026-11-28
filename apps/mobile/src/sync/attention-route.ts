@@ -23,6 +23,8 @@ export function attentionRoute(row: Pick<AttentionRow, 'entity' | 'siteId' | 'da
       return `/materials/${siteId}`;
     case 'worker_advances':
       return `/advances/${siteId}`;
+    case 'cash_entries':
+      return `/cash/${siteId}`;
     case 'report_photos':
       return null;
   }

@@ -10,6 +10,7 @@ export const SYNC_ENTITIES = [
   'report_photos',
   'material_transactions',
   'worker_advances',
+  'cash_entries',
 ] as const;
 
 export type SyncEntity = (typeof SYNC_ENTITIES)[number];
