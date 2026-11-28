@@ -13,6 +13,7 @@ import type { PublicConfigResult } from '../config/public-config';
 import type { DeviceDb } from '../db/device-db';
 import { dayLabel, reportCardStatus } from '../reports/report';
 import type { SyncHandle, SyncStatus } from '../sync/engine';
+import { setActiveSync } from '../sync/request-sync';
 import { istDate } from '../sync/pull';
 import { syncChip } from '../sync/status-text';
 import { readToday, type TodayData, type TodaySite } from '../today/read-today';
@@ -97,6 +98,7 @@ export function HomeScreen({
         if (startSync && userId) {
           handle = startSync(database, userId);
           handleRef.current = handle;
+          setActiveSync(handle);
           setSync(handle.getStatus());
           handle.subscribe(setSync);
         }
@@ -111,6 +113,7 @@ export function HomeScreen({
       cancelled = true;
       handle?.stop();
       handleRef.current = null;
+      setActiveSync(null);
       // The previous user's panel and cards must not stay on screen while the
       // next user's engine starts.
       setSync(null);

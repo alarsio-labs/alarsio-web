@@ -396,7 +396,7 @@
         "duplicate": "The server holds a different photo under this record."
       },
       "status": {
-        "refused": "Needs attention · The server would not take this photo.",
+        "refused": "Needs attention · This photo could not be sent. It may be too large, in a wrong format, or gone from this phone. Take it again.",
         "waiting": "Saved on this phone, waiting to send",
         "waitingForReport": "Waiting for its report to reach the server",
         "failed": "Saved on this phone. Could not send yet, will retry.",

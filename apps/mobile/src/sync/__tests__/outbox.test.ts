@@ -22,6 +22,7 @@ import {
   returnBatch,
   type NewOutboxEntry,
 } from '../outbox';
+import { setActiveSync } from '../request-sync';
 
 // Jest hoists jest.mock above the imports.
 // jest-expo stubs native modules, so expo-crypto's randomUUID returns undefined
@@ -104,6 +105,20 @@ describe('outbox', () => {
   });
 
   describe('enqueue', () => {
+    it('asks the running engine to sync after a save, but not when the save is refused', async () => {
+      const requestSync = jest.fn();
+      setActiveSync({ requestSync });
+      try {
+        await enqueue(db, entry(1), T0);
+        expect(requestSync).toHaveBeenCalledTimes(1);
+
+        await expect(enqueue(db, { ...entry(2), recordId: 'not-a-uuid' }, T0)).rejects.toThrow();
+        expect(requestSync).toHaveBeenCalledTimes(1);
+      } finally {
+        setActiveSync(null);
+      }
+    });
+
     it('queues a new record as pending, in capture order', async () => {
       await enqueue(db, entry(1), T0);
       await enqueue(db, entry(2), T0);

@@ -102,7 +102,7 @@ describe('photo model (#81 PR 2)', () => {
       ['rejected', 'permission_denied', 'waiting', /can't add photos to this report/],
       ['rejected', 'invalid_input', 'waiting', /ten photos|isn't valid/],
       ['conflict', 'duplicate', 'waiting', /different photo/],
-      ['synced', null, 'refused', /would not take this photo/],
+      ['synced', null, 'refused', /could not be sent.*Take it again/],
     ] as const)('needs attention for %s / %s / %s', (outbox, reason, upload, text) => {
       const shown = photoStatusText(outbox, reason, upload);
       expect(shown.tone).toBe('attention');
