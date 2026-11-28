@@ -16,6 +16,7 @@ import {
   type SyncEntity,
   type SyncResultRow,
 } from './entities';
+import { requestSyncSoon } from './request-sync';
 
 export const MAX_BATCH = 100;
 const BACKOFF_BASE_MS = 30_000;
@@ -111,6 +112,9 @@ export async function enqueue(db: DeviceDb, entry: NewOutboxEntry, now: Date = n
       ],
     );
   });
+  // Every capture screen saves through here, so the record goes up in seconds,
+  // not on the next minute tick.
+  requestSyncSoon();
 }
 
 /**
