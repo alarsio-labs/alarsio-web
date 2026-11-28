@@ -102,6 +102,8 @@ will read once #71 stops reading `sites` directly. No row is ticked for it: it a
 
 *Attendance reads the roster through `worker_roster` (migration `20261017110000`, renamed from a duplicate version in #44). No row changes.*
 
+*A phone is now required (ADR-056, #262): the Add and Edit forms ask for it, and `import_workers` refuses a new worker without one. Old workers with no phone are flagged "Missing" in the list. No row changes: not run against the team project (#58).*
+
 ### 4 · Attendance & Site Presence
 - [ ] Check in and check out; location captured only on that tap
 - [x] Outside the geofence asks for a reason, never silently accepts
