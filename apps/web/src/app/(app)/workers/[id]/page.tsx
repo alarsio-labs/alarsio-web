@@ -151,6 +151,18 @@ export default async function WorkerPage({
         </Card>
       )}
 
+      {!manage && (
+        <Card title="Details" id="wk-details">
+          <dl className="db-review">
+            <div><dt className="ax-eyebrow">Code</dt><dd>{worker.code}</dd></div>
+            <div><dt className="ax-eyebrow">Name</dt><dd>{worker.full_name}</dd></div>
+            <div><dt className="ax-eyebrow">Phone</dt><dd>{worker.phone ?? "—"}</dd></div>
+            <div><dt className="ax-eyebrow">Trade</dt><dd>{worker.trade}</dd></div>
+            <div><dt className="ax-eyebrow">Pay type</dt><dd>{worker.pay_type === "hourly" ? "Hourly" : "Daily"}</dd></div>
+          </dl>
+        </Card>
+      )}
+
       {canWages === true && (
         <Card title="Wage rate" id="wk-rates">
           <p className="ax-empty">
