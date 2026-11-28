@@ -12,7 +12,9 @@ import { StatusTag } from "@/components/app/status-tag";
 import { dayLabel } from "@/lib/app/dates";
 import { readPeriod, readSummaryRows } from "@/lib/wages/read";
 import { formatIst } from "@/lib/wages/time";
-import { formatRupees, summaryTable, NUMERIC_COLUMNS } from "@/lib/wages/summary";
+import { formatPaise, formatRupees, summaryTable, NUMERIC_COLUMNS } from "@/lib/wages/summary";
+import { balanceRows } from "@/lib/advances/balance";
+import { toAdvanceRow, type AdvanceRow } from "@/lib/advances/rows";
 import { addAdjustment, calculatePeriod, lockPeriod, reopenPeriod } from "../actions";
 
 type Change = {
@@ -48,6 +50,9 @@ function toChange(v: unknown): Change | null {
 
 export const metadata = { title: "Wage period" };
 
+// PostgREST stops at 1000 rows without saying so.
+const ADVANCE_CAP = 1000;
+
 export default async function WagePeriodPage({
   params,
   searchParams
@@ -78,10 +83,23 @@ export default async function WagePeriodPage({
 
   // The summary and, after a lock, where Attendance now differs from the snapshot
   // (ADR-032, ADR-035 D11) do not depend on each other, so they are read together.
-  const [summary, changeResult] = await Promise.all([
+  const [summary, changeResult, advanceResult] = await Promise.all([
     readSummaryRows(supabase, periodId),
-    locked ? supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId }) : Promise.resolve({ data: null })
+    locked ? supabase.rpc("wage_period_attendance_changes", { p_period_id: periodId }) : Promise.resolve({ data: null }),
+    supabase
+      .from("worker_advances")
+      .select("id, worker_id, paid_on, amount_paise, note, reverses_id")
+      .eq("org_id", org)
+      .gte("paid_on", period.start_date)
+      .lte("paid_on", period.end_date)
+      .limit(ADVANCE_CAP)
   ]);
+  const advances: AdvanceRow[] = Array.isArray(advanceResult.data)
+    ? advanceResult.data.map(toAdvanceRow).filter((a): a is AdvanceRow => a !== null)
+    : [];
+  const balance = summary ? balanceRows(summary.rows, advances) : null;
+  // A cut-off list would give a wrong "left", so say so instead of showing it.
+  const advancesCut = advanceResult.error !== null || advances.length >= ADVANCE_CAP;
   const table = summary ? summaryTable(summary.rows) : null;
   // PostgREST stops a function that returns a set at 1000 rows without saying so.
   const changesMayBeCut = Array.isArray(changeResult.data) && changeResult.data.length >= 1000;
@@ -182,10 +200,57 @@ export default async function WagePeriodPage({
         )}
       </Card>
 
+      {balance && balance.rows.length > 0 && (
+        <Card title="Advances and balance" id="wg-balance">
+          {advancesCut ? (
+            <p className="ax-empty">The advances could not be read in full, so the balance is not shown. Reload and try again.</p>
+          ) : (
+            <>
+              <p className="ax-empty">
+                Advances paid on these dates, with cancelled ones taken off. If you already took an advance off with an
+                adjustment, it is counted in both places.
+              </p>
+              <div className="ax-table-wrap">
+                <table className="ax-table" style={{ minWidth: 560 }}>
+                  <caption className="sr-only">Earned, advances and balance for this period</caption>
+                  <thead>
+                    <tr>
+                      <th scope="col">Worker</th>
+                      <th scope="col" className="ax-num">Earned</th>
+                      <th scope="col" className="ax-num">Advances</th>
+                      <th scope="col" className="ax-num">Left</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {balance.rows.map((b) => (
+                      <tr key={b.worker_id}>
+                        <th scope="row">{names.get(b.worker_id)}</th>
+                        <td className="ax-num">{formatPaise(b.earned_paise)}</td>
+                        <td className="ax-num">{formatPaise(b.advance_paise)}</td>
+                        <td className="ax-num">{formatPaise(b.left_paise)}</td>
+                      </tr>
+                    ))}
+                    <tr className="font-semibold">
+                      <th scope="row">Total</th>
+                      <td className="ax-num">{formatPaise(balance.rows.reduce((s, b) => s + b.earned_paise, 0))}</td>
+                      <td className="ax-num">{formatPaise(balance.rows.reduce((s, b) => s + b.advance_paise, 0))}</td>
+                      <td className="ax-num">{formatPaise(balance.rows.reduce((s, b) => s + b.left_paise, 0))}</td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
+              {balance.otherPaise !== 0 && (
+                <p className="ax-empty">Advances to workers with no line in this period: {formatPaise(balance.otherPaise)}.</p>
+              )}
+            </>
+          )}
+        </Card>
+      )}
+
       {!locked && summary && summary.rows.length > 0 && (
         <Card title="Add an adjustment" id="wg-adjust">
           <p className="ax-empty">
-            A paid leave day, an advance recovered, or a difference from a correction after a lock. It is a new row with a
+            A paid leave day, a bonus, or a difference from a correction after a lock. It is a new row with a
             reason; it is never edited later.
           </p>
           <form action={addAdjustment} className="mt-3 max-w-lg space-y-4">
