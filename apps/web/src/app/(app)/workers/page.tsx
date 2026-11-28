@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getAuthUser, supabaseServer } from "@/lib/supabase/server";
 import { messageFor } from "@/lib/messages";
 import { UUID } from "@/lib/uuid";
+import { searchTerm } from "@/lib/workers/form";
 import { Field, buttonClass, inputClass } from "@/components/form";
 import { ButtonLink } from "@/components/app/button";
 import { Card } from "@/components/app/card";
@@ -15,12 +16,25 @@ import { addWorker } from "./actions";
 
 const PAGE = 200;
 
-type WorkerRow = { id: string; code: string; full_name: string; trade: string; pay_type: string; status: string };
+type WorkerRow = {
+  id: string;
+  code: string;
+  full_name: string;
+  trade: string;
+  pay_type: string;
+  status: string;
+  phone: string | null;
+  anonymized_at: string | null;
+};
 
 function isWorkerRow(r: unknown): r is WorkerRow {
   if (typeof r !== "object" || r === null) return false;
   const o = r as Record<string, unknown>;
-  return ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string");
+  return (
+    ["id", "code", "full_name", "trade", "pay_type", "status"].every((k) => typeof o[k] === "string") &&
+    (o.phone === null || typeof o.phone === "string") &&
+    (o.anonymized_at === null || typeof o.anonymized_at === "string")
+  );
 }
 
 export const metadata = { title: "Workers" };
@@ -35,12 +49,18 @@ export default async function WorkersPage({
   if (typeof org !== "string" || !UUID.test(org)) redirect("/dashboard");
   const pageNo = Math.max(1, Math.min(1000, Number.parseInt(typeof params.page === "string" ? params.page : "1", 10) || 1));
   const from = (pageNo - 1) * PAGE;
+  const q = searchTerm(params.q);
+  const qs = q ? `&q=${encodeURIComponent(q)}` : "";
 
   const supabase = await supabaseServer();
   const {
     data: { user }
   } = await getAuthUser();
   if (!user) redirect(`/sign-in?next=${encodeURIComponent(`/workers?org=${org}`)}`);
+
+  const workerList = supabase
+    .from("workers")
+    .select("id, code, full_name, trade, pay_type, status, phone, anonymized_at", { count: "exact" });
 
   // Owners and project managers manage workers (can_manage_sites); an
   // accountant reads them to pay them (can_view_wages, ADR-011 W10).
@@ -49,9 +69,11 @@ export default async function WorkersPage({
     supabase.from("organizations").select("name").eq("id", org).maybeSingle(),
     supabase.rpc("can_manage_sites", { p_org_id: org }),
     supabase.rpc("can_view_wages", { p_org_id: org }),
-    supabase
-      .from("workers")
-      .select("id, code, full_name, trade, pay_type, status", { count: "exact" })
+    // searchTerm() leaves only letters, digits, space, - and +, so q is safe inside the filter.
+    (q
+      ? workerList.or(`code.ilike.%${q}%,full_name.ilike.%${q}%,trade.ilike.%${q}%`)
+      : workerList
+    )
       .eq("org_id", org)
       .order("code")
       .range(from, from + PAGE - 1)
@@ -74,9 +96,6 @@ export default async function WorkersPage({
           <Card title="Add a worker" id="wk-add">
             <form action={addWorker} className="space-y-3">
               <input type="hidden" name="org_id" value={org} />
-              <Field label="Worker code">
-                <input name="code" required maxLength={40} className={inputClass} />
-              </Field>
               <Field label="Name">
                 <input name="full_name" required maxLength={120} className={inputClass} />
               </Field>
@@ -89,8 +108,8 @@ export default async function WorkersPage({
                   <option value="hourly">Hourly</option>
                 </select>
               </Field>
-              <Field label="Phone (optional)">
-                <input name="phone" type="tel" maxLength={20} className={inputClass} />
+              <Field label="Phone">
+                <input name="phone" type="tel" required maxLength={20} placeholder="98765 43210" className={inputClass} />
               </Field>
               <button type="submit" className={buttonClass}>Add worker</button>
             </form>
@@ -101,26 +120,36 @@ export default async function WorkersPage({
         </div>
       )}
 
-      <Card title={`Workers (${total})`} id="wk-list">
+      <Card title={q ? `Workers matching "${q}" (${total})` : `Workers (${total})`} id="wk-list">
+        <form action="/workers" className="mb-4 flex flex-wrap items-end gap-3">
+          <input type="hidden" name="org" value={org} />
+          <Field label="Search by name, code or trade">
+            <input name="q" type="search" defaultValue={q} maxLength={40} className={inputClass} />
+          </Field>
+          <button type="submit" className={buttonClass}>Search</button>
+          {q && <ButtonLink href={`/workers?org=${org}`} variant="secondary">Clear</ButtonLink>}
+        </form>
         <DataTable<WorkerRow>
           caption="Workers"
           rows={rows}
           rowKey={(w) => w.id}
           minWidth={600}
-          empty="No workers yet."
+          empty={q ? "No worker matches that search." : "No workers yet."}
           columns={[
-            { key: "code", label: "Code", render: (w) => <Link href={`/workers/${w.id}?org=${org}`} className="underline">{w.code}</Link> },
-            { key: "name", label: "Name", render: (w) => w.full_name },
+            { key: "code", label: "Code", render: (w) => w.code },
+            { key: "name", label: "Name", render: (w) => <Link href={`/workers/${w.id}?org=${org}`} className="underline">{w.full_name}</Link> },
             { key: "trade", label: "Trade", render: (w) => w.trade },
             { key: "pay", label: "Pay", render: (w) => (w.pay_type === "hourly" ? "Hourly" : "Daily") },
-            { key: "status", label: "Status", render: (w) => <StatusTag tone={w.status === "active" ? "ink" : "muted"}>{w.status === "active" ? "Active" : "Inactive"}</StatusTag> }
+            // An old worker with no phone is asked for one on the next edit; an anonymized one never has it.
+            { key: "phone", label: "Phone", render: (w) => w.phone ?? (w.status === "active" ? <StatusTag tone="attention">Missing</StatusTag> : "—") },
+            { key: "status", label: "Status", render: (w) => <StatusTag tone={w.status === "active" && !w.anonymized_at ? "ink" : "muted"}>{w.anonymized_at ? "Removed" : w.status === "active" ? "Active" : "Inactive"}</StatusTag> }
           ]}
         />
         {pages > 1 && (
           <nav className="mt-4 flex flex-wrap items-center gap-3" aria-label="Pages">
-            {pageNo > 1 && <ButtonLink href={`/workers?org=${org}&page=${pageNo - 1}`} variant="secondary">← Previous</ButtonLink>}
+            {pageNo > 1 && <ButtonLink href={`/workers?org=${org}${qs}&page=${pageNo - 1}`} variant="secondary">← Previous</ButtonLink>}
             <span className="ax-empty">Page {pageNo} of {pages}</span>
-            {pageNo < pages && <ButtonLink href={`/workers?org=${org}&page=${pageNo + 1}`} variant="secondary">Next →</ButtonLink>}
+            {pageNo < pages && <ButtonLink href={`/workers?org=${org}${qs}&page=${pageNo + 1}`} variant="secondary">Next →</ButtonLink>}
           </nav>
         )}
       </Card>

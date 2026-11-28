@@ -10,10 +10,16 @@ const db = vi.hoisted(() => ({
   reads: [] as string[],
   mails: [] as { to: string; subject: string; text: string }[],
   mailOk: true,
+  revoke: null as { code?: string } | null,
   revalidated: [] as string[]
 }));
 
 vi.mock("server-only", () => ({}));
+vi.mock("next/navigation", () => ({
+  redirect: (url: string) => {
+    throw new Error(`REDIRECT ${url}`);
+  }
+}));
 vi.mock("next/cache", () => ({ revalidatePath: (p: string) => db.revalidated.push(p) }));
 vi.mock("@/lib/env", () => ({ publicEnv: () => ({ url: "https://db.test", key: "k", siteUrl: "https://app.test" }) }));
 vi.mock("@/lib/email/send", () => ({
@@ -28,7 +34,7 @@ vi.mock("@/lib/supabase/server", () => ({
   supabaseServer: async () => ({
     rpc: async (fn: string, args: Record<string, unknown>) => {
       db.rpcs.push({ fn, args });
-      return fn === "create_invite" ? db.invite : { data: null, error: null };
+      return fn === "create_invite" ? db.invite : { data: null, error: fn === "revoke_invite" ? db.revoke : null };
     },
     from: (table: string) => ({
       select: () => ({
@@ -62,6 +68,7 @@ beforeEach(() => {
   db.mails.length = 0;
   db.revalidated.length = 0;
   db.mailOk = true;
+  db.revoke = null;
   db.invite = { data: "f".repeat(64), error: null };
 });
 
@@ -87,7 +94,7 @@ describe("createInvite", () => {
 
   it("names the other refusals the database gives", async () => {
     const cases: [string, string][] = [
-      ["23505", "That person is already a member, or already has an open invite."],
+      ["23505", "That person is already a member, or already has an open invite. To send a new link, revoke the open invite first."],
       ["22023", "Enter a valid email address."],
       ["PT429", "Too many invites in the last hour. Try again later."],
       ["XX000", "Could not create the invite. Try again."]
@@ -116,14 +123,20 @@ describe("createInvite", () => {
 });
 
 describe("revokeInvite", () => {
-  it("ignores a malformed invite id", async () => {
-    await revokeInvite(form({ invite_id: "nope" }));
+  it("ignores a malformed invite or organisation id", async () => {
+    await revokeInvite(form({ org_id: ORG, invite_id: "nope" }));
+    await revokeInvite(form({ org_id: "nope", invite_id: INVITE }));
     expect(db.rpcs).toHaveLength(0);
   });
 
   it("revokes through the database function and refreshes the team page", async () => {
-    await revokeInvite(form({ invite_id: INVITE }));
+    await revokeInvite(form({ org_id: ORG, invite_id: INVITE }));
     expect(db.rpcs).toEqual([{ fn: "revoke_invite", args: { p_invite_id: INVITE } }]);
     expect(db.revalidated).toEqual(["/team"]);
+  });
+
+  it("goes back to the team page with an error when the database refuses", async () => {
+    db.revoke = { code: "XX000" };
+    await expect(revokeInvite(form({ org_id: ORG, invite_id: INVITE }))).rejects.toThrow(`REDIRECT /team?org=${ORG}&error=revoke_failed`);
   });
 });

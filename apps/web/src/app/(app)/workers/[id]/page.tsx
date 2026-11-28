@@ -137,8 +137,8 @@ export default async function WorkerPage({
                 <option value="hourly">Hourly</option>
               </select>
             </Field>
-            <Field label="Phone (optional)">
-              <input name="phone" type="tel" maxLength={20} defaultValue={worker.phone ?? ""} className={inputClass} />
+            <Field label="Phone">
+              <input name="phone" type="tel" required maxLength={20} defaultValue={worker.phone ?? ""} className={inputClass} />
             </Field>
             <Field label="Status">
               <select name="status" defaultValue={worker.status} className={inputClass}>
@@ -148,6 +148,18 @@ export default async function WorkerPage({
             </Field>
             <button type="submit" className={buttonClass}>Save</button>
           </form>
+        </Card>
+      )}
+
+      {!manage && (
+        <Card title="Details" id="wk-details">
+          <dl className="db-review">
+            <div><dt className="ax-eyebrow">Code</dt><dd>{worker.code}</dd></div>
+            <div><dt className="ax-eyebrow">Name</dt><dd>{worker.full_name}</dd></div>
+            <div><dt className="ax-eyebrow">Phone</dt><dd>{worker.phone ?? "—"}</dd></div>
+            <div><dt className="ax-eyebrow">Trade</dt><dd>{worker.trade}</dd></div>
+            <div><dt className="ax-eyebrow">Pay type</dt><dd>{worker.pay_type === "hourly" ? "Hourly" : "Daily"}</dd></div>
+          </dl>
         </Card>
       )}
 

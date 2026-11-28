@@ -21,6 +21,8 @@ export function attentionRoute(row: Pick<AttentionRow, 'entity' | 'siteId' | 'da
       return day ? `/reports/${siteId}?date=${day}` : `/reports/${siteId}`;
     case 'material_transactions':
       return `/materials/${siteId}`;
+    case 'worker_advances':
+      return `/advances/${siteId}`;
     case 'report_photos':
       return null;
   }
