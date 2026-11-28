@@ -68,6 +68,13 @@ const MESSAGES = {
   rate_same_day: "This worker already has a rate starting that day. Pick another date.",
   assign_duplicate: "This worker is already on that site.",
   assign_blocked: "That site is archived, or the worker is inactive.",
+  advance_amount: "Enter an amount above ₹0 and at most ₹10,00,000, with up to two decimals.",
+  advance_date: "Enter a real date that is not in the future.",
+  advance_note: "Keep the note to 500 characters or fewer.",
+  advance_worker: "Choose a worker.",
+  advance_forbidden: "You cannot record or cancel advances here, or that worker was not found.",
+  advance_rule: "That worker was not on this site that day, or this advance cannot be cancelled.",
+  advance_exists: "That advance was already recorded differently. Reload the page and check.",
   generic: "Something went wrong. Try again."
 } as const;
 
